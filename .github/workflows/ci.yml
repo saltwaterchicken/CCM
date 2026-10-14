@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Safety check (no erase, format or partition calls)
+        run: |
+          if grep -rnE 'diskutil[[:space:]]+(erase|zeroDisk|randomDisk|secureErase|partition|reformat)' Sources Tests scripts; then
+            echo "Found a forbidden disk command." >&2
+            exit 1
+          fi
+      - name: Swift version
+        run: swift --version
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test
