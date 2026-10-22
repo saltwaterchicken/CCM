@@ -138,11 +138,10 @@ struct CardsView: View {
                                 }
                             }
                             Spacer()
-                            Button("Copy") {}
-                                .disabled(true)
-                                .help("Copying arrives in the next step.")
+                            copyButton(card)
                         }
                         .padding(4)
+                        copyStatus(card)
                     }
                 }
             }
@@ -157,6 +156,47 @@ struct CardsView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func copyButton(_ card: DetectedVolume) -> some View {
+        if watcher.copyStates[card.id]?.isCopying == true {
+            Button("Stop") { watcher.stopCopy(card) }
+        } else {
+            Button("Copy") { watcher.startCopy(card) }
+                .keyboardShortcut(.defaultAction)
+                .disabled(card.files?.isEmpty ?? true)
+        }
+    }
+
+    @ViewBuilder
+    private func copyStatus(_ card: DetectedVolume) -> some View {
+        switch watcher.copyStates[card.id] {
+        case let .copying(fraction):
+            ProgressView(value: fraction) {
+                Text("Copying and verifying… \(Int(fraction * 100))%")
+            }
+        case let .done(report):
+            VStack(alignment: .leading, spacing: 4) {
+                Label("Copied and verified \(report.files.count) files (\(ByteCountFormatter.string(fromByteCount: report.totalBytes, countStyle: .file))). Nothing on the card was changed.",
+                      systemImage: "checkmark.seal.fill")
+                    .foregroundStyle(.green)
+                ForEach(report.destinationFolders, id: \.self) { folder in
+                    Text(folder.path).foregroundStyle(.secondary).textSelection(.enabled)
+                }
+                Button("Show Receipt in Finder") {
+                    NSWorkspace.shared.activateFileViewerSelecting(report.receipts)
+                }
+            }
+        case let .failed(message):
+            VStack(alignment: .leading, spacing: 4) {
+                Label(message, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
+                Text("Nothing on the card was changed. Copies that weren't verified were removed.")
+                    .foregroundStyle(.secondary)
+            }
+        case nil:
+            EmptyView()
         }
     }
 }

@@ -8,8 +8,8 @@ The full brief is `BRIEF.md`.
 **Milestone 1: Detect, copy, verify, receipt.** In progress.
 
 - [x] Step 1: Project skeleton, settings file with defaults, fake-card script, CI.
-- [x] Step 2: Detect any removable card or drive and show it. Waiting on a test on the Mac.
-- [ ] Step 3: Copy, verify with xxHash64, write the receipt. Tests for copy and verify.
+- [x] Step 2: Detect any removable card or drive and show it. Confirmed on the Mac with a real SD card.
+- [x] Step 3: Copy, verify with xxHash64, write the receipt. Tests for copy and verify. Waiting on a test on the Mac.
 - [ ] Step 4: Test on the photographer's Mac.
 
 ## Decisions
@@ -48,6 +48,17 @@ The full brief is `BRIEF.md`.
   `.Trashes`) and other file types are skipped. A folder that can't be read stops
   the scan with an error instead of being quietly skipped.
 
+- **Copying** (`CardCopier.swift`): files keep their folder layout from the card inside the
+  destination folder for now (renaming is Milestone 2). Each file is read from the card once,
+  hashed while being written to every destination, then each copy is read back from the drive
+  (bypassing the memory cache) and compared. Copies are written under a hidden `.partial` name
+  and only get their real name once verified. The original's modified date is kept.
+  The job stops at the first problem; unverified copies are removed, and no receipt is written.
+  An existing identical file counts as already copied; a different file with the same name is
+  never overwritten. Free space is checked before starting.
+- **Receipt:** `Receipt_<card>_<yyyy-MM-dd_HHmmss>.csv` in each destination folder. One row per
+  file (path, size, xxHash64, verified) followed by a short summary. Opens in Numbers or Excel.
+
 ## Open questions
 
 - Because any removable drive now counts, a USB backup drive or thumb drive will be offered as a
@@ -62,8 +73,9 @@ The full brief is `BRIEF.md`.
 ## How to test what exists so far
 
 1. Install Xcode from the Mac App Store and open it once.
-2. In Terminal: `cd` into the project, then `swift test` (runs the tests) and `swift run CardIngest`
-   (opens the app). Or open `Package.swift` in Xcode and press Run.
+2. In Terminal: `cd` into the project, then `swift test` (runs the tests) and
+   `swift run -c release CardIngest` (opens the app; `-c release` makes copying and checksums
+   much faster). Or open `Package.swift` in Xcode and press Run.
 3. The app shows "Waiting for a card…", the settings file path, and where copies will go.
    "Show in Finder" reveals `Settings.plist`; open it in TextEdit or Xcode, change `jobName`,
    save, press Reload, and the destination updates.
@@ -72,3 +84,6 @@ The full brief is `BRIEF.md`.
    and the app goes back to "Waiting for a card…".
 5. Plug in any USB stick or card: it should show up too. Open "Other drives left alone": your
    Mac's own drive should be listed with the reason it was skipped.
+6. With FAKECARD mounted, press Copy. The bar fills, then it says "Copied and verified 9 files".
+   "Show Receipt in Finder" opens the destination folder with the receipt selected. Press Copy
+   again: it finishes quickly because the files are already there and identical.
