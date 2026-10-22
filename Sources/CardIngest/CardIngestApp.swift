@@ -20,7 +20,7 @@ struct CardIngestApp: App {
     var body: some Scene {
         WindowGroup("Card Ingest") {
             ContentView(model: model, watcher: watcher)
-                .frame(minWidth: 560, minHeight: 420)
+                .frame(minWidth: 600, minHeight: 520)
                 .onChange(of: model.settings) { _, settings in watcher.update(settings: settings) }
         }
     }
@@ -58,6 +58,20 @@ final class SettingsModel {
         useFile(SettingsStore.defaultFileURL)
     }
 
+    /// Changes one setting and saves it straight to the file in use.
+    func change(_ edit: (inout IngestSettings) -> Void) {
+        var updated = settings
+        edit(&updated)
+        guard updated != settings else { return }
+        settings = updated
+        do {
+            try SettingsStore.save(settings, to: fileURL)
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     var destinationPreview: String {
         do {
             return try settings.destinationFolder(for: Date()).path
@@ -75,12 +89,15 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 16) {
             CardsView(watcher: watcher)
 
-            GroupBox("Settings") {
+            GroupBox("Job") {
+                JobPanel(model: model)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(4)
+            }
+
+            GroupBox("Settings File") {
                 VStack(alignment: .leading, spacing: 8) {
-                    LabeledContent("File", value: model.fileURL.path)
-                    LabeledContent("Job", value: model.settings.jobName)
-                    LabeledContent("Copies go to", value: model.destinationPreview)
-                    LabeledContent("Backup", value: model.settings.backupRootURL?.path ?? "None")
+                    Text(model.fileURL.path).textSelection(.enabled)
                     if let error = model.errorMessage {
                         Text(error).foregroundStyle(.red)
                     }
@@ -93,7 +110,6 @@ struct ContentView: View {
                         Button("Reload") { model.reload() }
                     }
                 }
-                .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(4)
             }
@@ -109,6 +125,83 @@ struct ContentView: View {
         if panel.runModal() == .OK, let url = panel.url {
             model.useFile(url)
         }
+    }
+}
+
+/// Job name, destination and backup. Every change is saved to the settings file.
+struct JobPanel: View {
+    @Bindable var model: SettingsModel
+
+    var body: some View {
+        Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+            GridRow {
+                Text("Job name").gridColumnAlignment(.trailing)
+                TextField("e.g. Smith Wedding", text: Binding(
+                    get: { model.settings.jobName },
+                    set: { name in model.change { $0.jobName = name } }))
+                    .textFieldStyle(.roundedBorder)
+            }
+            GridRow {
+                Text("Destination")
+                HStack {
+                    Text(model.settings.destinationRoot)
+                        .lineLimit(1).truncationMode(.middle)
+                        .help(model.settings.destinationRootURL.path)
+                    Spacer()
+                    Button("Choose…") {
+                        if let url = chooseFolder("Choose where cards are copied to", startingAt: model.settings.destinationRootURL) {
+                            model.change { $0.destinationRoot = Self.displayPath(url) }
+                        }
+                    }
+                }
+            }
+            GridRow {
+                Text("Backup")
+                HStack {
+                    Text(model.settings.backupRootURL == nil ? "None (optional)" : model.settings.backupRoot)
+                        .foregroundStyle(model.settings.backupRootURL == nil ? .secondary : .primary)
+                        .lineLimit(1).truncationMode(.middle)
+                    Spacer()
+                    if model.settings.backupRootURL != nil {
+                        Button("Remove") { model.change { $0.backupRoot = "" } }
+                    }
+                    Button("Choose…") {
+                        if let url = chooseFolder("Choose a second place to copy cards to, ideally another drive", startingAt: model.settings.backupRootURL) {
+                            model.change { $0.backupRoot = Self.displayPath(url) }
+                        }
+                    }
+                }
+            }
+            GridRow {
+                Text("Copies go to")
+                Text(model.destinationPreview)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2).truncationMode(.middle)
+                    .textSelection(.enabled)
+            }
+            if let problem = model.settings.folderProblem {
+                GridRow {
+                    Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
+                    Label(problem, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
+                }
+            }
+        }
+    }
+
+    private func chooseFolder(_ message: String, startingAt start: URL?) -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Choose"
+        panel.message = message
+        panel.directoryURL = start
+        return panel.runModal() == .OK ? panel.url : nil
+    }
+
+    /// Keeps paths in the settings file short and readable, e.g. `~/Pictures/...`.
+    private static func displayPath(_ url: URL) -> String {
+        (url.path as NSString).abbreviatingWithTildeInPath
     }
 }
 

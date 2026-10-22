@@ -83,6 +83,18 @@ public struct IngestSettings: Codable, Equatable, Sendable {
         guard !trimmed.isEmpty else { return nil }
         return URL(fileURLWithPath: (trimmed as NSString).expandingTildeInPath, isDirectory: true)
     }
+
+    /// Why the destination and backup can't be used together, or nil when they
+    /// can. The backup must be a separate place, not the destination or inside it.
+    public var folderProblem: String? {
+        guard let backup = backupRootURL else { return nil }
+        let main = destinationRootURL.standardizedFileURL.resolvingSymlinksInPath().pathComponents
+        let other = backup.standardizedFileURL.resolvingSymlinksInPath().pathComponents
+        if main == other { return "The backup folder is the same as the destination. Choose a different folder, ideally on another drive." }
+        if other.starts(with: main) { return "The backup folder is inside the destination. Choose a folder outside it, ideally on another drive." }
+        if main.starts(with: other) { return "The destination is inside the backup folder. Choose folders that don't contain each other." }
+        return nil
+    }
 }
 
 /// Which file extensions count as camera files. Matching ignores case.

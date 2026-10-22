@@ -22,7 +22,10 @@ The full brief is `BRIEF.md`.
   `~/Library/Application Support/Card Ingest/Settings.plist`, created on first launch.
   The photographer can keep a separate settings file per project and load it in the app.
   Any key missing from a file falls back to its default, so project files can be short.
-  The Settings screen (Milestone 6) will edit this same file.
+  The Settings screen (Milestone 6) will edit this same file. For now the main window has a
+  Job panel (job name, destination, optional backup) that saves each change straight to the
+  settings file in use, so editing while a project file is loaded changes that project file.
+  The backup can't be the destination, inside it, or contain it; Copy refuses until that's fixed.
 - **Default destination:** `~/Pictures/Card Ingest/{date:YYYY}/{date:YYYY-MM-DD}_{job}`,
   e.g. `~/Pictures/Card Ingest/2026/2026-10-14_Smith Wedding/`.
 - **Default rename pattern:** `{date:YYYY-MM-DD}_{job}_{camera}_{seq:4}` (used from Milestone 2).
@@ -59,6 +62,20 @@ The full brief is `BRIEF.md`.
 - **Receipt:** `Receipt_<card>_<yyyy-MM-dd_HHmmss>.csv` in each destination folder. One row per
   file (path, size, xxHash64, verified) followed by a short summary. Opens in Numbers or Excel.
 
+## GUI wishlist
+
+Suggestions so far, not yet decided. Edit freely.
+
+- Remember the last few project settings files and offer them in a menu.
+- Warn when the backup folder is on the same drive as the destination (it protects against a
+  bad copy, not a dead drive).
+- Show free space on each destination drive next to the folder, and how much the card needs.
+- Drag a folder from Finder onto the Destination or Backup row to choose it.
+- Show when a backup drive isn't plugged in, before Copy is pressed, instead of failing then.
+- Show elapsed time and time remaining while copying.
+- A menu bar icon showing a card is in and copying, so the window can stay closed.
+- A "Show Imported Files" button similar to the currently available "Show Receipt in Finder" so that the user doesn't need to navigate in the finder each time to find finished card.
+
 ## Open questions
 
 - Because any removable drive now counts, a USB backup drive or thumb drive will be offered as a
@@ -76,9 +93,11 @@ The full brief is `BRIEF.md`.
 2. In Terminal: `cd` into the project, then `swift test` (runs the tests) and
    `swift run -c release CardIngest` (opens the app; `-c release` makes copying and checksums
    much faster). Or open `Package.swift` in Xcode and press Run.
-3. The app shows "Waiting for a card…", the settings file path, and where copies will go.
-   "Show in Finder" reveals `Settings.plist`; open it in TextEdit or Xcode, change `jobName`,
-   save, press Reload, and the destination updates.
+3. The app shows "Waiting for a card…", a Job panel, and the settings file path. Type a job
+   name: "Copies go to" updates as you type. Press Choose… next to Destination and Backup to
+   pick folders; Remove clears the backup. Quit and reopen the app: the choices are kept.
+   "Show in Finder" reveals `Settings.plist`, which now has the new values. Choose the same
+   folder for Backup as Destination: a red warning appears and Copy refuses to start.
 4. `scripts/make-fake-card.sh` makes and mounts a pretend card named FAKECARD. Within a moment
    the app shows FAKECARD with "9 camera files" (MISC/SETTINGS.DAT isn't a camera file). Eject it in Finder
    and the app goes back to "Waiting for a card…".

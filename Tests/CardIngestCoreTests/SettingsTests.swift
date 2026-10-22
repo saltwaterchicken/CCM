@@ -74,6 +74,25 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(settings.backupRootURL?.path, "/Volumes/Backup")
     }
 
+    func testBackupMustBeSeparateFromDestination() {
+        var settings = IngestSettings()
+        settings.destinationRoot = "/Volumes/Work/Photos"
+        XCTAssertNil(settings.folderProblem, "No backup is fine")
+        settings.backupRoot = "/Volumes/Backup/Photos"
+        XCTAssertNil(settings.folderProblem)
+        settings.backupRoot = "/Volumes/Work/Photos2"
+        XCTAssertNil(settings.folderProblem, "A similar name isn't the same folder")
+        settings.backupRoot = "/Volumes/Work/Photos/"
+        XCTAssertNotNil(settings.folderProblem)
+        settings.backupRoot = "/Volumes/Work/Photos/Backup"
+        XCTAssertNotNil(settings.folderProblem)
+        settings.backupRoot = "/Volumes/Work"
+        XCTAssertNotNil(settings.folderProblem)
+        settings.destinationRoot = "~/Pictures"
+        settings.backupRoot = NSHomeDirectory() + "/Pictures"
+        XCTAssertNotNil(settings.folderProblem, "~ means the home folder")
+    }
+
     func testFileTypesMatchIgnoringCase() {
         let types = FileTypes()
         XCTAssertTrue(types.includes("IMG_0001.CR3"))

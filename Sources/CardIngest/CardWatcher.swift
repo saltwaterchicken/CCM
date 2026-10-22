@@ -108,6 +108,10 @@ final class CardWatcher {
         guard let files = card.files, copyStates[card.id]?.isCopying != true else { return }
         let url = card.id
         let name = card.info.name
+        if let problem = settings.folderProblem {
+            copyStates[url] = .failed(problem)
+            return
+        }
         let folders: [URL]
         do {
             let now = Date()
