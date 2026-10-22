@@ -85,6 +85,30 @@ final class CardCopierTests: XCTestCase {
         XCTAssertTrue(again.files.allSatisfy(\.alreadyThere))
     }
 
+    func testFinishesAnInterruptedCopyToTheBackup() throws {
+        let files = try scan()
+        _ = try CardCopier.copy(cardRoot: card, cardName: "CARD", files: files, to: [main])
+        // The backup run was cut short: one file made it, one was half written.
+        let jpg = "DCIM/100TEST/IMG_0001.JPG"
+        let done = backup.appendingPathComponent(jpg)
+        try fm.createDirectory(at: done.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try fm.copyItem(at: main.appendingPathComponent(jpg), to: done)
+        let stale = backup.appendingPathComponent("DCIM/100TEST/.IMG_0001.CR3.partial")
+        try Data("half a file".utf8).write(to: stale)
+
+        let report = try CardCopier.copy(cardRoot: card, cardName: "CARD", files: files, to: [main, backup])
+
+        let byPath = Dictionary(uniqueKeysWithValues: report.files.map { ($0.relativePath, $0) })
+        XCTAssertEqual(byPath[jpg]?.alreadyThere, true)
+        XCTAssertEqual(byPath["DCIM/100TEST/IMG_0001.CR3"]?.alreadyThere, false)
+        for file in report.files {
+            let original = try Data(contentsOf: card.appendingPathComponent(file.relativePath))
+            XCTAssertEqual(try Data(contentsOf: backup.appendingPathComponent(file.relativePath)), original,
+                           file.relativePath)
+        }
+        XCTAssertEqual(leftoverPartials(in: base), [])
+    }
+
     func testDifferentFileAtDestinationIsNeverOverwritten() throws {
         let clash = main.appendingPathComponent("DCIM/100TEST/IMG_0001.JPG")
         try fm.createDirectory(at: clash.deletingLastPathComponent(), withIntermediateDirectories: true)
