@@ -64,7 +64,7 @@ The full brief is `BRIEF.md`.
    "Show in Finder" reveals `Settings.plist`; open it in TextEdit or Xcode, change `jobName`,
    save, press Reload, and the destination updates.
 4. `scripts/make-fake-card.sh` makes and mounts a pretend card named FAKECARD. Within a moment
-   the app shows FAKECARD with "8 camera files" (the MISC folder is ignored). Eject it in Finder
+   the app shows FAKECARD with "9 camera files" (the MISC folder is ignored). Eject it in Finder
    and the app goes back to "Waiting for a card…".
 5. Open "Other drives left alone": your Mac's drive and any backup drives should be listed with
    the reason they were skipped.

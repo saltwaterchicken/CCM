@@ -4,10 +4,10 @@ import XCTest
 final class CardRulesTests: XCTestCase {
     private func volume(
         path: String = "/Volumes/EOS_DIGITAL", removable: Bool = true, ejectable: Bool = true,
-        internal: Bool = false, local: Bool = true, root: Bool = false, dcim: Bool = true
+        isInternal: Bool = false, local: Bool = true, root: Bool = false, dcim: Bool = true
     ) -> VolumeInfo {
         VolumeInfo(url: URL(fileURLWithPath: path, isDirectory: true), name: (path as NSString).lastPathComponent,
-                   isRemovable: removable, isEjectable: ejectable, isInternal: internal,
+                   isRemovable: removable, isEjectable: ejectable, isInternal: isInternal,
                    isLocal: local, isRootFileSystem: root, hasDCIM: dcim)
     }
 
@@ -27,12 +27,12 @@ final class CardRulesTests: XCTestCase {
     }
 
     func testStartupDriveIsIgnoredEvenWithDCIM() {
-        let mac = volume(path: "/", removable: false, ejectable: false, internal: true, root: true)
+        let mac = volume(path: "/", removable: false, ejectable: false, isInternal: true, root: true)
         XCTAssertFalse(CardRules.verdict(for: mac, protectedFolders: home).isCard)
     }
 
     func testInternalDriveIsIgnored() {
-        XCTAssertFalse(CardRules.verdict(for: volume(internal: true), protectedFolders: home).isCard)
+        XCTAssertFalse(CardRules.verdict(for: volume(isInternal: true), protectedFolders: home).isCard)
     }
 
     func testNetworkVolumeIsIgnored() {
