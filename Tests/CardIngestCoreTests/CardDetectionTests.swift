@@ -34,7 +34,14 @@ final class CardRulesTests: XCTestCase {
     }
 
     func testInternalDriveIsIgnored() {
-        XCTAssertFalse(CardRules.verdict(for: volume(isInternal: true), protectedFolders: home).isCard)
+        let drive = volume(removable: false, ejectable: false, isInternal: true)
+        XCTAssertFalse(CardRules.verdict(for: drive, protectedFolders: home).isCard)
+    }
+
+    func testCardInBuiltInSDSlotCounts() {
+        // The built-in SD reader reports the card as internal but removable.
+        let card = volume(path: "/Volumes/NO NAME", removable: true, ejectable: true, isInternal: true, dcim: false)
+        XCTAssertEqual(CardRules.verdict(for: card, protectedFolders: home), .card)
     }
 
     func testNetworkVolumeIsIgnored() {

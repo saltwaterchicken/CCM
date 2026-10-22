@@ -39,8 +39,9 @@ The full brief is `BRIEF.md`.
 - **What counts as a card** (`CardRules` in `CardDetection.swift`, the only place this is decided):
   any removable or ejectable drive, with or without a `DCIM` folder (the photographer's call,
   2026-10-22: the brief's DCIM requirement was too specific). Still never the startup drive,
-  an internal drive, a network volume, or a drive holding the destination or backup folder.
-  Volumes macOS can't describe are treated as internal, so they are left alone. Disk images
+  a fixed internal drive, a network volume, or a drive holding the destination or backup folder.
+  A Mac's built-in SD slot reports cards as internal but removable, so internal only rules a
+  drive out when it isn't removable (found testing with a real card, 2026-10-22). Disk images
   count because they are ejectable, which is what makes the fake card work.
 - **Scanning:** every file on the drive with a listed extension is counted, wherever it is
   (DCIM, Sony's PRIVATE/M4ROOT, etc.). Hidden files and folders (`._*`, `.DS_Store`,

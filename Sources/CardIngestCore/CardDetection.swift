@@ -66,7 +66,9 @@ public enum CardRules {
     public static func verdict(for volume: VolumeInfo, protectedFolders: [URL]) -> CardVerdict {
         if volume.isRootFileSystem { return .ignored("This is the Mac's startup drive.") }
         if !volume.isLocal { return .ignored("This is a network volume.") }
-        if volume.isInternal { return .ignored("This is an internal drive.") }
+        // A Mac's built-in SD slot reports its cards as internal, so "internal"
+        // only rules a drive out when the media isn't removable.
+        if volume.isInternal && !volume.isRemovable { return .ignored("This is an internal drive.") }
         if !volume.isRemovable && !volume.isEjectable { return .ignored("This drive isn't removable media.") }
         let volumePath = volume.url.standardizedFileURL.path
         for folder in protectedFolders {
