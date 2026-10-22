@@ -12,6 +12,9 @@ struct CardIngestApp: App {
         // Needed so the window comes to the front when launched from Terminal.
         NSApplication.shared.setActivationPolicy(.regular)
         NSApplication.shared.activate()
+        // Always dark, like Capture One, whatever the Mac's own setting. This also
+        // makes the Choose… panels and alerts dark.
+        NSApplication.shared.appearance = NSAppearance(named: .darkAqua)
         let model = SettingsModel()
         _model = State(initialValue: model)
         _watcher = State(initialValue: CardWatcher(settings: model.settings))
@@ -21,8 +24,37 @@ struct CardIngestApp: App {
         WindowGroup("Card Ingest") {
             ContentView(model: model, watcher: watcher)
                 .frame(minWidth: 600, minHeight: 520)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Theme.window)
+                .groupBoxStyle(PanelStyle())
+                .preferredColorScheme(.dark)
                 .onChange(of: model.settings) { _, settings in watcher.update(settings: settings) }
         }
+    }
+}
+
+/// The dark, low-contrast look of pro photo apps like Capture One: a near-black
+/// window with slightly lighter panels, so photos and status stand out.
+enum Theme {
+    static let window = Color(white: 0.09)
+    static let panel = Color(white: 0.145)
+    static let panelEdge = Color(white: 0.22)
+}
+
+/// A flat panel with a small grey heading, in place of the standard group box.
+struct PanelStyle: GroupBoxStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            configuration.label
+                .font(.caption.weight(.semibold))
+                .textCase(.uppercase)
+                .foregroundStyle(.secondary)
+            configuration.content
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.panel, in: RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.panelEdge, lineWidth: 1))
     }
 }
 

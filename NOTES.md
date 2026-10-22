@@ -26,6 +26,9 @@ The full brief is `BRIEF.md`.
   Job panel (job name, destination, optional backup) that saves each change straight to the
   settings file in use, so editing while a project file is loaded changes that project file.
   The backup can't be the destination, inside it, or contain it; Copy refuses until that's fixed.
+- **Look:** always dark, like Capture One, whatever the Mac's appearance setting: a near-black
+  window with slightly lighter flat panels and small grey headings (`Theme` and `PanelStyle`
+  in `CardIngestApp.swift`). Choose… panels and alerts are dark too.
 - **Default destination:** `~/Pictures/Card Ingest/{date:YYYY}/{date:YYYY-MM-DD}_{job}`,
   e.g. `~/Pictures/Card Ingest/2026/2026-10-14_Smith Wedding/`.
 - **Default rename pattern:** `{date:YYYY-MM-DD}_{job}_{camera}_{seq:4}` (used from Milestone 2).
@@ -75,7 +78,7 @@ Suggestions so far, not yet decided. Edit freely.
 - Show elapsed time and time remaining while copying.
 - A menu bar icon showing a card is in and copying, so the window can stay closed.
 - A "Show Imported Files" button similar to the currently available "Show Receipt in Finder" so that the user doesn't need to navigate in the finder each time to find finished card.
-- The user interface should be dark or black like the software capture one pro or AI-Flow
+- [x] The user interface should be dark or black like the software capture one pro or AI-Flow
 
 ## Open questions
 
