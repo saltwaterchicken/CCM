@@ -9,7 +9,7 @@ The full brief is `BRIEF.md`.
 
 - [x] Step 1: Project skeleton, settings file with defaults, fake-card script, CI.
 - [x] Step 2: Detect any removable card or drive and show it. Confirmed on the Mac with a real SD card.
-- [x] Step 3: Copy, verify with xxHash64, write the receipt. Tests for copy and verify. Waiting on a test on the Mac.
+- [x] Step 3: Copy, verify with xxHash64, write the receipt. Tests for copy and verify. Confirmed on the Mac.
 - [ ] Step 4: Test on the photographer's Mac.
 
 ## Decisions
@@ -75,6 +75,7 @@ Suggestions so far, not yet decided. Edit freely.
 - Show elapsed time and time remaining while copying.
 - A menu bar icon showing a card is in and copying, so the window can stay closed.
 - A "Show Imported Files" button similar to the currently available "Show Receipt in Finder" so that the user doesn't need to navigate in the finder each time to find finished card.
+- The user interface should be dark or black like the software capture one pro or AI-Flow
 
 ## Open questions
 
