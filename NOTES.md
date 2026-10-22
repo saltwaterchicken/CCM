@@ -77,7 +77,7 @@ Suggestions so far, not yet decided. Edit freely.
 - Show when a backup drive isn't plugged in, before Copy is pressed, instead of failing then.
 - Show elapsed time and time remaining while copying.
 - A menu bar icon showing a card is in and copying, so the window can stay closed.
-- A "Show Imported Files" button similar to the currently available "Show Receipt in Finder" so that the user doesn't need to navigate in the finder each time to find finished card.
+- [x] A "Show Imported Files" button similar to the currently available "Show Receipt in Finder" so that the user doesn't need to navigate in the finder each time to find finished card.
 - [x] The user interface should be dark or black like the software capture one pro or AI-Flow
 
 ## Open questions
@@ -108,5 +108,6 @@ Suggestions so far, not yet decided. Edit freely.
 5. Plug in any USB stick or card: it should show up too. Open "Other drives left alone": your
    Mac's own drive should be listed with the reason it was skipped.
 6. With FAKECARD mounted, press Copy. The bar fills, then it says "Copied and verified 9 files".
+   "Show Imported Files" opens the destination folder in Finder with the copied files in it;
    "Show Receipt in Finder" opens the destination folder with the receipt selected. Press Copy
    again: it finishes quickly because the files are already there and identical.

@@ -310,8 +310,14 @@ struct CardsView: View {
                 ForEach(report.destinationFolders, id: \.self) { folder in
                     Text(folder.path).foregroundStyle(.secondary).textSelection(.enabled)
                 }
-                Button("Show Receipt in Finder") {
-                    NSWorkspace.shared.activateFileViewerSelecting(report.receipts)
+                HStack {
+                    // Opens the main copy's folder itself, so the photos are right there.
+                    Button("Show Imported Files") {
+                        if let folder = report.destinationFolders.first { NSWorkspace.shared.open(folder) }
+                    }
+                    Button("Show Receipt in Finder") {
+                        NSWorkspace.shared.activateFileViewerSelecting(report.receipts)
+                    }
                 }
             }
         case let .failed(message):
