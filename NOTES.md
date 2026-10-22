@@ -8,7 +8,7 @@ The full brief is `BRIEF.md`.
 **Milestone 1: Detect, copy, verify, receipt.** In progress.
 
 - [x] Step 1: Project skeleton, settings file with defaults, fake-card script, CI.
-- [ ] Step 2: Detect a card (removable or ejectable, with a `DCIM` folder) and show it.
+- [x] Step 2: Detect a card (removable or ejectable, with a `DCIM` folder) and show it. Waiting on a test on the Mac.
 - [ ] Step 3: Copy, verify with xxHash64, write the receipt. Tests for copy and verify.
 - [ ] Step 4: Test on the photographer's Mac.
 
@@ -36,7 +36,20 @@ The full brief is `BRIEF.md`.
   machine is Linux and can't build macOS apps, so CI is how code gets checked before it
   reaches the photographer.
 
+- **What counts as a card** (`CardRules` in `CardDetection.swift`, the only place this is decided):
+  not the startup drive, not a network volume, not internal, removable or ejectable, has a
+  `DCIM` folder at the top, and does not hold the destination or backup folder. Volumes macOS
+  can't describe are treated as internal, so they are left alone. Disk images count because
+  they are ejectable, which is what makes the fake card work.
+- **Scanning:** only files under `DCIM` with a listed extension are counted. Hidden files
+  (`._*`, `.DS_Store`) and camera index files are skipped. A folder that can't be read stops
+  the scan with an error instead of being quietly skipped.
+
 ## Open questions
+
+- Some USB SSDs report as ejectable. One with a `DCIM` folder at the top would be offered as a
+  card (copying from it is harmless; trashing in Milestone 5 needs a stricter look).
+- Should the app be called CCM instead of Card Ingest?
 
 - Which cameras and file types are shot most? (Defaults cover Canon, Nikon, Sony, Fuji,
   Olympus/OM, Panasonic, Pentax, Leica DNG, plus common video.)
@@ -50,4 +63,8 @@ The full brief is `BRIEF.md`.
 3. The app shows "Waiting for a card…", the settings file path, and where copies will go.
    "Show in Finder" reveals `Settings.plist`; open it in TextEdit or Xcode, change `jobName`,
    save, press Reload, and the destination updates.
-4. `scripts/make-fake-card.sh` makes and mounts a pretend card named FAKECARD. Eject it in Finder.
+4. `scripts/make-fake-card.sh` makes and mounts a pretend card named FAKECARD. Within a moment
+   the app shows FAKECARD with "8 camera files" (the MISC folder is ignored). Eject it in Finder
+   and the app goes back to "Waiting for a card…".
+5. Open "Other drives left alone": your Mac's drive and any backup drives should be listed with
+   the reason they were skipped.

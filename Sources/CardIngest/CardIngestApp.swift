@@ -5,18 +5,23 @@ import UniformTypeIdentifiers
 
 @main
 struct CardIngestApp: App {
-    @State private var model = SettingsModel()
+    @State private var model: SettingsModel
+    @State private var watcher: CardWatcher
 
     init() {
         // Needed so the window comes to the front when launched from Terminal.
         NSApplication.shared.setActivationPolicy(.regular)
         NSApplication.shared.activate()
+        let model = SettingsModel()
+        _model = State(initialValue: model)
+        _watcher = State(initialValue: CardWatcher(settings: model.settings))
     }
 
     var body: some Scene {
         WindowGroup("Card Ingest") {
-            ContentView(model: model)
-                .frame(minWidth: 520, minHeight: 300)
+            ContentView(model: model, watcher: watcher)
+                .frame(minWidth: 560, minHeight: 420)
+                .onChange(of: model.settings) { _, settings in watcher.update(settings: settings) }
         }
     }
 }
@@ -64,11 +69,11 @@ final class SettingsModel {
 
 struct ContentView: View {
     @Bindable var model: SettingsModel
+    var watcher: CardWatcher
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Waiting for a card…")
-                .font(.title2)
+            CardsView(watcher: watcher)
 
             GroupBox("Settings") {
                 VStack(alignment: .leading, spacing: 8) {
@@ -103,6 +108,55 @@ struct ContentView: View {
         panel.message = "Choose a project settings file"
         if panel.runModal() == .OK, let url = panel.url {
             model.useFile(url)
+        }
+    }
+}
+
+/// Shows the cards that are inserted, and why any other drives were left alone.
+struct CardsView: View {
+    var watcher: CardWatcher
+    @State private var showIgnored = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if watcher.cards.isEmpty {
+                Text("Waiting for a card…").font(.title2)
+            } else {
+                ForEach(watcher.cards) { card in
+                    GroupBox {
+                        HStack(alignment: .top) {
+                            Image(systemName: "sdcard").font(.largeTitle)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(card.info.name).font(.title3).bold()
+                                Text(card.info.url.path).foregroundStyle(.secondary)
+                                if let error = card.scanError {
+                                    Text("Couldn't read the card: \(error)").foregroundStyle(.red)
+                                } else if let files = card.files {
+                                    Text("\(files.count) camera files, \(ByteCountFormatter.string(fromByteCount: card.totalBytes, countStyle: .file))")
+                                } else {
+                                    ProgressView().controlSize(.small)
+                                }
+                            }
+                            Spacer()
+                            Button("Copy") {}
+                                .disabled(true)
+                                .help("Copying arrives in the next step.")
+                        }
+                        .padding(4)
+                    }
+                }
+            }
+            DisclosureGroup("Other drives left alone (\(watcher.ignored.count))", isExpanded: $showIgnored) {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(watcher.ignored) { volume in
+                        if case let .ignored(reason) = volume.verdict {
+                            Text("\(volume.info.name): \(reason)")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
     }
 }
