@@ -1,6 +1,7 @@
 import Foundation
 
-/// What macOS tells us about a mounted volume, plus whether it has a DCIM folder.
+/// What macOS tells us about a mounted volume, plus whether it has a DCIM folder
+/// (shown for information only; it doesn't decide anything).
 public struct VolumeInfo: Equatable, Sendable {
     public var url: URL
     public var name: String
@@ -55,11 +56,13 @@ public enum CardVerdict: Equatable, Sendable {
     public var isCard: Bool { self == .card }
 }
 
-/// The one place that decides whether a volume is a camera card. Everything
-/// else in the app goes through this, so the safety rule lives in one spot.
+/// The one place that decides whether a volume is a camera card. Any removable
+/// or ejectable drive counts, with or without a DCIM folder, except the Mac's
+/// own drives, network volumes, and drives holding the destination or backup.
+/// Everything else in the app goes through this, so the rule lives in one spot.
 public enum CardRules {
     /// - Parameter protectedFolders: the destination and backup folders. A volume
-    ///   that holds either of them is never a card, even if it has a DCIM folder.
+    ///   that holds either of them is never a card.
     public static func verdict(for volume: VolumeInfo, protectedFolders: [URL]) -> CardVerdict {
         if volume.isRootFileSystem { return .ignored("This is the Mac's startup drive.") }
         if !volume.isLocal { return .ignored("This is a network volume.") }
@@ -72,7 +75,6 @@ public enum CardRules {
                 return .ignored("This drive holds your destination or backup folder.")
             }
         }
-        if !volume.hasDCIM { return .ignored("There's no DCIM folder, so it isn't a camera card.") }
         return .card
     }
 }
@@ -90,27 +92,28 @@ public struct CardFile: Equatable, Sendable {
 }
 
 public enum CardScanner {
-    /// Lists every camera file under the card's DCIM folder, sorted by path.
-    /// Hidden files (such as macOS's "._" files) and other file types are skipped.
+    /// Lists every camera file anywhere on the card, sorted by path. That covers
+    /// DCIM and the other folders some cameras use for video (such as Sony's
+    /// PRIVATE/M4ROOT). Hidden files and folders (macOS's "._" files, .Trashes,
+    /// .Spotlight-V100) and other file types are skipped.
     public static func scan(cardRoot: URL, fileTypes: FileTypes) throws -> [CardFile] {
         let root = cardRoot.standardizedFileURL.resolvingSymlinksInPath()
-        let dcim = root.appendingPathComponent("DCIM", isDirectory: true)
         var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: dcim.path, isDirectory: &isDirectory), isDirectory.boolValue else {
-            throw CocoaError(.fileReadNoSuchFile, userInfo: [NSFilePathErrorKey: dcim.path])
+        guard FileManager.default.fileExists(atPath: root.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            throw CocoaError(.fileReadNoSuchFile, userInfo: [NSFilePathErrorKey: root.path])
         }
         let keys: [URLResourceKey] = [.isRegularFileKey, .fileSizeKey]
         // A folder that can't be read must stop the scan, not be quietly skipped.
         final class FirstError: @unchecked Sendable { var error: Error? }
         let readError = FirstError()
         guard let enumerator = FileManager.default.enumerator(
-            at: dcim, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles],
+            at: root, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles],
             errorHandler: { _, error in
                 readError.error = readError.error ?? error
                 return false
             }
         ) else {
-            throw CocoaError(.fileReadNoSuchFile, userInfo: [NSFilePathErrorKey: dcim.path])
+            throw CocoaError(.fileReadNoSuchFile, userInfo: [NSFilePathErrorKey: root.path])
         }
         var failure: Error?
         var files: [CardFile] = []

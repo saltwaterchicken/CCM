@@ -22,8 +22,10 @@ final class CardRulesTests: XCTestCase {
         XCTAssertEqual(CardRules.verdict(for: fake, protectedFolders: home), .card)
     }
 
-    func testNoDCIMIsIgnored() {
-        XCTAssertFalse(CardRules.verdict(for: volume(dcim: false), protectedFolders: home).isCard)
+    func testAnyRemovableDriveCountsWithoutDCIM() {
+        XCTAssertEqual(CardRules.verdict(for: volume(dcim: false), protectedFolders: home), .card)
+        let usbStick = volume(path: "/Volumes/USB", removable: true, ejectable: true, dcim: false)
+        XCTAssertEqual(CardRules.verdict(for: usbStick, protectedFolders: home), .card)
     }
 
     func testStartupDriveIsIgnoredEvenWithDCIM() {
@@ -80,7 +82,8 @@ final class CardScannerTests: XCTestCase {
         try write("DCIM/100CANON/._IMG_0001.CR3", bytes: 4)   // macOS leftovers
         try write("DCIM/100CANON/.DS_Store", bytes: 4)
         try write("DCIM/100CANON/CANONMSC.CTG", bytes: 4)      // camera index file
-        try write("MISC/IMG_9999.JPG", bytes: 4)                // outside DCIM
+        try write("MISC/IMG_9999.JPG", bytes: 4)                // outside DCIM still counts
+        try write("MISC/SETTINGS.DAT", bytes: 4)                // not a camera file
 
         let files = try CardScanner.scan(cardRoot: card, fileTypes: FileTypes())
         XCTAssertEqual(files.map(\.relativePath), [
@@ -88,16 +91,27 @@ final class CardScannerTests: XCTestCase {
             "DCIM/100CANON/IMG_0001.JPG",
             "DCIM/101CANON/MVI_0002.MP4",
             "DCIM/101CANON/MVI_0002.THM",
+            "MISC/IMG_9999.JPG",
         ])
-        XCTAssertEqual(files.map(\.size), [300, 100, 500, 10])
+        XCTAssertEqual(files.map(\.size), [300, 100, 500, 10, 4])
     }
 
     func testEmptyCard() throws {
         XCTAssertEqual(try CardScanner.scan(cardRoot: card, fileTypes: FileTypes()), [])
     }
 
-    func testMissingDCIMThrows() throws {
+    func testCardWithoutDCIM() throws {
         try FileManager.default.removeItem(at: card.appendingPathComponent("DCIM"))
+        try FileManager.default.createDirectory(at: card.appendingPathComponent("PRIVATE/M4ROOT/CLIP"), withIntermediateDirectories: true)
+        try write("PRIVATE/M4ROOT/CLIP/C0001.MP4", bytes: 50)
+        try FileManager.default.createDirectory(at: card.appendingPathComponent(".Trashes"), withIntermediateDirectories: true)
+        try write(".Trashes/OLD.JPG", bytes: 4)
+        let files = try CardScanner.scan(cardRoot: card, fileTypes: FileTypes())
+        XCTAssertEqual(files.map(\.relativePath), ["PRIVATE/M4ROOT/CLIP/C0001.MP4"])
+    }
+
+    func testMissingVolumeThrows() throws {
+        try FileManager.default.removeItem(at: card)
         XCTAssertThrowsError(try CardScanner.scan(cardRoot: card, fileTypes: FileTypes()))
     }
 }

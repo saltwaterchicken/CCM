@@ -8,7 +8,7 @@ The full brief is `BRIEF.md`.
 **Milestone 1: Detect, copy, verify, receipt.** In progress.
 
 - [x] Step 1: Project skeleton, settings file with defaults, fake-card script, CI.
-- [x] Step 2: Detect a card (removable or ejectable, with a `DCIM` folder) and show it. Waiting on a test on the Mac.
+- [x] Step 2: Detect any removable card or drive and show it. Waiting on a test on the Mac.
 - [ ] Step 3: Copy, verify with xxHash64, write the receipt. Tests for copy and verify.
 - [ ] Step 4: Test on the photographer's Mac.
 
@@ -37,18 +37,21 @@ The full brief is `BRIEF.md`.
   reaches the photographer.
 
 - **What counts as a card** (`CardRules` in `CardDetection.swift`, the only place this is decided):
-  not the startup drive, not a network volume, not internal, removable or ejectable, has a
-  `DCIM` folder at the top, and does not hold the destination or backup folder. Volumes macOS
-  can't describe are treated as internal, so they are left alone. Disk images count because
-  they are ejectable, which is what makes the fake card work.
-- **Scanning:** only files under `DCIM` with a listed extension are counted. Hidden files
-  (`._*`, `.DS_Store`) and camera index files are skipped. A folder that can't be read stops
+  any removable or ejectable drive, with or without a `DCIM` folder (the photographer's call,
+  2026-10-22: the brief's DCIM requirement was too specific). Still never the startup drive,
+  an internal drive, a network volume, or a drive holding the destination or backup folder.
+  Volumes macOS can't describe are treated as internal, so they are left alone. Disk images
+  count because they are ejectable, which is what makes the fake card work.
+- **Scanning:** every file on the drive with a listed extension is counted, wherever it is
+  (DCIM, Sony's PRIVATE/M4ROOT, etc.). Hidden files and folders (`._*`, `.DS_Store`,
+  `.Trashes`) and other file types are skipped. A folder that can't be read stops
   the scan with an error instead of being quietly skipped.
 
 ## Open questions
 
-- Some USB SSDs report as ejectable. One with a `DCIM` folder at the top would be offered as a
-  card (copying from it is harmless; trashing in Milestone 5 needs a stricter look).
+- Because any removable drive now counts, a USB backup drive or thumb drive will be offered as a
+  card too. Copying from it is harmless, but trashing (Milestone 5) needs a decision: confirm
+  each one, or only auto-trash drives that look like camera cards.
 - Should the app be called CCM instead of Card Ingest?
 
 - Which cameras and file types are shot most? (Defaults cover Canon, Nikon, Sony, Fuji,
@@ -64,7 +67,7 @@ The full brief is `BRIEF.md`.
    "Show in Finder" reveals `Settings.plist`; open it in TextEdit or Xcode, change `jobName`,
    save, press Reload, and the destination updates.
 4. `scripts/make-fake-card.sh` makes and mounts a pretend card named FAKECARD. Within a moment
-   the app shows FAKECARD with "9 camera files" (the MISC folder is ignored). Eject it in Finder
+   the app shows FAKECARD with "9 camera files" (MISC/SETTINGS.DAT isn't a camera file). Eject it in Finder
    and the app goes back to "Waiting for a card…".
-5. Open "Other drives left alone": your Mac's drive and any backup drives should be listed with
-   the reason they were skipped.
+5. Plug in any USB stick or card: it should show up too. Open "Other drives left alone": your
+   Mac's own drive should be listed with the reason it was skipped.
