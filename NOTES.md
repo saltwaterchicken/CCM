@@ -24,6 +24,17 @@ tested; waiting for the photographer to try it with a real card.
 - [ ] Step 4: Receipt shows original name next to new name (done, tested). Confirm on the Mac with a
   real card (not yet).
 
+**Milestone 3 (new): Live culling grid with star rating.** Agreed 2026-10-23, ahead of metadata
+and auto-rating (see "Culling grid"). Not started.
+
+- [ ] Step 1: Copier reports each file as it's verified; files grouped by shot (RAW+JPEG+sidecars). Tests.
+- [ ] Step 2: Star storage in `.xmp` sidecars, 1 star by default on landing. Tests, then check in
+  Lightroom, Bridge or Photo Mechanic.
+- [ ] Step 3: Thumbnail maker (embedded RAW preview, JPEG/HEIC, video frame), background and cached.
+- [ ] Step 4: Grid in the main window filling live during Copy; selection, 0 to 5 keys, auto-advance.
+- [ ] Step 5: Larger view (double-click), Space for 100%, arrows, star filter.
+- [ ] Step 6: Confirm on the Mac with a slow fake card and a large real card.
+
 **Milestone 5: Trash and eject.** Started early at the photographer's request, 2026-10-22, while
 Milestone 2's metadata waits on the template. Built and tested on disk images; not yet tried on the Mac.
 
@@ -193,6 +204,65 @@ the app only asks and shows the result.
   fails (a Finder window or another app is using the card), the summary says so and the card stays.
   Nothing is ejected after a failed copy.
 - Not yet: the receipt doesn't record trashing, and there's no card log.
+
+## Culling grid (Milestone 3, agreed 2026-10-23)
+
+Like Photo Mechanic's ingest: thumbnails appear as each file lands, and the photographer can view
+larger and rate straight away instead of waiting for the whole card. The order of the remaining
+milestones is now: 3 culling grid, 4 metadata template (ExifTool), 5 sharpness and exposure rating
+plus calibration, 6 blink rating, then settings/menu bar/polish. Trash and eject was built early.
+
+**Star rule (the photographer's call, 2026-10-23):** every photo gets **1 star** the moment it lands.
+**0 stars is reserved for the automatic checks**: subject out of focus, badly overexposed, badly
+underexposed, or a blinking face. So a 0 always means "the app flagged this". The auto-rating
+milestones only ever move a photo from 1 down to 0, never touch a star set by hand, and keep every
+threshold in Settings. Exposure is new (not in the brief) and joins the sharpness milestone.
+Videos get no star.
+
+What the photographer sees and does:
+
+- Press Copy and a grid fills in under the progress bar, one tile per **shot** as soon as its files
+  are copied and verified. A shot is the files sharing a base name: RAW+JPEG show as one tile with a
+  small "RAW+JPG" badge. Videos show a frame, a play icon and the duration, and can't be rated.
+- Each tile shows its stars. Click, Shift-click and Cmd-click select.
+- **Keys, matching Photo Mechanic:** number keys 0 to 5 set the stars on the selection. With one
+  photo selected, setting a star **moves on to the next photo** automatically. Left and right arrows
+  move between photos.
+- **Double-click** a tile for a full-window view. Arrows, number keys and auto-advance work there too.
+  **Space toggles 100%** (actual pixels) to check focus; drag to pan. Esc goes back to the grid.
+- A small filter: All, 1 star and up, 0 stars (the flagged ones), and so on.
+- The grid shows the card just copied (only files this Copy brought in; already-imported files are
+  skipped as now) and stays up until the next card. It reads only the verified copies in the
+  destination, never the card, so trash and eject work exactly as before.
+
+How it works:
+
+- **File landed:** `CardCopier.copy` gains a per-file report, called once a file is verified and has
+  its final name in every destination (not for `.partial` files). The app adds or updates the tile.
+- **Thumbnails and preview:** ImageIO's `CGImageSourceCreateThumbnailAtIndex` pulls the camera's
+  embedded JPEG out of the RAW without decoding it; JPEG and HEIC open directly; a video frame comes
+  from AVFoundation. Made on a background queue, only for tiles on screen, and cached, so a
+  2,000-file card doesn't slow the copy. The full-window view uses the largest embedded preview. For
+  100%, if the embedded preview is smaller than the sensor, decode the RAW itself with Core Image
+  (`CIRAWFilter`). All Apple frameworks, no new dependency.
+- **Where stars go:** `XMP:Rating` (`xmp:Rating`) in a sidecar `<new base name>.xmp` next to the
+  shot, in the destination and the backup alike, written atomically. One sidecar per shot, so a
+  RAW+JPEG pair shares it. RAW files are never rewritten. A small hand-written XMP packet is enough
+  for now; the metadata milestone (ExifTool) adds the template fields to the same sidecar.
+- **JPEG-only and HEIC shots:** sidecar for now too. Known gap: Lightroom ignores sidecars for JPEG
+  and HEIC, so it won't see those stars until the metadata milestone embeds them (Photo Mechanic and
+  Bridge do read them). Embedding now would change the copy after it was verified, which would break
+  the receipt checksum and the "same size" checks behind already-imported and trash.
+- **A sidecar that came off the card:** if the camera wrote an `.xmp` with the same base name, update
+  its rating inside it instead of replacing it. Already-imported and trash must still recognise that
+  file afterwards (its size changes), so treat `.xmp` files as matched by name, not size.
+- **In-camera ratings:** if the photo already carries a rating set in the camera (read with ImageIO),
+  keep it instead of the 1-star default.
+- **If the copy fails part way:** stars already given stay in the sidecars next to the verified
+  copies; the card is untouched, as now. The tiles stay so the photographer can keep culling.
+
+Not in this milestone: colour labels, tags, captions, rejecting or deleting from the grid, browsing
+older imports.
 
 ## GUI wishlist
 
