@@ -25,7 +25,7 @@ tested; waiting for the photographer to try it with a real card.
   real card (not yet).
 
 **Milestone 3 (new): Live culling grid with star rating.** Agreed 2026-10-23, ahead of metadata
-and auto-rating (see "Culling grid"). Not started.
+and auto-rating (see "Culling grid"). **Done**, confirmed by the photographer 2026-10-23.
 
 - [x] Step 1: Copier reports each file as it's verified; files grouped by shot (RAW+JPEG+sidecars). Tests.
   `CardCopier.copy(fileVerified:)` and `ShotList` in `Shots.swift`; nothing on screen yet (Step 4).
@@ -41,7 +41,12 @@ and auto-rating (see "Culling grid"). Not started.
 - [x] Step 5: Larger view (double-click), Space for 100%, arrows, star filter. Plus (asked for
   2026-10-23) an Open button sending photos to Lightroom Classic, Load Folder…, Reveal in Finder,
   and up/down arrows. Confirmed on the Mac 2026-10-23.
-- [ ] Step 6: Confirm on the Mac with a slow fake card and a large real card.
+- [x] Step 6: Confirm on the Mac. Confirmed with real cards 2026-10-23; the slow fake card option
+  wasn't needed and wasn't built.
+
+**Next: Milestone 4, metadata template with ExifTool.** Waiting on the photographer's template
+(creator, copyright, contact, and per-job caption, keywords, location). Also embeds stars in
+JPEG-only and HEIC shots so Lightroom sees them, without breaking the receipt or already-imported checks.
 
 **Milestone 5: Trash and eject.** Started early at the photographer's request, 2026-10-22, while
 Milestone 2's metadata waits on the template. Built and tested on disk images; not yet tried on the Mac.
