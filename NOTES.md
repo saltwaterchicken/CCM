@@ -97,6 +97,9 @@ Suggestions so far, not yet decided. Edit freely.
 2. In Terminal: `cd` into the project, then `swift test` (runs the tests) and
    `swift run -c release CardIngest` (opens the app; `-c release` makes copying and checksums
    much faster). Or open `Package.swift` in Xcode and press Run.
+   To open it by double-click instead, run `scripts/make-app.sh` once: it builds
+   "CCM Card Ingest.app" into /Applications (drag it to the Dock if you like). Run it again
+   after pulling new code to update the app.
 3. The app shows "Waiting for a card…", a Job panel, and the settings file path. Type a job
    name: "Copies go to" updates as you type. Press Choose… next to Destination and Backup to
    pick folders; Remove clears the backup. Quit and reopen the app: the choices are kept.
