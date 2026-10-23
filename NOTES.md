@@ -44,9 +44,14 @@ and auto-rating (see "Culling grid"). **Done**, confirmed by the photographer 20
 - [x] Step 6: Confirm on the Mac. Confirmed with real cards 2026-10-23; the slow fake card option
   wasn't needed and wasn't built.
 
-**Next: Milestone 4, metadata template with ExifTool.** Waiting on the photographer's template
-(creator, copyright, contact, and per-job caption, keywords, location). Also embeds stars in
-JPEG-only and HEIC shots so Lightroom sees them, without breaking the receipt or already-imported checks.
+**Milestone 4: Metadata template.** Started 2026-10-23 with a test of what the NAS reads, before
+any code (see "Metadata"). Also embeds stars in JPEG-only and HEIC shots so Lightroom sees them,
+without breaking the receipt or already-imported checks.
+
+- [ ] Step 1: NAS readability test. Tag the same sample files in Bridge and in Photo Mechanic, copy
+  both folders to the Synology, and record in the checklist what Synology Photos shows. Then look
+  inside the tagged files to see where each app wrote the metadata.
+- [ ] Step 2: Agree the spec from what the test shows, plus the photographer's template values.
 
 **Milestone 5: Trash and eject.** Started early at the photographer's request, 2026-10-22, while
 Milestone 2's metadata waits on the template. Built and tested on disk images; not yet tried on the Mac.
@@ -363,6 +368,41 @@ How it works:
 Not in this milestone: colour labels, tags, captions, rejecting or deleting from the grid, browsing
 older imports.
 
+## Metadata (Milestone 4, started 2026-10-23)
+
+**Leaning: Apple frameworks, no ExifTool.** The photographer's call: the app should copy to any Mac
+and just work, without a Homebrew install. The brief allowed ExifTool, but nothing needs it:
+- RAW (all brands): fields go in the `.xmp` sidecar the stars already use (ImageIO). RAWs are never
+  rewritten.
+- JPEG, HEIC: embedded with ImageIO without recompressing. HEIC still to be checked.
+- MP4, MOV, ProRes: an XMP block appended to the end of the file, the way Adobe writes it. Video
+  and audio untouched. Apple's own route (AVAssetExportSession) re-saves the whole video, which is
+  slow and can drop camera data such as timecode, so we'd write the small block ourselves.
+- MXF, MTS/M2TS, MPG, AVI: `.xmp` sidecar. ExifTool can't write into these either.
+Not final until Step 1's test confirms the NAS reads it.
+
+**Why test first:** in the past, video metadata written by Photo Mechanic wasn't readable on the
+Synology NAS, but metadata written by Adobe Bridge was. So before building, find out exactly what
+Synology Photos reads, for every camera and video format, and copy whatever works.
+(btrfs, the NAS's file system, only stores the files; what matters is what Synology Photos reads.)
+
+**The test (Step 1):**
+1. One or two files of each kind the photographer shoots: RAW+JPEG from Sony, Fuji, Nikon and
+   Canon; an iPhone HEIC; MP4; MPEG; QuickTime MOV; ProRes; MXF or MTS if any camera makes them.
+2. Two copies of the folder, "Bridge" and "PhotoMechanic".
+3. Tag every file the same way in each app: caption `TEST BRIDGE` or `TEST PM`, keyword
+   `cardtest`, creator, copyright, a city, 3 stars.
+4. Copy both folders to the NAS the usual way, let Synology Photos index them, and record which
+   fields show for each file in the "NAS Metadata Checklist" artifact (its data can be read back
+   with ArtifactData, collection `files`).
+5. Keep the tagged folders on the Mac. Claude inspects each file and sidecar to see where each app
+   wrote what, and why the NAS missed Photo Mechanic's.
+
+**Still to decide (Step 2):** receipt and already-imported handling once JPEG, HEIC and video are
+changed after verifying (proposed: receipt keeps the card's checksum and adds the final one, those
+files matched by name like `.xmp`); per-job fields in the Job panel or the settings file; the
+template values themselves.
+
 ## GUI wishlist
 
 Suggestions so far, not yet decided. Edit freely.
@@ -388,7 +428,7 @@ Suggestions so far, not yet decided. Edit freely.
 
 - Which cameras and file types are shot most? (Defaults cover Canon, Nikon, Sony, Fuji,
   Olympus/OM, Panasonic, Pentax, Leica DNG, plus common video.)
-- Metadata template (needed for Milestone 2). Rename pattern is decided, see Naming.
+- Metadata template values (needed for Milestone 4). Rename pattern is decided, see Naming.
 
 ## How to test what exists so far
 
