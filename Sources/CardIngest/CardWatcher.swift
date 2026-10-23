@@ -15,13 +15,17 @@ struct DetectedVolume: Identifiable {
 
 /// Where a card's copy job stands.
 enum CopyState {
+    /// Reading capture dates and choosing names, before any copying.
+    case preparing
     case copying(fraction: Double)
     case done(CopyReport)
     case failed(String)
 
     var isCopying: Bool {
-        if case .copying = self { return true }
-        return false
+        switch self {
+        case .preparing, .copying: true
+        case .done, .failed: false
+        }
     }
 }
 
@@ -46,10 +50,13 @@ final class CardWatcher {
     private var stopFlags: [URL: StopFlag] = [:]
 
     private var settings: IngestSettings
+    /// Called after a card copies and verifies, to move the import counter on.
+    private let onImported: (ImportPlan) -> Void
     private var observers: [NSObjectProtocol] = []
 
-    init(settings: IngestSettings) {
+    init(settings: IngestSettings, onImported: @escaping (ImportPlan) -> Void) {
         self.settings = settings
+        self.onImported = onImported
         let center = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification, NSWorkspace.didRenameVolumeNotification] {
             observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
@@ -102,36 +109,29 @@ final class CardWatcher {
         }
     }
 
-    /// Copies the card to the destination (and backup, if set) and verifies
-    /// every file. Only reads the card.
+    /// Copies the card into its own folder in the destination (and backup, if
+    /// set), renaming each file, and verifies every copy. Only reads the card.
     func startCopy(_ card: DetectedVolume) {
         guard let files = card.files, copyStates[card.id]?.isCopying != true else { return }
         let url = card.id
         let name = card.info.name
+        let settings = settings
         if let problem = settings.folderProblem {
             copyStates[url] = .failed(problem)
-            return
-        }
-        let folders: [URL]
-        do {
-            let now = Date()
-            var list = [try settings.destinationFolder(for: now)]
-            if let backup = settings.backupRootURL {
-                list.append(try settings.destinationFolder(for: now, root: backup))
-            }
-            folders = list
-        } catch {
-            copyStates[url] = .failed(error.localizedDescription)
             return
         }
 
         let flag = StopFlag()
         stopFlags[url] = flag
-        copyStates[url] = .copying(fraction: 0)
-        Task.detached {
-            let result = Result {
-                try CardCopier.copy(
-                    cardRoot: url, cardName: name, files: files, to: folders,
+        copyStates[url] = .preparing
+        // Reading dates and copying block, so they run on their own thread.
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = Result { () throws -> (ImportPlan, CopyReport) in
+                let plan = try ImportPlanner.plan(cardRoot: url, cardName: name, files: files, settings: settings)
+                if flag.isStopped { throw CopyError.cancelled }
+                let report = try CardCopier.copy(
+                    cardRoot: url, cardName: name, files: plan.files, to: plan.folders,
+                    importNumber: plan.importNumber,
                     progress: { done, total in
                         let fraction = total > 0 ? min(1, Double(done) / Double(total)) : 1
                         Task { @MainActor [weak self] in
@@ -141,13 +141,17 @@ final class CardWatcher {
                         }
                     },
                     isCancelled: { flag.isStopped })
+                return (plan, report)
             }
-            await MainActor.run { [weak self] in
+            Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.stopFlags[url] = nil
                 switch result {
-                case let .success(report): self.copyStates[url] = .done(report)
-                case let .failure(error): self.copyStates[url] = .failed(error.localizedDescription)
+                case let .success((plan, report)):
+                    self.copyStates[url] = .done(report)
+                    self.onImported(plan)
+                case let .failure(error):
+                    self.copyStates[url] = .failed(error.localizedDescription)
                 }
             }
         }

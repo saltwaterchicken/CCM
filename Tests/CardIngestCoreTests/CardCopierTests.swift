@@ -26,8 +26,10 @@ final class CardCopierTests: XCTestCase {
         try data.write(to: card.appendingPathComponent(path))
     }
 
-    private func scan() throws -> [CardFile] {
-        try CardScanner.scan(cardRoot: card, fileTypes: FileTypes())
+    /// The card's files, each keeping its path on the card as its name, so
+    /// these tests are only about copying and verifying.
+    private func scan() throws -> [PlannedFile] {
+        try CardScanner.scan(cardRoot: card, fileTypes: FileTypes()).map { PlannedFile(source: $0, newName: $0.relativePath) }
     }
 
     /// Every file on the card with its checksum, to prove the card wasn't touched.
@@ -48,16 +50,17 @@ final class CardCopierTests: XCTestCase {
     func testCopiesVerifiesAndWritesReceipts() throws {
         let before = try snapshotOfCard()
         let files = try scan()
-        let report = try CardCopier.copy(cardRoot: card, cardName: "NO NAME", files: files, to: [main, backup])
+        let report = try CardCopier.copy(cardRoot: card, cardName: "NO NAME", files: files, to: [main, backup],
+                                         importNumber: 12)
 
         XCTAssertEqual(report.files.count, 3)
         for file in report.files {
-            let original = try Data(contentsOf: card.appendingPathComponent(file.relativePath))
+            let original = try Data(contentsOf: card.appendingPathComponent(file.originalPath))
             XCTAssertEqual(file.checksum, XXHash64.hex(XXHash64.hash(original)))
             XCTAssertFalse(file.alreadyThere)
             for folder in [main, backup] {
-                let copy = try Data(contentsOf: folder.appendingPathComponent(file.relativePath))
-                XCTAssertEqual(copy, original, "\(file.relativePath) in \(folder.path)")
+                let copy = try Data(contentsOf: folder.appendingPathComponent(file.newName))
+                XCTAssertEqual(copy, original, "\(file.newName) in \(folder.path)")
             }
         }
 
@@ -68,10 +71,11 @@ final class CardCopierTests: XCTestCase {
         // One receipt per destination, listing every file.
         XCTAssertEqual(report.receipts.count, 2)
         let receipt = try String(contentsOf: report.receipts[0], encoding: .utf8)
-        XCTAssertTrue(receipt.hasPrefix("File,Size (bytes),xxHash64,Verified"))
+        XCTAssertTrue(receipt.hasPrefix("File,Original Path,Size (bytes),xxHash64,Verified"))
         for file in report.files {
-            XCTAssertTrue(receipt.contains("\(file.relativePath),\(file.size),\(file.checksum),yes"))
+            XCTAssertTrue(receipt.contains("\(file.newName),\(file.originalPath),\(file.size),\(file.checksum),yes"))
         }
+        XCTAssertTrue(receipt.contains("\nImport number,12\n"))
         XCTAssertTrue(report.receipts[0].lastPathComponent.hasPrefix("Receipt_NO NAME_"))
 
         XCTAssertEqual(try snapshotOfCard(), before, "The card must not change")
@@ -98,13 +102,13 @@ final class CardCopierTests: XCTestCase {
 
         let report = try CardCopier.copy(cardRoot: card, cardName: "CARD", files: files, to: [main, backup])
 
-        let byPath = Dictionary(uniqueKeysWithValues: report.files.map { ($0.relativePath, $0) })
+        let byPath = Dictionary(uniqueKeysWithValues: report.files.map { ($0.newName, $0) })
         XCTAssertEqual(byPath[jpg]?.alreadyThere, true)
         XCTAssertEqual(byPath["DCIM/100TEST/IMG_0001.CR3"]?.alreadyThere, false)
         for file in report.files {
-            let original = try Data(contentsOf: card.appendingPathComponent(file.relativePath))
-            XCTAssertEqual(try Data(contentsOf: backup.appendingPathComponent(file.relativePath)), original,
-                           file.relativePath)
+            let original = try Data(contentsOf: card.appendingPathComponent(file.originalPath))
+            XCTAssertEqual(try Data(contentsOf: backup.appendingPathComponent(file.newName)), original,
+                           file.newName)
         }
         XCTAssertEqual(leftoverPartials(in: base), [])
     }
@@ -123,7 +127,8 @@ final class CardCopierTests: XCTestCase {
 
     func testMissingFileOnCardStopsTheJob() throws {
         var files = try scan()
-        files.append(CardFile(relativePath: "DCIM/100TEST/GONE.CR3", size: 10))
+        let gone = CardFile(relativePath: "DCIM/100TEST/GONE.CR3", size: 10)
+        files.append(PlannedFile(source: gone, newName: gone.relativePath))
         XCTAssertThrowsError(try CardCopier.copy(cardRoot: card, cardName: "CARD", files: files, to: [main])) { error in
             guard case CopyError.readFailed = error else { return XCTFail("Got \(error)") }
         }
@@ -134,7 +139,8 @@ final class CardCopierTests: XCTestCase {
     }
 
     func testNotEnoughSpaceIsCheckedFirst() throws {
-        let huge = [CardFile(relativePath: "DCIM/100TEST/IMG_0001.CR3", size: Int64.max / 4)]
+        let huge = [PlannedFile(source: CardFile(relativePath: "DCIM/100TEST/IMG_0001.CR3", size: Int64.max / 4),
+                                newName: "IMG_0001.CR3")]
         XCTAssertThrowsError(try CardCopier.copy(cardRoot: card, cardName: "CARD", files: huge, to: [main])) { error in
             guard case CopyError.notEnoughSpace = error else { return XCTFail("Got \(error)") }
         }
@@ -161,5 +167,17 @@ final class CardCopierTests: XCTestCase {
         XCTAssertEqual(Receipt.csv("plain"), "plain")
         XCTAssertEqual(Receipt.csv("a,b"), "\"a,b\"")
         XCTAssertEqual(Receipt.csv("say \"hi\""), "\"say \"\"hi\"\"\"")
+        let fields = ["plain", "a,b", "say \"hi\"", "", "\"x\",y"]
+        XCTAssertEqual(Receipt.parseLine(fields.map(Receipt.csv).joined(separator: ",")), fields)
+    }
+
+    func testReceiptReadsBack() throws {
+        let files = try scan()
+        let report = try CardCopier.copy(cardRoot: card, cardName: "CARD", files: files, to: [main], importNumber: 3)
+        let read = try XCTUnwrap(Receipt.read(report.receipts[0]))
+        XCTAssertEqual(read.importNumber, 3)
+        XCTAssertEqual(Set(read.rows), Set(files.map {
+            Receipt.Row(newName: $0.newName, originalPath: $0.source.relativePath, size: $0.source.size)
+        }))
     }
 }

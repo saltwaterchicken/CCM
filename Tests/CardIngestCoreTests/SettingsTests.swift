@@ -26,7 +26,8 @@ final class SettingsTests: XCTestCase {
     func testRoundTrip() throws {
         let url = tempDir.appendingPathComponent("Settings.plist")
         var settings = IngestSettings()
-        settings.jobName = "Smith Wedding"
+        settings.folderName = "{todayyear4}-Smith Wedding-{iseq}"
+        settings.nextImportNumber = 42
         settings.backupRoot = "/Volumes/Backup/Photos"
         settings.metadata.keywords = ["wedding", "Portland"]
         settings.rating.sharpnessThreshold = 42
@@ -34,27 +35,76 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(try SettingsStore.load(from: url), settings)
     }
 
-    func testPartialProjectFileFallsBackToDefaults() throws {
-        let url = tempDir.appendingPathComponent("Project.plist")
+    private func writePlist(_ name: String, _ body: String) throws -> URL {
+        let url = tempDir.appendingPathComponent(name)
         let xml = """
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
         <dict>
-            <key>jobName</key><string>Camp Week 2</string>
-            <key>folderPattern</key><string>{job}/{date:YYYY-MM-DD}</string>
-            <key>rating</key><dict><key>enabled</key><false/></dict>
+        \(body)
         </dict>
         </plist>
         """
         try xml.write(to: url, atomically: true, encoding: .utf8)
+        return url
+    }
+
+    func testPartialProjectFileFallsBackToDefaults() throws {
+        let url = try writePlist("Project.plist", """
+            <key>folderName</key><string>{todayyear4}-Camp-{iseq}</string>
+            <key>rating</key><dict><key>enabled</key><false/></dict>
+        """)
         let settings = try SettingsStore.load(from: url)
-        XCTAssertEqual(settings.jobName, "Camp Week 2")
-        XCTAssertEqual(settings.folderPattern, "{job}/{date:YYYY-MM-DD}")
+        XCTAssertEqual(settings.folderName, "{todayyear4}-Camp-{iseq}")
+        XCTAssertEqual(settings.nextImportNumber, 1)
         XCTAssertFalse(settings.rating.enabled)
         XCTAssertEqual(settings.rating.sharpnessThreshold, RatingSettings().sharpnessThreshold)
         XCTAssertEqual(settings.renamePattern, IngestSettings().renamePattern)
         XCTAssertEqual(settings.fileTypes, FileTypes())
+    }
+
+    func testNewDefaults() throws {
+        let settings = IngestSettings()
+        XCTAssertEqual(settings.folderName, "{todayyear4}-{todaymonth0}-{todayday0}-ES{iseq}")
+        XCTAssertEqual(settings.renamePattern, "{year4}-{month0}-{day0}-ES_{frame4}")
+        XCTAssertEqual(settings.nextImportNumber, 1)
+    }
+
+    func testMilestone1SettingsFileStillLoads() throws {
+        // Exactly what Milestone 1 wrote on first launch, plus a job name typed in.
+        let url = try writePlist("Old.plist", """
+            <key>schemaVersion</key><integer>1</integer>
+            <key>jobName</key><string>Smith Wedding</string>
+            <key>destinationRoot</key><string>~/Pictures/Card Ingest</string>
+            <key>backupRoot</key><string>/Volumes/Backup</string>
+            <key>folderPattern</key><string>{date:YYYY}/{date:YYYY-MM-DD}_{job}</string>
+            <key>renamePattern</key><string>{date:YYYY-MM-DD}_{job}_{camera}_{seq:4}</string>
+            <key>checksum</key><string>xxh64</string>
+        """)
+        let settings = try SettingsStore.load(from: url)
+        XCTAssertEqual(settings.backupRoot, "/Volumes/Backup", "Other settings are kept")
+        XCTAssertEqual(settings.folderName, IngestSettings().folderName)
+        XCTAssertEqual(settings.nextImportNumber, 1)
+        XCTAssertEqual(settings.renamePattern, IngestSettings().renamePattern, "The old default moves to the new one")
+        XCTAssertNoThrow(try settings.cardFolderName())
+
+        // Saving drops the old keys.
+        try SettingsStore.save(settings, to: url)
+        let text = try String(contentsOf: url, encoding: .utf8)
+        XCTAssertFalse(text.contains("jobName"))
+        XCTAssertFalse(text.contains("folderPattern"))
+        XCTAssertTrue(text.contains("nextImportNumber"))
+    }
+
+    func testCustomRenamePatternIsKept() throws {
+        let url = try writePlist("Custom.plist", "<key>renamePattern</key><string>{filename}-{iseq}</string>")
+        XCTAssertEqual(try SettingsStore.load(from: url).renamePattern, "{filename}-{iseq}")
+    }
+
+    func testImportNumberIsAtLeastOne() throws {
+        let url = try writePlist("Zero.plist", "<key>nextImportNumber</key><integer>0</integer>")
+        XCTAssertEqual(try SettingsStore.load(from: url).nextImportNumber, 1)
     }
 
     func testBrokenFileGivesReadableError() throws {

@@ -5,15 +5,17 @@ import Foundation
 /// project settings file only needs the keys that differ from the defaults.
 public struct IngestSettings: Codable, Equatable, Sendable {
     public var schemaVersion: Int
-    /// Job name used in folder and file names, e.g. "Smith Wedding".
-    public var jobName: String
+    /// Pattern for the folder made for each card inside the destination,
+    /// e.g. `{todayyear4}-{todaymonth0}-{todayday0}-ES{iseq}` makes 2026-10-23-ES001.
+    public var folderName: String
+    /// The `{iseq}` the next card gets. Goes up by one after each card copies
+    /// and verifies.
+    public var nextImportNumber: Int
     /// Where every card is copied to. `~` means your home folder.
     public var destinationRoot: String
     /// Optional second copy. Empty string means no backup.
     public var backupRoot: String
-    /// Folder created inside the destination for each card.
-    public var folderPattern: String
-    /// File name pattern (used from Milestone 2).
+    /// Pattern for each file's new name, without its extension.
     public var renamePattern: String
     public var checksum: String
     public var autoStartOnInsert: Bool
@@ -25,12 +27,12 @@ public struct IngestSettings: Codable, Equatable, Sendable {
     public var rating: RatingSettings
 
     public init(
-        schemaVersion: Int = 1,
-        jobName: String = "Untitled",
+        schemaVersion: Int = 2,
+        folderName: String = "{todayyear4}-{todaymonth0}-{todayday0}-ES{iseq}",
+        nextImportNumber: Int = 1,
         destinationRoot: String = "~/Pictures/Card Ingest",
         backupRoot: String = "",
-        folderPattern: String = "{date:YYYY}/{date:YYYY-MM-DD}_{job}",
-        renamePattern: String = "{date:YYYY-MM-DD}_{job}_{camera}_{seq:4}",
+        renamePattern: String = "{year4}-{month0}-{day0}-ES_{frame4}",
         checksum: String = "xxh64",
         autoStartOnInsert: Bool = false,
         trashAfterVerify: Bool = true,
@@ -40,10 +42,10 @@ public struct IngestSettings: Codable, Equatable, Sendable {
         rating: RatingSettings = RatingSettings()
     ) {
         self.schemaVersion = schemaVersion
-        self.jobName = jobName
+        self.folderName = folderName
+        self.nextImportNumber = nextImportNumber
         self.destinationRoot = destinationRoot
         self.backupRoot = backupRoot
-        self.folderPattern = folderPattern
         self.renamePattern = renamePattern
         self.checksum = checksum
         self.autoStartOnInsert = autoStartOnInsert
@@ -58,11 +60,16 @@ public struct IngestSettings: Codable, Equatable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = IngestSettings()
         schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? d.schemaVersion
-        jobName = try c.decodeIfPresent(String.self, forKey: .jobName) ?? d.jobName
+        // Milestone 1 files had jobName and folderPattern instead of folderName.
+        // Those keys are ignored; their {job} and {date:...} fields no longer exist.
+        folderName = try c.decodeIfPresent(String.self, forKey: .folderName) ?? d.folderName
+        nextImportNumber = max(1, try c.decodeIfPresent(Int.self, forKey: .nextImportNumber) ?? d.nextImportNumber)
         destinationRoot = try c.decodeIfPresent(String.self, forKey: .destinationRoot) ?? d.destinationRoot
         backupRoot = try c.decodeIfPresent(String.self, forKey: .backupRoot) ?? d.backupRoot
-        folderPattern = try c.decodeIfPresent(String.self, forKey: .folderPattern) ?? d.folderPattern
         renamePattern = try c.decodeIfPresent(String.self, forKey: .renamePattern) ?? d.renamePattern
+        // Every Milestone 1 settings file was saved with this old default, which
+        // was never used for renaming; move it to the new one.
+        if renamePattern == Self.milestone1RenamePattern { renamePattern = d.renamePattern }
         checksum = try c.decodeIfPresent(String.self, forKey: .checksum) ?? d.checksum
         autoStartOnInsert = try c.decodeIfPresent(Bool.self, forKey: .autoStartOnInsert) ?? d.autoStartOnInsert
         trashAfterVerify = try c.decodeIfPresent(Bool.self, forKey: .trashAfterVerify) ?? d.trashAfterVerify
@@ -71,6 +78,8 @@ public struct IngestSettings: Codable, Equatable, Sendable {
         metadata = try c.decodeIfPresent(MetadataTemplate.self, forKey: .metadata) ?? d.metadata
         rating = try c.decodeIfPresent(RatingSettings.self, forKey: .rating) ?? d.rating
     }
+
+    static let milestone1RenamePattern = "{date:YYYY-MM-DD}_{job}_{camera}_{seq:4}"
 
     /// The destination root with `~` expanded.
     public var destinationRootURL: URL {

@@ -2,7 +2,10 @@ import Foundation
 
 /// The outcome for one file.
 public struct CopiedFile: Equatable, Sendable {
-    public var relativePath: String
+    /// The copy's name inside the card folder.
+    public var newName: String
+    /// Where it came from on the card, e.g. "DCIM/100CANON/IMG_1234.CR3".
+    public var originalPath: String
     public var size: Int64
     /// xxHash64 of the original on the card, as 16 hex digits.
     public var checksum: String
@@ -18,6 +21,8 @@ public struct CopyReport: Sendable {
     public var startedAt: Date
     public var finishedAt: Date
     public var destinationFolders: [URL]
+    /// The `{iseq}` this card used, when known.
+    public var importNumber: Int?
     public var files: [CopiedFile]
     public var receipts: [URL]
 
@@ -63,14 +68,15 @@ public enum CardCopier {
     public static func copy(
         cardRoot: URL,
         cardName: String,
-        files: [CardFile],
+        files: [PlannedFile],
         to destinationFolders: [URL],
+        importNumber: Int? = nil,
         now: Date = Date(),
         progress: @Sendable (Int64, Int64) -> Void = { _, _ in },
         isCancelled: @Sendable () -> Bool = { false }
     ) throws -> CopyReport {
         let fm = FileManager.default
-        let totalBytes = files.reduce(0) { $0 + $1.size }
+        let totalBytes = files.reduce(0) { $0 + $1.source.size }
 
         for folder in destinationFolders {
             do {
@@ -89,9 +95,10 @@ public enum CardCopier {
         var workDone: Int64 = 0
         var results: [CopiedFile] = []
 
-        for file in files {
+        for planned in files {
+            let file = planned.source
             let source = cardRoot.appendingPathComponent(file.relativePath)
-            let targets = destinationFolders.map { $0.appendingPathComponent(file.relativePath) }
+            let targets = destinationFolders.map { $0.appendingPathComponent(planned.newName) }
             var alreadyThere = true
             var pending: [(final: URL, temp: URL)] = []
             var writers: [FileHandle] = []
@@ -154,7 +161,7 @@ public enum CardCopier {
                     }
                     if copyChecksum != checksum {
                         if written == target {
-                            throw CopyError.differentFileAlreadyThere(file: file.relativePath, destination: target.path)
+                            throw CopyError.differentFileAlreadyThere(file: planned.newName, destination: target.path)
                         }
                         throw CopyError.mismatch(file: file.relativePath, destination: target.path)
                     }
@@ -170,7 +177,7 @@ public enum CardCopier {
                         throw CopyError.writeFailed(file: file.relativePath, reason: error.localizedDescription)
                     }
                 }
-                results.append(CopiedFile(relativePath: file.relativePath, size: file.size,
+                results.append(CopiedFile(newName: planned.newName, originalPath: file.relativePath, size: file.size,
                                           checksum: XXHash64.hex(checksum), destinations: targets,
                                           alreadyThere: alreadyThere))
             } catch {
@@ -180,7 +187,8 @@ public enum CardCopier {
         }
 
         var report = CopyReport(cardName: cardName, startedAt: now, finishedAt: Date(),
-                                destinationFolders: destinationFolders, files: results, receipts: [])
+                                destinationFolders: destinationFolders, importNumber: importNumber,
+                                files: results, receipts: [])
         for folder in destinationFolders {
             report.receipts.append(try Receipt.write(report, in: folder))
         }
@@ -228,9 +236,9 @@ public enum Receipt {
         let safeCard = NameTemplate.clean(report.cardName)
         let url = folder.appendingPathComponent("Receipt_\(safeCard)_\(stamp.string(from: report.startedAt)).csv")
 
-        var lines = ["File,Size (bytes),xxHash64,Verified,Copied At"]
+        var lines = [header]
         for file in report.files {
-            lines.append([csv(file.relativePath), String(file.size), file.checksum,
+            lines.append([csv(file.newName), csv(file.originalPath), String(file.size), file.checksum,
                           file.alreadyThere ? "yes (already there)" : "yes",
                           iso.string(from: report.finishedAt)].joined(separator: ","))
         }
@@ -238,6 +246,7 @@ public enum Receipt {
         lines.append("Card,\(csv(report.cardName))")
         lines.append("Files,\(report.files.count)")
         lines.append("Total bytes,\(report.totalBytes)")
+        if let number = report.importNumber { lines.append("Import number,\(number)") }
         lines.append("Started,\(iso.string(from: report.startedAt))")
         lines.append("Finished,\(iso.string(from: report.finishedAt))")
         lines.append("Copies,\(csv(report.destinationFolders.map(\.path).joined(separator: " | ")))")
@@ -249,8 +258,78 @@ public enum Receipt {
         return url
     }
 
+    static let header = "File,Original Path,Size (bytes),xxHash64,Verified,Copied At"
+
     static func csv(_ value: String) -> String {
         guard value.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" }) else { return value }
         return "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+    }
+
+    /// True for a receipt's file name, optionally only one for the named card.
+    static func isReceipt(_ fileName: String, card: String? = nil) -> Bool {
+        let prefix = card.map { "Receipt_\(NameTemplate.clean($0))_" } ?? "Receipt_"
+        return fileName.hasPrefix(prefix) && fileName.lowercased().hasSuffix(".csv")
+    }
+
+    struct Row: Hashable {
+        var newName: String
+        var originalPath: String
+        var size: Int64
+    }
+
+    /// Reads back the files and import number from a receipt this app wrote.
+    /// Nil for anything else, including Milestone 1 receipts.
+    static func read(_ url: URL) -> (rows: [Row], importNumber: Int?)? {
+        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+        let lines = text.components(separatedBy: "\n")
+        guard lines.first == header else { return nil }
+        var rows: [Row] = []
+        var importNumber: Int?
+        var inSummary = false
+        for line in lines.dropFirst() {
+            if line.isEmpty { inSummary = true; continue }
+            let fields = parseLine(line)
+            if inSummary {
+                if fields.count == 2, fields[0] == "Import number" { importNumber = Int(fields[1]) }
+            } else {
+                guard fields.count >= 3, let size = Int64(fields[2]) else { return nil }
+                rows.append(Row(newName: fields[0], originalPath: fields[1], size: size))
+            }
+        }
+        return (rows, importNumber)
+    }
+
+    /// Splits one CSV line, undoing `csv(_:)`.
+    static func parseLine(_ line: String) -> [String] {
+        var fields: [String] = []
+        var field = ""
+        var quoted = false
+        var chars = line.makeIterator()
+        while let c = chars.next() {
+            if quoted {
+                if c == "\"" {
+                    // A doubled quote is a quote; a single one ends the quoted part.
+                    if let next = chars.next() {
+                        if next == "\"" { field.append("\"") } else {
+                            quoted = false
+                            if next == "," { fields.append(field); field = "" } else { field.append(next) }
+                        }
+                    } else {
+                        quoted = false
+                    }
+                } else {
+                    field.append(c)
+                }
+            } else if c == "\"" {
+                quoted = true
+            } else if c == "," {
+                fields.append(field)
+                field = ""
+            } else {
+                field.append(c)
+            }
+        }
+        fields.append(field)
+        return fields
     }
 }

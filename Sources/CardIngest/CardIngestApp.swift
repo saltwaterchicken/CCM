@@ -17,7 +17,10 @@ struct CardIngestApp: App {
         NSApplication.shared.appearance = NSAppearance(named: .darkAqua)
         let model = SettingsModel()
         _model = State(initialValue: model)
-        _watcher = State(initialValue: CardWatcher(settings: model.settings))
+        _watcher = State(initialValue: CardWatcher(settings: model.settings) { plan in
+            // Only a verified copy uses up the number, and the counter never goes down.
+            model.change { $0.nextImportNumber = plan.nextImportNumber(after: $0.nextImportNumber) }
+        })
     }
 
     var body: some Scene {
@@ -104,9 +107,24 @@ final class SettingsModel {
         }
     }
 
+    /// The next card's folder, e.g. 2026-10-23-ES001, or what's wrong with the pattern.
+    var folderPreview: Result<String, Error> {
+        Result { try settings.cardFolderName() }
+    }
+
     var destinationPreview: String {
+        switch folderPreview {
+        case let .success(name): settings.destinationRootURL.appendingPathComponent(name).path
+        case let .failure(error): error.localizedDescription
+        }
+    }
+
+    /// What a camera file called IMG_1234.CR3 taken today would become.
+    var fileNamePreview: String {
+        let values = TemplateValues(today: Date(), importNumber: settings.nextImportNumber,
+                                    capture: Date(), originalName: "IMG_1234.CR3")
         do {
-            return try settings.destinationFolder(for: Date()).path
+            return "IMG_1234.CR3 → " + (try NameTemplate(settings.renamePattern).render(values)) + ".CR3"
         } catch {
             return error.localizedDescription
         }
@@ -160,18 +178,42 @@ struct ContentView: View {
     }
 }
 
-/// Job name, destination and backup. Every change is saved to the settings file.
+/// Folder name, import number, destination and backup. Every change is saved
+/// to the settings file.
 struct JobPanel: View {
     @Bindable var model: SettingsModel
 
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
             GridRow {
-                Text("Job name").gridColumnAlignment(.trailing)
-                TextField("e.g. Smith Wedding", text: Binding(
-                    get: { model.settings.jobName },
-                    set: { name in model.change { $0.jobName = name } }))
-                    .textFieldStyle(.roundedBorder)
+                Text("Folder name").gridColumnAlignment(.trailing)
+                VStack(alignment: .leading, spacing: 4) {
+                    TextField("e.g. {todayyear4}-{todaymonth0}-{todayday0}-ES{iseq}", text: Binding(
+                        get: { model.settings.folderName },
+                        set: { pattern in model.change { $0.folderName = pattern } }))
+                        .textFieldStyle(.roundedBorder)
+                        .font(.body.monospaced())
+                    switch model.folderPreview {
+                    case let .success(name):
+                        Text("Next card: \(name)").foregroundStyle(.secondary)
+                    case let .failure(error):
+                        Label(error.localizedDescription, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
+            GridRow {
+                Text("Next import number")
+                HStack {
+                    TextField("1", value: Binding(
+                        get: { model.settings.nextImportNumber },
+                        set: { number in model.change { $0.nextImportNumber = max(1, number) } }),
+                              format: .number.grouping(.never))
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 70)
+                    Text("{iseq}; goes up by one after each card copies and verifies")
+                        .foregroundStyle(.secondary)
+                }
             }
             GridRow {
                 Text("Destination")
@@ -209,6 +251,13 @@ struct JobPanel: View {
                 Text(model.destinationPreview)
                     .foregroundStyle(.secondary)
                     .lineLimit(2).truncationMode(.middle)
+                    .textSelection(.enabled)
+            }
+            GridRow {
+                Text("File names")
+                Text(model.fileNamePreview)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
                     .textSelection(.enabled)
             }
             if let problem = model.settings.folderProblem {
@@ -298,6 +347,8 @@ struct CardsView: View {
     @ViewBuilder
     private func copyStatus(_ card: DetectedVolume) -> some View {
         switch watcher.copyStates[card.id] {
+        case .preparing:
+            ProgressView { Text("Reading capture dates and choosing names…") }
         case let .copying(fraction):
             ProgressView(value: fraction) {
                 Text("Copying and verifying… \(Int(fraction * 100))%")
@@ -307,6 +358,9 @@ struct CardsView: View {
                 Label("Copied and verified \(report.files.count) files (\(ByteCountFormatter.string(fromByteCount: report.totalBytes, countStyle: .file))). Nothing on the card was changed.",
                       systemImage: "checkmark.seal.fill")
                     .foregroundStyle(.green)
+                if let number = report.importNumber {
+                    Text("Import number \(String(format: "%03d", number))").foregroundStyle(.secondary)
+                }
                 ForEach(report.destinationFolders, id: \.self) { folder in
                     Text(folder.path).foregroundStyle(.secondary).textSelection(.enabled)
                 }

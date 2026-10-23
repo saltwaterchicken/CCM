@@ -12,13 +12,15 @@ The full brief is `BRIEF.md`.
 - [x] Step 3: Copy, verify with xxHash64, write the receipt. Tests for copy and verify. Confirmed on the Mac.
 - [ ] Step 4: Test on the photographer's Mac.
 
-**Milestone 2: Folder and file naming.** Spec agreed 2026-10-23 (see "Naming" below). Not started.
+**Milestone 2: Folder and file naming.** Spec agreed 2026-10-23 (see "Naming" below). Built and
+tested; waiting for the photographer to try it with a real card.
 
-- [ ] Step 1: Token patterns (`{todayyear4}`, `{iseq}`, `{frame4}`, ...) in NameTemplate, with tests.
-- [ ] Step 2: "Job name" becomes "Folder name" holding the pattern; import counter in settings and the
+- [x] Step 1: Token patterns (`{todayyear4}`, `{iseq}`, `{frame4}`, ...) in NameTemplate, with tests.
+- [x] Step 2: "Job name" becomes "Folder name" holding the pattern; import counter in settings and the
   Job panel; card folder `2026-10-23-ES001`; counter goes up after each successful import.
-- [ ] Step 3: Read each file's capture date and frame number; rename files on copy; tests.
-- [ ] Step 4: Receipt shows original name next to new name. Confirm on the Mac with a real card.
+- [x] Step 3: Read each file's capture date and frame number; rename files on copy; tests.
+- [ ] Step 4: Receipt shows original name next to new name (done, tested). Confirm on the Mac with a
+  real card (not yet).
 
 ## Decisions
 
@@ -31,18 +33,18 @@ The full brief is `BRIEF.md`.
   The photographer can keep a separate settings file per project and load it in the app.
   Any key missing from a file falls back to its default, so project files can be short.
   The Settings screen (Milestone 6) will edit this same file. For now the main window has a
-  Job panel (job name, destination, optional backup) that saves each change straight to the
-  settings file in use, so editing while a project file is loaded changes that project file.
+  Job panel (folder name, next import number, destination, optional backup) that saves each
+  change straight to the settings file in use, so editing while a project file is loaded
+  changes that project file (including its import counter).
+  Milestone 1 files still load: their `jobName` and `folderPattern` are ignored (dropped on the
+  next save), and the old default rename pattern, which was never used, becomes the new one.
   The backup can't be the destination, inside it, or contain it; Copy refuses until that's fixed.
 - **Look:** always dark, like Capture One, whatever the Mac's appearance setting: a near-black
   window with slightly lighter flat panels and small grey headings (`Theme` and `PanelStyle`
   in `CardIngestApp.swift`). Choose… panels and alerts are dark too.
-- **Default destination:** `~/Pictures/Card Ingest/{date:YYYY}/{date:YYYY-MM-DD}_{job}`,
-  e.g. `~/Pictures/Card Ingest/2026/2026-10-14_Smith Wedding/`.
-- **Default rename pattern:** `{date:YYYY-MM-DD}_{job}_{camera}_{seq:4}` (used from Milestone 2).
-- **Pattern fields:** `{date:FORMAT}` (YYYY, YY, MM, DD, hh, mm, ss), `{job}`, `{camera}`,
-  `{serial}`, `{original}`, `{seq:N}`. A `/` in the pattern makes a subfolder; `/` or `:`
-  inside a value becomes `-`, and `..` is ignored, so nothing can escape the destination.
+- **Default destination:** `~/Pictures/Card Ingest`, with each card's folder directly inside,
+  e.g. `~/Pictures/Card Ingest/2026-10-23-ES001/`. Patterns and tokens: see Naming.
+  A pattern always makes one name: `/` or `:` becomes `-`, so nothing can escape the destination.
 - **Second backup destination:** optional (empty `backupRoot` means none).
 - **Checksum:** xxHash64, implemented in-house (no third-party package).
 - **CI:** GitHub Actions on a macOS runner builds and runs the tests on every push, and fails
@@ -62,8 +64,8 @@ The full brief is `BRIEF.md`.
   `.Trashes`) and other file types are skipped. A folder that can't be read stops
   the scan with an error instead of being quietly skipped.
 
-- **Copying** (`CardCopier.swift`): files keep their folder layout from the card inside the
-  destination folder for now (renaming is Milestone 2, see Naming). Each file is read from the card once,
+- **Copying** (`CardCopier.swift`): files go flat into the card folder under their new names
+  (`ImportPlanner.swift` decides the folder and names first). Each file is read from the card once,
   hashed while being written to every destination, then each copy is read back from the drive
   (bypassing the memory cache) and compared. Copies are written under a hidden `.partial` name
   and only get their real name once verified. The original's modified date is kept.
@@ -71,7 +73,8 @@ The full brief is `BRIEF.md`.
   An existing identical file counts as already copied; a different file with the same name is
   never overwritten. Free space is checked before starting.
 - **Receipt:** `Receipt_<card>_<yyyy-MM-dd_HHmmss>.csv` in each destination folder. One row per
-  file (path, size, xxHash64, verified) followed by a short summary. Opens in Numbers or Excel.
+  file (new name, original path on the card, size, xxHash64, verified) followed by a short
+  summary including the import number. Opens in Numbers or Excel.
 
 ## Naming (Milestone 2)
 
@@ -108,6 +111,25 @@ pattern by hand like any other text (ES is just the example).
     Nothing is ever overwritten.
   - If the card folder already exists from a different card, the counter skips to the next free
     number instead of mixing cards.
+- **How these were built** (decided while building, 2026-10-22; `ImportPlanner.swift`):
+  - Tokens ignore case. `{frame4}` uses the last run of digits in the camera's name, so
+    GoPro's `GX010007` gives `0007`; fewer than 4 digits are padded (`IMG_12` gives `0012`).
+  - Capture-date tokens, `{frame4}` and `{filename}` only work in file names; in the folder name
+    they stop Copy with a message suggesting the `{today...}` tokens.
+  - "Same base name" means same folder on the card too, so `100CANON/IMG_0001` and
+    `101CANON/IMG_0001` are two different pictures (the second gets `-2`).
+  - In a set, the RAW's date wins, then the JPEG/HEIC's, then the clip's; sidecars never have
+    their own. EXIF has no time zone, so it's read as the Mac's time zone.
+  - When names clash, the earlier capture keeps the plain name. The `-2` applies to the whole
+    set, even if only the JPEG would have clashed, so pairs stay obvious.
+  - A folder "belongs to this card" if it's empty or only holds files with this card's new names
+    and sizes (an interrupted copy); then it's reused with the same number. Anything else makes
+    the counter skip on. With no `{iseq}` in the folder name there's no next folder, so Copy
+    stops and says to add `{iseq}`.
+  - Pressing Copy again after a card finished: the app finds the earlier folder from its receipt
+    (same card name, same files, same new names), checks the files are there and identical, and
+    doesn't use up another number. A card copied yesterday and copied again today gets a new
+    folder, because it's a new day.
 
 ## GUI wishlist
 
@@ -137,21 +159,47 @@ Suggestions so far, not yet decided. Edit freely.
 
 ## How to test what exists so far
 
-1. Install Xcode from the Mac App Store and open it once.
+1. Install Xcode from the Mac App Store and open it once. If `swift test` says "no such module
+   'XCTest'", Terminal is using the Command Line Tools instead of Xcode: either run
+   `sudo xcode-select -s /Applications/Xcode.app` once, or put
+   `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` in front of each `swift` command.
 2. In Terminal: `cd` into the project, then `swift test` (runs the tests) and
    `swift run -c release CardIngest` (opens the app; `-c release` makes copying and checksums
    much faster). Or open `Package.swift` in Xcode and press Run.
-3. The app shows "Waiting for a card…", a Job panel, and the settings file path. Type a job
-   name: "Copies go to" updates as you type. Press Choose… next to Destination and Backup to
-   pick folders; Remove clears the backup. Quit and reopen the app: the choices are kept.
-   "Show in Finder" reveals `Settings.plist`, which now has the new values. Choose the same
-   folder for Backup as Destination: a red warning appears and Copy refuses to start.
+3. The app shows "Waiting for a card…", a Job panel, and the settings file path. The Job panel has:
+   - **Folder name**: `{todayyear4}-{todaymonth0}-{todayday0}-ES{iseq}`, with "Next card:
+     2026-10-23-ES001" (today's date) under it. Type in it and the preview changes as you type.
+     Type `{jobname}` and a red message names `{jobname}` as a token it doesn't know; type
+     `{year4}` and it says that one only works in file names. Undo back to the default.
+   - **Next import number**: 1. Change it to 7 and the preview says ES007; set it back to 1.
+   - **Copies go to**: the destination with the folder name, e.g.
+     `~/Pictures/Card Ingest/2026-10-23-ES001`, with no year folder.
+   - **File names**: `IMG_1234.CR3 → 2026-10-23-ES_1234.CR3` (today's date as an example).
+   Choose… next to Destination and Backup picks folders; Remove clears the backup. Choose the same
+   folder for Backup as Destination: a red warning appears and Copy refuses to start. Quit and
+   reopen: everything is kept, and "Show in Finder" reveals `Settings.plist` with `folderName` and
+   `nextImportNumber` in it (an old file's `jobName` and `folderPattern` are gone after any change).
 4. `scripts/make-fake-card.sh` makes and mounts a pretend card named FAKECARD. Within a moment
-   the app shows FAKECARD with "9 camera files" (MISC/SETTINGS.DAT isn't a camera file). Eject it in Finder
-   and the app goes back to "Waiting for a card…".
+   the app shows FAKECARD with "11 camera files" (MISC/SETTINGS.DAT isn't a camera file). Eject it
+   in Finder and the app goes back to "Waiting for a card…".
 5. Plug in any USB stick or card: it should show up too. Open "Other drives left alone": your
    Mac's own drive should be listed with the reason it was skipped.
-6. With FAKECARD mounted, press Copy. The bar fills, then it says "Copied and verified 9 files".
-   "Show Imported Files" opens the destination folder in Finder with the copied files in it;
-   "Show Receipt in Finder" opens the destination folder with the receipt selected. Press Copy
-   again: it finishes quickly because the files are already there and identical.
+6. With FAKECARD mounted and Next import number at 1, press Copy. It briefly says "Reading capture
+   dates and choosing names…", the bar fills, then "Copied and verified 11 files" and
+   "Import number 001". Next import number in the Job panel is now 2.
+   "Show Imported Files" opens `2026-10-23-ES001` (today's date), with the files side by side, no
+   DCIM folders:
+   - `…-ES_0001.CR3` and `.JPG`, `…-ES_0001-2.CR3` and `.JPG` (the second IMG_0001, from 101TEST),
+     `…-ES_0002`, `…-ES_0003` (CR3 and JPG each), `…-ES_0004.HEIC`, all with today's date
+     because the fake files have no EXIF;
+   - `2026-10-14-ES_0005.MP4` and `2026-10-14-ES_0005.THM`: the clip is dated 14 October and its
+     thumbnail follows it.
+   "Show Receipt in Finder" selects the receipt; open it in Numbers: each row has the new name,
+   then the original path on the card (e.g. `DCIM/101TEST/IMG_0001.CR3`), then size and checksum.
+7. Press Copy again: it finishes quickly into the same `…-ES001` folder (the files are already
+   there and identical), and Next import number stays at 2.
+8. Eject FAKECARD, run the script again (a new card with new random files), and set Next import
+   number back to 1. Press Copy: `…-ES001` already holds the first card, so this one goes into
+   `…-ES002` and the number becomes 3.
+9. Press Copy and then Stop straight away: Next import number doesn't change, and pressing Copy
+   again uses the same folder.

@@ -48,6 +48,16 @@ else
     head -c 300000 /dev/urandom > "$FOLDER/IMG_0004.HEIC"
     head -c 5000000 /dev/urandom > "$FOLDER/MVI_0005.MP4"
     head -c 20000 /dev/urandom > "$FOLDER/MVI_0005.THM"
+    # Random bytes have no capture date, so the app uses each file's modified
+    # date. The clip says it was shot on 14 October; its .THM follows the clip.
+    touch -t 202610140905 "$FOLDER/MVI_0005.MP4"
+
+    # The camera's counter started again in a new folder: a second, different
+    # IMG_0001 (RAW+JPEG) shot the same day. It gets "-2" instead of a clash.
+    sleep 1
+    mkdir -p "${CARD}/DCIM/101TEST"
+    head -c 2000000 /dev/urandom > "${CARD}/DCIM/101TEST/IMG_0001.CR3"
+    head -c 500000 /dev/urandom > "${CARD}/DCIM/101TEST/IMG_0001.JPG"
 fi
 
 # Something that should be ignored, like the files cameras leave behind.
@@ -55,4 +65,4 @@ mkdir -p "${CARD}/MISC"
 echo "camera settings" > "${CARD}/MISC/SETTINGS.DAT"
 
 echo "Fake card mounted at ${CARD}:"
-ls -l "$FOLDER"
+ls -lR "${CARD}/DCIM"
