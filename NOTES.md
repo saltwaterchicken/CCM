@@ -399,6 +399,9 @@ Suggestions so far, not yet decided. Edit freely.
 2. In Terminal: `cd` into the project, then `swift test` (runs the tests) and
    `swift run -c release CardIngest` (opens the app; `-c release` makes copying and checksums
    much faster). Or open `Package.swift` in Xcode and press Run.
+   To open it by double-click instead, run `scripts/make-app.sh` once: it builds
+   "CCM Card Ingest.app" into /Applications (drag it to the Dock if you like). Run it again
+   after pulling new code to update the app.
 3. The app shows "Waiting for a card…", a Job panel, and the settings file path. The Job panel has:
    - **Folder name**: `{todayyear4}-{todaymonth0}-{todayday0}-ES{iseq}`, with "Next card:
      2026-10-23-ES001" (today's date) under it. Type in it and the preview changes as you type.
