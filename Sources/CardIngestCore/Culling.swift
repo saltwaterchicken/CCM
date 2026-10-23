@@ -18,12 +18,12 @@ public enum StarFilter: Hashable, Sendable {
         }
     }
 
-    /// Videos have no stars, so they only show with All.
+    /// Videos and unrated photos have no stars, so they only show with All.
     func shows(_ shot: Shot, stars: Int?) -> Bool {
         switch self {
         case .all: true
-        case let .atLeast(n): shot.isRatable && (stars ?? 0) >= n
-        case .flagged: shot.isRatable && (stars ?? 0) == 0
+        case let .atLeast(n): shot.isRatable && (stars ?? -1) >= n
+        case .flagged: shot.isRatable && stars == 0
         }
     }
 }
@@ -162,7 +162,8 @@ public struct CullGrid: Equatable, Sendable {
 /// A card folder from an earlier import, back in the grid: after a crash, or
 /// to carry on culling another day, without putting the card back in.
 public enum ImportedFolder {
-    /// The folder's shots, in name order, with the stars from their sidecars.
+    /// The folder's shots, in name order, with the stars from their sidecars
+    /// (or, for a JPEG or HEIC with no RAW and no sidecar, embedded in it).
     /// When the backup has a folder of the same name, its copies are included,
     /// so stars changed now are saved in both, as during a Copy.
     public static func shots(in folder: URL, backupRoot: URL?, fileTypes: FileTypes) throws -> [LandedShot] {
@@ -186,8 +187,7 @@ public enum ImportedFolder {
         // A sidecar with no picture of its own isn't a shot.
         let shots = ShotList(fileTypes: fileTypes, files: files).shots.filter { $0.kind != .sidecar && $0.kind != .other }
         return shots.enumerated().map { index, shot in
-            let stars = shot.isRatable ? Stars.sidecars(of: shot).lazy.compactMap { Stars.read(xmp: $0) }.first : nil
-            return LandedShot(shot: shot, stars: stars, position: index)
+            LandedShot(shot: shot, stars: Stars.found(for: shot), position: index)
         }
     }
 }

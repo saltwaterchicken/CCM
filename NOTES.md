@@ -45,8 +45,8 @@ and auto-rating (see "Culling grid"). **Done**, confirmed by the photographer 20
   wasn't needed and wasn't built.
 
 **Milestone 4: Metadata template.** Started 2026-10-23 with a test of what the NAS reads, before
-any code (see "Metadata"). Also embeds stars in JPEG-only and HEIC shots so Lightroom sees them,
-without breaking the receipt or already-imported checks.
+any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropped 2026-10-23 (see
+"JPEG-only and HEIC shots" under the culling grid): their copies stay exactly the card's files.
 
 - [ ] Step 1: NAS readability test. Tag the same sample files in Bridge and in Photo Mechanic, copy
   both folders to the Synology, and record in the checklist what Synology Photos shows. Then look
@@ -326,10 +326,21 @@ How it works:
   shot, in the destination and the backup alike, written atomically. One sidecar per shot, so a
   RAW+JPEG pair shares it. RAW files are never rewritten. A small hand-written XMP packet is enough
   for now; the metadata milestone (ExifTool) adds the template fields to the same sidecar.
-- **JPEG-only and HEIC shots:** sidecar for now too. Known gap: Lightroom ignores sidecars for JPEG
-  and HEIC, so it won't see those stars until the metadata milestone embeds them (Photo Mechanic and
-  Bridge do read them). Embedding now would change the copy after it was verified, which would break
-  the receipt checksum and the "same size" checks behind already-imported and trash.
+- **JPEG-only and HEIC shots** (a JPEG or HEIC with no RAW; the photographer's call, 2026-10-23):
+  - The app never writes into a JPEG or HEIC, so every copy keeps the card's checksum, and import,
+    receipt, already-imported, resume and trash work as for any file. Tested 2026-10-23: ImageIO can
+    set a JPEG's rating without re-compressing, but it rewrites the EXIF block too (re-rounded
+    values), which risks a camera's maker notes. Not worth it on originals.
+  - **No star on import:** nothing is written for them when they land (they used to get a 1-star
+    `.xmp`, probably a mistake). The tile shows the rating already in the photo (as the camera or an
+    editor set it, a 0 counting as unrated), else grey empty stars for "not rated".
+  - **Load Folder** reads the shot's sidecar if there is one, else the rating embedded in the photo,
+    as it is: Capture One and Lightroom write `xmp:Rating` inside a JPEG, not in a sidecar. A 0
+    there shows as 0. Checked on an exported Capture One folder (242 JPEGs: 13 at 1, 229 at 0).
+  - A number key still writes a `.xmp` sidecar (the JPEG is untouched). Known gap: Lightroom
+    ignores sidecars for JPEG and HEIC, so it won't see stars given here (Photo Mechanic and Bridge
+    do).
+  - Grey empty stars (not rated) only show with the All filter; the 0★ filter shows only real 0s.
 - **A sidecar that came off the card:** if the camera wrote an `.xmp` with the same base name, update
   its rating inside it instead of replacing it. Already-imported and trash must still recognise that
   file afterwards (its size changes), so treat `.xmp` files as matched by name, not size.
@@ -505,7 +516,7 @@ Suggestions so far, not yet decided. Edit freely.
     next to it (one per RAW+JPEG pair). Import the folder into Lightroom Classic: the RAWs show
     1 star. Open the folder in Bridge or Photo Mechanic: 1 star there too. Change a star in Bridge,
     then open that `.xmp` in TextEdit: `<xmp:Rating>` has the new number. Known gap: Lightroom
-    ignores sidecars for JPEG-only and HEIC shots until the metadata milestone embeds stars.
+    ignores sidecars for JPEG-only and HEIC shots (see "JPEG-only and HEIC shots").
     A card copied before the digest fix (2026-10-22-ES006) shows no stars in Lightroom; re-test with
     new pictures (a card put back in only brings in pictures it hasn't seen).
 13. The culling grid (needs real photos, as in step 12; Trash unticked). Press Copy: tiles appear on
@@ -526,3 +537,7 @@ Suggestions so far, not yet decided. Edit freely.
     crashes Card Ingest. The large view shows the photo straight away and → is instant. Quit Card
     Ingest, open it again, press Load Folder… and pick an earlier card folder: its photos come back
     with the stars you gave them; change one, then import that folder in Lightroom to see it.
+16. JPEG-only shots (2026-10-23). Put a few JPEGs with no RAW on the fake card and press Copy: their
+    tiles show grey empty stars (or the camera's rating), and no `.xmp` appears next to them. Then
+    press Load Folder… and pick a folder of JPEGs exported from Capture One or Lightroom with stars:
+    the tiles show the same stars as Capture One or Lightroom. Choose 0★: the grey ones aren't in it.

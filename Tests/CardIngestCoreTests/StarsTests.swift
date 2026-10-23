@@ -3,7 +3,8 @@ import UniformTypeIdentifiers
 import XCTest
 @testable import CardIngestCore
 
-/// Stars in .xmp sidecars: 1 star when a photo lands, kept through re-copies and trashing.
+/// Stars in .xmp sidecars: 1 star when a RAW lands, kept through re-copies and trashing.
+/// JPEG or HEIC shots with no RAW get nothing written; their embedded rating is only read.
 final class StarsTests: XCTestCase {
     private var base: URL!
     private var card: URL { base.appendingPathComponent("CARD", isDirectory: true) }
@@ -123,7 +124,7 @@ final class StarsTests: XCTestCase {
 
     // MARK: On landing
 
-    func testEveryPhotoLandsWithOneStarInEveryDestination() throws {
+    func testEveryRAWLandsWithOneStarInEveryDestination() throws {
         try put("DCIM/100CANON/IMG_0001.CR3", RawXMPTests.cr3(xmp: RawXMPTests.block))
         try put("DCIM/100CANON/IMG_0001.JPG", bytes(1000, 2))
         try put("DCIM/100CANON/IMG_0004.HEIC", bytes(900, 3))
@@ -131,7 +132,7 @@ final class StarsTests: XCTestCase {
         try put("DCIM/100CANON/MVI_0005.THM", bytes(100, 5))
         let (plan, _, shots) = try importCard()
 
-        XCTAssertEqual(shots.ratings.count, 2)
+        XCTAssertEqual(shots.ratings.count, 1)
         XCTAssertEqual(shots.starProblems, [])
         for folder in plan.folders {
             let names = Set(try fm.contentsOfDirectory(atPath: folder.path))
@@ -141,9 +142,9 @@ final class StarsTests: XCTestCase {
             // The RAW's digest is in its sidecar, so Lightroom reads the stars.
             let text = try String(contentsOf: folder.appendingPathComponent(pair.xmpName), encoding: .utf8)
             XCTAssertTrue(text.contains(RawXMPTests.md5(RawXMPTests.block)))
-            XCTAssertEqual(Stars.read(xmp: folder.appendingPathComponent(try shot(shots, endingIn: "0004").xmpName)), 1)
+            XCTAssertFalse(names.contains(try shot(shots, endingIn: "0004").xmpName), "No star for a HEIC with no RAW")
             XCTAssertFalse(names.contains(try shot(shots, endingIn: "0005").xmpName), "Videos get no star")
-            XCTAssertEqual(names.filter { $0.hasSuffix(".xmp") }.count, 2)
+            XCTAssertEqual(names.filter { $0.hasSuffix(".xmp") }.count, 1)
         }
     }
 
@@ -164,13 +165,58 @@ final class StarsTests: XCTestCase {
         let zero = main.appendingPathComponent(try shot(shots, endingIn: "0003").xmpName)
         XCTAssertEqual(Stars.read(xmp: zero), 1)
         XCTAssertTrue(try String(contentsOf: zero, encoding: .utf8).contains("Canon"))
-        XCTAssertEqual(Stars.read(xmp: main.appendingPathComponent(try shot(shots, endingIn: "0006").xmpName)), 2)
-        XCTAssertEqual(try fm.contentsOfDirectory(atPath: main.path).filter { $0.lowercased().hasSuffix(".xmp") }.count, 3)
+        XCTAssertFalse(fm.fileExists(atPath: main.appendingPathComponent(try shot(shots, endingIn: "0006").xmpName).path),
+                       "The JPEG with no RAW keeps its own rating, nothing written")
+        XCTAssertEqual(try fm.contentsOfDirectory(atPath: main.path).filter { $0.lowercased().hasSuffix(".xmp") }.count, 2)
         // Only the copies are written; the card's own sidecar is untouched.
         XCTAssertEqual(try Data(contentsOf: card.appendingPathComponent("DCIM/100CANON/IMG_0003.XMP")), original)
     }
 
+    func testAJPEGWithNoRAWLandsUntouchedShowingItsOwnRating() throws {
+        try put("DCIM/100CANON/IMG_0001.JPG", try jpeg(rating: 3))
+        try put("DCIM/100CANON/IMG_0002.JPG", try jpeg(rating: 0))
+        try put("DCIM/100CANON/IMG_0003.HEIC", bytes(900, 3))
+        let original = try Data(contentsOf: card.appendingPathComponent("DCIM/100CANON/IMG_0001.JPG"))
+        let plan = try ImportPlanner.plan(cardRoot: card, cardName: "CARD",
+                                          files: try CardScanner.scan(cardRoot: card, fileTypes: settings.fileTypes),
+                                          settings: settings, captureDate: { _, _ in nil })
+        let live = LiveShots(planned: plan.files, fileTypes: settings.fileTypes)
+        let report = try CardCopier.copy(cardRoot: card, cardName: "CARD", files: plan.files, to: plan.folders,
+                                         importNumber: plan.importNumber)
+        // As the app hands each verified copy over.
+        let landed = report.files.compactMap(live.complete)
+
+        // The camera's 0 means "not rated", as for RAWs.
+        XCTAssertEqual(landed.map(\.stars), [3, nil, nil])
+        XCTAssertEqual(live.ratings, [:])
+        XCTAssertEqual(live.starProblems, [])
+        for folder in plan.folders {
+            XCTAssertEqual(try fm.contentsOfDirectory(atPath: folder.path).filter { $0.lowercased().hasSuffix(".xmp") }, [])
+            let copy = folder.appendingPathComponent(report.files[0].newName)
+            XCTAssertEqual(try Data(contentsOf: copy), original, "The copy is exactly the card's file")
+        }
+    }
+
     // MARK: Loading an earlier import
+
+    func testLoadingAFolderReadsTheRatingInsideAJPEGWithNoSidecar() throws {
+        let folder = base.appendingPathComponent("Exported", isDirectory: true)
+        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        try jpeg(rating: 1).write(to: folder.appendingPathComponent("A_0001.jpg"))
+        try jpeg(rating: 0).write(to: folder.appendingPathComponent("A_0002.jpg"))
+        try jpeg(rating: nil).write(to: folder.appendingPathComponent("A_0003.jpg"))
+        try jpeg(rating: 2).write(to: folder.appendingPathComponent("A_0004.jpg"))
+        try Stars.write(5, toXMP: folder.appendingPathComponent("A_0004.xmp"))
+        // A RAW+JPEG pair goes by its sidecar only, never the JPEG.
+        try bytes(3000, 1).write(to: folder.appendingPathComponent("A_0005.CR3"))
+        try jpeg(rating: 4).write(to: folder.appendingPathComponent("A_0005.jpg"))
+        let before = try Data(contentsOf: folder.appendingPathComponent("A_0001.jpg"))
+
+        let loaded = try ImportedFolder.shots(in: folder, backupRoot: nil, fileTypes: settings.fileTypes)
+        XCTAssertEqual(loaded.map(\.stars), [1, 0, nil, 5, nil], "As saved: a sidecar wins, 0 stays 0")
+        XCTAssertEqual(try Data(contentsOf: folder.appendingPathComponent("A_0001.jpg")), before, "Only read")
+        XCTAssertEqual(try fm.contentsOfDirectory(atPath: folder.path).filter { $0.hasSuffix(".xmp") }, ["A_0004.xmp"])
+    }
 
     func testAnEarlierImportComesBackWithItsStarsAndBackup() throws {
         try put("DCIM/100CANON/IMG_0001.CR3", bytes(3000, 1))

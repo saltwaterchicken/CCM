@@ -74,14 +74,25 @@ public enum Stars {
         return f.string(from: date)
     }
 
-    /// Gives a shot that just landed its first stars, in every destination,
+    /// The stars a shot already has, without writing anything: its sidecar's
+    /// in any destination, else, for a JPEG or HEIC with no RAW, the rating
+    /// embedded in the photo (as Lightroom and Capture One write it there).
+    /// Nil for videos and unrated photos.
+    public static func found(for shot: Shot) -> Int? {
+        guard shot.isRatable else { return nil }
+        if let stars = sidecars(of: shot).lazy.compactMap({ read(xmp: $0) }).first { return stars }
+        return shot.kind == .photo ? shot.primary.destinations.lazy.compactMap(inCamera).first : nil
+    }
+
+    /// Gives a RAW shot that just landed its first stars, in every destination,
     /// and says what they are; nil for videos. Stars already in its sidecar
     /// (from the card, or an earlier interrupted copy) are kept, then a rating
     /// set in the camera, then 1 star. Cameras write 0 for "not rated", so a
     /// 0 found here counts as no rating (0 is kept for the automatic checks).
+    /// A JPEG or HEIC with no RAW gets nothing written and returns nil.
     @discardableResult
     public static func rateOnLanding(_ shot: Shot) throws -> Int? {
-        guard shot.isRatable else { return nil }
+        guard shot.kind == .raw else { return nil }
         let urls = sidecars(of: shot)
         let rated = { (stars: Int?) in stars == 0 ? nil : stars }
         let stars = urls.lazy.compactMap { rated(read(xmp: $0)) }.first
@@ -132,7 +143,7 @@ public enum StarsError: Error, LocalizedError, Equatable {
 /// A shot whose files are all in, ready for the grid.
 public struct LandedShot: Sendable {
     public let shot: Shot
-    /// Its first stars; nil for videos, or if its sidecar couldn't be written.
+    /// Its first stars; nil for videos, unrated JPEG/HEIC-only shots, or if its sidecar couldn't be written.
     public let stars: Int?
     /// 0 for the first shot of the Copy to land, then 1, 2 ...
     public let position: Int
@@ -168,18 +179,25 @@ public final class LiveShots: @unchecked Sendable {
             let index = list.add(file)
             let shot = list.shots[index]
             guard shot.files.count == expected[shot.id, default: 1] else { return nil }
+            var shown: Int?
             do {
-                if let given = try Stars.rateOnLanding(shot) { stars[shot.id] = given }
+                if let given = try Stars.rateOnLanding(shot) {
+                    stars[shot.id] = given
+                    shown = given
+                } else if shot.kind == .photo {
+                    // Nothing written: shown as its card sidecar or the camera rates it, 0 counting as unrated.
+                    shown = Stars.found(for: shot).flatMap { $0 == 0 ? nil : $0 }
+                }
             } catch {
                 problems.append(error.localizedDescription)
             }
             completed += 1
-            return LandedShot(shot: shot, stars: stars[shot.id], position: completed - 1)
+            return LandedShot(shot: shot, stars: shown, position: completed - 1)
         }
     }
 
     public var shots: [Shot] { lock.withLock { list.shots } }
-    /// Stars by shot id, for shots that have them so far.
+    /// Stars written to sidecars by shot id, so far.
     public var ratings: [String: Int] { lock.withLock { stars } }
     /// Sidecars that couldn't be written. The copies themselves are fine.
     public var starProblems: [String] { lock.withLock { problems } }

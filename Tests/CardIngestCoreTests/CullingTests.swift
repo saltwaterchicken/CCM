@@ -135,6 +135,17 @@ final class CullingTests: XCTestCase {
         XCTAssertEqual(StarFilter.choices.map(\.label), ["All", "★1+", "★2+", "★3+", "★4+", "★5", "0★"])
     }
 
+    func testUnratedPhotosOnlyShowWithAll() {
+        var grid = ratedGrid()
+        grid.add(LandedShot(shot: shot("ES_0006.JPG"), stars: nil, position: 5))
+        grid.filter = .flagged
+        XCTAssertEqual(grid.visible.map(\.id), [p3], "Not rated isn't flagged")
+        grid.filter = .atLeast(1)
+        XCTAssertEqual(grid.visible.map(\.id), [p1, p2, p5])
+        grid.filter = .all
+        XCTAssertEqual(grid.visible.map(\.id), [p1, p2, p3, clip, p5, "es_0006"])
+    }
+
     func testFilteringDropsHiddenShotsFromTheSelection() {
         var grid = ratedGrid()
         grid.selectAll()
@@ -219,8 +230,9 @@ final class CullingTests: XCTestCase {
         }
         XCTAssertEqual(landed.map(\.shot.files.count), [2, 1])
         XCTAssertEqual(landed.map(\.position), [0, 1])
-        XCTAssertEqual(landed.map(\.stars), [1, 1])
+        XCTAssertEqual(landed.map(\.stars), [1, nil], "A JPEG with no RAW gets no star")
         XCTAssertEqual(landed[0].shot.badge, "RAW+JPG")
         XCTAssertTrue(fm.fileExists(atPath: folder.appendingPathComponent("2026-10-14-ES_0001.xmp").path))
+        XCTAssertFalse(fm.fileExists(atPath: folder.appendingPathComponent("2026-10-14-ES_0002.xmp").path))
     }
 }

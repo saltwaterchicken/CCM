@@ -402,7 +402,7 @@ struct TileView: View {
                 .truncationMode(.middle)
                 .foregroundStyle(.secondary)
             if shot.isRatable {
-                StarsView(stars: stars ?? 0)
+                StarsView(stars: stars)
             } else {
                 Text(" ").font(.caption)
             }
@@ -445,19 +445,21 @@ struct TileView: View {
 }
 
 /// Five stars, as many filled as given. 0 (the app's flag, later) shows all
-/// empty, in orange so it stands out from 1.
+/// empty, in orange so it stands out from 1. Nil (not rated yet) shows all
+/// empty in grey.
 struct StarsView: View {
-    let stars: Int
+    let stars: Int?
 
     var body: some View {
+        let filled = stars ?? 0
         HStack(spacing: 2) {
             ForEach(1...5, id: \.self) { n in
-                Image(systemName: n <= stars ? "star.fill" : "star")
+                Image(systemName: n <= filled ? "star.fill" : "star")
                     .font(.caption)
-                    .foregroundStyle(n <= stars ? Color.yellow : (stars == 0 ? Color.orange.opacity(0.7) : Color.secondary.opacity(0.5)))
+                    .foregroundStyle(n <= filled ? Color.yellow : (stars == 0 ? Color.orange.opacity(0.7) : Color.secondary.opacity(0.5)))
             }
         }
-        .accessibilityLabel("\(stars) stars")
+        .accessibilityLabel(stars.map { "\($0) stars" } ?? "Not rated")
     }
 }
 
@@ -574,7 +576,7 @@ struct LargeView: View {
         HStack(spacing: 12) {
             if let shot {
                 Text(shot.baseName).font(.headline)
-                if shot.isRatable { StarsView(stars: model.grid.stars[shot.id] ?? 0) }
+                if shot.isRatable { StarsView(stars: model.grid.stars[shot.id]) }
                 if let index = model.grid.visible.firstIndex(where: { $0.id == shot.id }) {
                     Text("\(index + 1) of \(model.grid.visible.count)").foregroundStyle(.secondary)
                 }
