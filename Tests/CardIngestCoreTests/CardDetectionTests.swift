@@ -78,7 +78,9 @@ final class CardScannerTests: XCTestCase {
     }
 
     private func write(_ path: String, bytes: Int) throws {
-        try Data(repeating: 7, count: bytes).write(to: card.appendingPathComponent(path))
+        let url = card.appendingPathComponent(path)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(repeating: 7, count: bytes).write(to: url)
     }
 
     func testFindsCameraFilesAndSkipsTheRest() throws {
@@ -101,6 +103,32 @@ final class CardScannerTests: XCTestCase {
             "MISC/IMG_9999.JPG",
         ])
         XCTAssertEqual(files.map(\.size), [300, 100, 500, 10, 4])
+    }
+
+    func testSonyVideoFolderKeepsClipsAndSkipsTheCamerasIndex() throws {
+        try write("DCIM/100MSDCF/DSC00001.ARW", bytes: 300)
+        try write("PRIVATE/M4ROOT/MEDIAPRO.XML", bytes: 40)       // the RX100's index of its clips
+        try write("PRIVATE/M4ROOT/CUEUP.XML", bytes: 40)
+        try write("PRIVATE/M4ROOT/STATUS.BIN", bytes: 40)
+        try write("PRIVATE/M4ROOT/THMBNL/C0001T01.JPG", bytes: 40) // clip thumbnail, not a photo
+        try write("PRIVATE/M4ROOT/CLIP/C0001.MP4", bytes: 500)
+        try write("PRIVATE/M4ROOT/CLIP/C0001M01.XML", bytes: 50)  // the clip's own sidecar
+        try write("PRIVATE/M4ROOT/SUB/C0001S03.MP4", bytes: 100)  // proxy
+        try write("XDROOT/General/INDEX.XML", bytes: 40)
+        try write("XDROOT/Clip/Clip0001.MXF", bytes: 600)
+        try write("XDROOT/Clip/Clip0001M01.XML", bytes: 50)
+
+        let files = try CardScanner.scan(cardRoot: card, fileTypes: FileTypes())
+        XCTAssertEqual(files.map(\.relativePath), [
+            "DCIM/100MSDCF/DSC00001.ARW",
+            "PRIVATE/M4ROOT/CLIP/C0001.MP4",
+            "PRIVATE/M4ROOT/CLIP/C0001M01.XML",
+            "PRIVATE/M4ROOT/SUB/C0001S03.MP4",
+            "XDROOT/Clip/Clip0001.MXF",
+            "XDROOT/Clip/Clip0001M01.XML",
+        ])
+        XCTAssertTrue(CardScanner.isCameraIndex("private/m4root/mediapro.xml"), "Case doesn't matter")
+        XCTAssertFalse(CardScanner.isCameraIndex("DCIM/100MSDCF/MEDIAPRO.XML"))
     }
 
     func testEmptyCard() throws {

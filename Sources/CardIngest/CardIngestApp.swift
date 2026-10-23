@@ -28,7 +28,7 @@ struct CardIngestApp: App {
     var body: some Scene {
         WindowGroup("Card Ingest") {
             ContentView(model: model, watcher: watcher)
-                .frame(minWidth: 600, minHeight: 520)
+                .frame(minWidth: 1000, minHeight: 620)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Theme.window)
                 .groupBoxStyle(PanelStyle())
@@ -138,6 +138,21 @@ struct ContentView: View {
     var watcher: CardWatcher
 
     var body: some View {
+        // Cards and settings on the left, the photos just copied on the right, like Photo Mechanic.
+        HStack(alignment: .top, spacing: 16) {
+            ScrollView {
+                controls
+            }
+            .frame(width: 480)
+            CullingView(model: watcher.grid)
+        }
+        .padding(16)
+        .overlay {
+            if watcher.grid.isViewing { LargeView(model: watcher.grid) }
+        }
+    }
+
+    private var controls: some View {
         VStack(alignment: .leading, spacing: 16) {
             CardsView(watcher: watcher)
 
@@ -165,9 +180,7 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(4)
             }
-            Spacer()
         }
-        .padding(20)
     }
 
     private func chooseFile() {

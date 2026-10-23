@@ -33,9 +33,14 @@ and auto-rating (see "Culling grid"). Not started.
   Lightroom, Bridge or Photo Mechanic. Confirmed in Lightroom Classic 2026-10-22 with a Sony RX100
   card (after the RAW digest fix below), then with Nikon NEF, Canon CR3 and Fujifilm RAF files
   copied from a card: all showed 1 star.
-- [ ] Step 3: Thumbnail maker (embedded RAW preview, JPEG/HEIC, video frame), background and cached.
-- [ ] Step 4: Grid in the main window filling live during Copy; selection, 0 to 5 keys, auto-advance.
-- [ ] Step 5: Larger view (double-click), Space for 100%, arrows, star filter.
+- [x] Step 3: Thumbnail maker (embedded RAW preview, JPEG/HEIC, video frame), background and cached.
+  `Thumbnails.swift`; nothing on screen until Step 4.
+- [x] Step 4: Grid in the main window filling live during Copy; selection, 0 to 5 keys, auto-advance.
+  `Culling.swift` in Core, `CullingView.swift` in the app. Confirmed on the Mac with a real card,
+  2026-10-23.
+- [x] Step 5: Larger view (double-click), Space for 100%, arrows, star filter. Plus (asked for
+  2026-10-23) an Open button sending photos to Lightroom Classic, Load Folder…, Reveal in Finder,
+  and up/down arrows. Confirmed on the Mac 2026-10-23.
 - [ ] Step 6: Confirm on the Mac with a slow fake card and a large real card.
 
 **Milestone 5: Trash and eject.** Started early at the photographer's request, 2026-10-22, while
@@ -85,7 +90,11 @@ Milestone 2's metadata waits on the template. Built and tested on disk images; n
   count because they are ejectable, which is what makes the fake card work.
 - **Scanning:** every file on the drive with a listed extension is counted, wherever it is
   (DCIM, Sony's PRIVATE/M4ROOT, etc.). Hidden files and folders (`._*`, `.DS_Store`,
-  `.Trashes`) and other file types are skipped. A folder that can't be read stops
+  `.Trashes`) and other file types are skipped. So is the camera's own index (decided 2026-10-22,
+  after an RX100 card's `MEDIAPRO.XML` was copied as `…-ES_0000.XML`): inside Sony's `M4ROOT` (and
+  `XDROOT` on pro cameras) only `CLIP` and `SUB` count, so `MEDIAPRO.XML`, `STATUS.BIN`,
+  `CUEUP.XML` and the clip thumbnails in `THMBNL` are never copied or trashed
+  (`CardScanner.isCameraIndex`). A folder that can't be read stops
   the scan with an error instead of being quietly skipped.
 
 - **Copying** (`CardCopier.swift`): files go flat into the card folder under their new names
@@ -255,6 +264,54 @@ How it works:
   2,000-file card doesn't slow the copy. The full-window view uses the largest embedded preview. For
   100%, if the embedded preview is smaller than the sensor, decode the RAW itself with Core Image
   (`CIRAWFilter`). All Apple frameworks, no new dependency.
+  Built 2026-10-22 (`ThumbnailMaker`, `ThumbnailCache`), measured on the photographer's files:
+  - RAWs use the camera's built-in preview: 10 to 60 ms for a 400-pixel tile from Sony ARW, Nikon
+    NEF, Canon CR3 and Fuji RAF, against 100 to 500 ms to decode the RAW. The tile looks like the
+    camera's JPEG (a black-and-white picture style shows black and white), as in Photo Mechanic.
+  - A JPEG's built-in thumbnail is only 160 pixels, so anything smaller than the tile is drawn from
+    the full image instead (20 to 35 ms). Small images aren't enlarged; turned photos stand upright.
+  - A RAW this Mac can't read (a camera newer than macOS knows) falls back to the shot's JPEG; a clip
+    that won't open falls back to its `.THM`. Clips show a frame 1 second in (or halfway, if
+    shorter), plus their length.
+  - The cache makes 3 at a time at low priority, shares one when two tiles ask at once, skips a tile
+    that scrolled away before its turn, and keeps about 128 MB (around 300 tiles), dropping the
+    least recently shown first. It reads only the copies in the destination.
+  Step 4 as built: the window has two columns, the card, Job and Settings panels on the left and the
+  grid on the right. A tile appears when its shot's last file is verified and its first star is
+  written (a moment after the first file), so a star key can never race the camera's `.xmp` landing.
+  Keys only work after clicking a tile (that gives the grid the keyboard; typing in the Job panel
+  takes it back). Stars are written on one queue in the order given. A new Copy that brings in files
+  clears the grid; Copy with nothing new, a failed copy and eject leave it.
+  Step 5 as built (2026-10-23):
+  - Double-click a tile, or press Space in the grid (opens straight at 100%), for a view filling the
+    window. Space switches between fitted and 100%; clicking a spot in the fitted picture shows that
+    spot at 100%; drag to look around. Arrows, 0 to 5 and auto-advance work there; Esc goes back.
+    The 100% spot stays put from photo to photo, to compare a burst.
+  - 100% is one image pixel per screen pixel. A RAW's built-in preview is used when it's full size
+    (Nikon, Fuji measured), otherwise the RAW is decoded with Core Image (`CIRAWFilter`; Sony ARW
+    270 ms, Canon CR3 320 ms measured). So a Sony shot in a black-and-white picture style shows
+    black and white fitted (the camera's preview) and colour at 100% (the RAW).
+  - Filter buttons: All, ★1+ ... ★5, 0★. Clips only show with All. Clicks, keys and ⌘A act on the
+    shots shown; rating one out of the filter hides it and moves on.
+  - "Open N in Adobe Lightroom Classic" sends the selected photos, or everything shown when nothing
+    is selected, one file per shot (the RAW of a pair). The app is `openWith` in the settings file
+    (name, bundle id or path; default "Adobe Lightroom Classic"), not shown in the window.
+  - Fixed after the photographer's first try (2026-10-23):
+    - **Open crashed the app** every time (macOS then relaunched it). macOS reports back on a
+      thread of its own, and Swift 6 had assumed the callback ran on the main thread, so its check
+      stopped the app (crash reports in `~/Library/Logs/DiagnosticReports/CardIngest-*.ips`). The
+      callback is now marked `@Sendable`; so is the eject one, to be safe.
+    - **Up and down arrows** move a row in the grid (the grid counts its tiles per row).
+    - **The large view was slow.** It was decoding the whole Sony RAW (400 to 500 ms) because the
+      camera's preview (1,616 pixels) is smaller than the screen. Now a preview at least 0.45 of the
+      screen's size is used as it is (13 ms). The grid's tile shows at once instead of a black screen,
+      then sharpens; the next and previous photos (and the next one's 100% picture, at 100%) load
+      ahead. Large pictures are kept up to 384 MB; 100% pictures, the one showing and the next.
+    - **Load Folder…** (top of the grid, always there) brings an earlier card folder back into the
+      grid with its stars, after a crash or another day, without the card. When the backup has a
+      folder of the same name, its copies are included, so stars given now are saved in both.
+    - **Reveal in Finder** (asked for 2026-10-23): Control-click or right-click a tile; Finder opens
+      the card folder with that shot's files selected (RAW, JPEG and sidecar).
 - **Where stars go:** `XMP:Rating` (`xmp:Rating`) in a sidecar `<new base name>.xmp` next to the
   shot, in the destination and the backup alike, written atomically. One sidecar per shot, so a
   RAW+JPEG pair shares it. RAW files are never rewritten. A small hand-written XMP packet is enough
@@ -318,10 +375,7 @@ Suggestions so far, not yet decided. Edit freely.
 
 ## Open questions
 
-- Found on a Sony RX100 card, 2026-10-22: `PRIVATE/M4ROOT/MEDIAPRO.XML` (the camera's index of its
-  clips) is copied and renamed like a photo (`2026-10-23-ES_0000.XML`) because `xml` is a sidecar
-  type for Sony clips, and with Trash on it would be moved off the card. Proposed: skip it and the
-  other M4ROOT index files (`STATUS.BIN`, `CUEUP.XML`...). Waiting for the photographer.
+- ~~Sony's `MEDIAPRO.XML` copied like a photo~~ Decided 2026-10-22: skipped (see Scanning).
 
 - ~~Because any removable drive counts, USB drives are offered as cards: what about trashing?~~
   Decided 2026-10-22: only drives with a `DCIM` folder are trashed (see "Trash and eject").
@@ -406,3 +460,21 @@ Suggestions so far, not yet decided. Edit freely.
     ignores sidecars for JPEG-only and HEIC shots until the metadata milestone embeds stars.
     A card copied before the digest fix (2026-10-22-ES006) shows no stars in Lightroom; re-test with
     new pictures (a card put back in only brings in pictures it hasn't seen).
+13. The culling grid (needs real photos, as in step 12; Trash unticked). Press Copy: tiles appear on
+    the right as each shot lands, RAW+JPEG pairs as one tile with a "RAW+JPG" badge, each with one
+    yellow star. Clips show a frame, a play mark and their length, and no stars. Click a photo and
+    press 3: it gets 3 stars and the next photo is selected. Press 0: it shows five empty orange
+    stars. Shift-click and Cmd-click select several; a number rates them all and stays put. ⌘A
+    selects all. ← → move along. Import the folder into Lightroom: it shows the stars you gave.
+14. Looking closer, filtering, opening. After step 13: double-click a photo, it fills the window.
+    Press Space: 100%, with "100%" in yellow at the top (a second or so for a big RAW). Drag to look
+    around; press → and the next photo shows the same spot. Press Space to fit, click on an eye:
+    100% there. Press 3: 3 stars, next photo. Esc: back to the grid. Press Space in the grid: straight
+    to 100%. Give a few photos 0, then choose ★1+: they disappear, and so do clips. With nothing
+    selected, the button says "Open N in Adobe Lightroom Classic" for all shown; click it: Lightroom
+    comes up with those photos to import. In the settings file, set `openWith` to `Adobe Bridge 2023`
+    and Reload: the button says Bridge. Set it back.
+15. After the fixes of 2026-10-23: in the grid, ↑ ↓ move a row. Open in Lightroom no longer
+    crashes Card Ingest. The large view shows the photo straight away and → is instant. Quit Card
+    Ingest, open it again, press Load Folder… and pick an earlier card folder: its photos come back
+    with the stars you gave them; change one, then import that folder in Lightroom to see it.

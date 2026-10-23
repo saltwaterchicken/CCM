@@ -81,6 +81,8 @@ final class CardWatcher {
     private var stopFlags: [URL: StopFlag] = [:]
     /// Cards the app finished and ejected, newest first, so their summary stays on screen.
     private(set) var ejected: [Finished] = []
+    /// The photos of the card copied last, for culling.
+    let grid = GridModel()
 
     private var settings: IngestSettings
     /// Called after a card copies and verifies, to move the import counter on.
@@ -94,6 +96,7 @@ final class CardWatcher {
         self.settings = settings
         self.onImported = onImported
         self.onTrashConfirmed = onTrashConfirmed
+        grid.use(settings)
         let center = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification, NSWorkspace.didRenameVolumeNotification] {
             observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
@@ -105,6 +108,7 @@ final class CardWatcher {
 
     func update(settings: IngestSettings) {
         self.settings = settings
+        grid.use(settings)
         refresh()
     }
 
@@ -186,6 +190,8 @@ final class CardWatcher {
         let flag = StopFlag()
         stopFlags[url] = flag
         copyStates[url] = .preparing
+        let grid = grid
+        let session = UUID()
         // Reading dates and copying block, so they run on their own thread.
         DispatchQueue.global(qos: .userInitiated).async {
             let result = Result { () throws -> (ImportPlan, CopyReport?, LiveShots?) in
@@ -205,7 +211,12 @@ final class CardWatcher {
                             }
                         }
                     },
-                    fileVerified: shots.landed,
+                    fileVerified: { file in
+                        // Each shot goes on the grid once its last file is in and its star written.
+                        guard let landed = shots.complete(file) else { return }
+                        let folder = plan.folders.first
+                        Task { @MainActor in grid.add(landed, session: session, cardName: name, folder: folder) }
+                    },
                     isCancelled: { flag.isStopped })
                 return (plan, report, shots)
             }
@@ -283,7 +294,8 @@ final class CardWatcher {
     private func finish(_ url: URL, _ finished: Finished) {
         copyStates[url] = .done(finished)
         guard settings.ejectWhenDone, volumes.contains(where: { $0.id == url && $0.verdict.isCard }) else { return }
-        FileManager.default.unmountVolume(at: url, options: [.allPartitionsAndEjectDisk]) { error in
+        // Answered on a background thread, like NSWorkspace.open in GridModel.
+        FileManager.default.unmountVolume(at: url, options: [.allPartitionsAndEjectDisk]) { @Sendable error in
             let problem = error.map { "Couldn't eject the card: \($0.localizedDescription) Eject it in Finder when you're ready." }
             Task { @MainActor [weak self] in
                 guard let self else { return }

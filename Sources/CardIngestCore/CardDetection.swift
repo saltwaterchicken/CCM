@@ -105,7 +105,8 @@ public enum CardScanner {
     /// Lists every camera file anywhere on the card, sorted by path. That covers
     /// DCIM and the other folders some cameras use for video (such as Sony's
     /// PRIVATE/M4ROOT). Hidden files and folders (macOS's "._" files, .Trashes,
-    /// .Spotlight-V100) and other file types are skipped.
+    /// .Spotlight-V100), other file types and the camera's own index files
+    /// (see `isCameraIndex`) are skipped.
     public static func scan(cardRoot: URL, fileTypes: FileTypes) throws -> [CardFile] {
         let root = cardRoot.standardizedFileURL.resolvingSymlinksInPath()
         var isDirectory: ObjCBool = false
@@ -136,10 +137,24 @@ public enum CardScanner {
                 failure = CocoaError(.fileReadInvalidFileName, userInfo: [NSFilePathErrorKey: path])
                 break
             }
-            files.append(CardFile(relativePath: String(path.dropFirst(root.path.count + 1)),
+            let relativePath = String(path.dropFirst(root.path.count + 1))
+            if isCameraIndex(relativePath) { continue }
+            files.append(CardFile(relativePath: relativePath,
                                   size: Int64(values.fileSize ?? 0), modified: values.contentModificationDate))
         }
         if let failure = failure ?? readError.error { throw failure }
         return files.sorted { $0.relativePath < $1.relativePath }
+    }
+
+    /// True for files the camera keeps for itself, which are never copied or
+    /// trashed: inside Sony's video folders (M4ROOT, and XDROOT on pro
+    /// cameras) only CLIP and SUB hold clips and their .XML sidecars; the rest
+    /// is the camera's index (MEDIAPRO.XML, STATUS.BIN, CUEUP.XML) and clip
+    /// thumbnails (THMBNL), which it rebuilds or complains about if they go.
+    public static func isCameraIndex(_ relativePath: String) -> Bool {
+        let folders = relativePath.split(separator: "/").dropLast().map { $0.uppercased() }
+        guard let root = folders.lastIndex(where: { $0 == "M4ROOT" || $0 == "XDROOT" }) else { return false }
+        let inside = folders.dropFirst(root + 1)
+        return !(inside.first == "CLIP" || inside.first == "SUB")
     }
 }

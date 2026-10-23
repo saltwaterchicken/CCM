@@ -129,6 +129,15 @@ public enum StarsError: Error, LocalizedError, Equatable {
     }
 }
 
+/// A shot whose files are all in, ready for the grid.
+public struct LandedShot: Sendable {
+    public let shot: Shot
+    /// Its first stars; nil for videos, or if its sidecar couldn't be written.
+    public let stars: Int?
+    /// 0 for the first shot of the Copy to land, then 1, 2 ...
+    public let position: Int
+}
+
 /// The shots of one Copy as their files land, rating each one as soon as all
 /// of its files are in. Safe to call from the copying thread.
 public final class LiveShots: @unchecked Sendable {
@@ -137,6 +146,7 @@ public final class LiveShots: @unchecked Sendable {
     private var expected: [String: Int]
     private var stars: [String: Int] = [:]
     private var problems: [String] = []
+    private var completed = 0
 
     /// - Parameter planned: everything this Copy will bring in, so a shot is
     ///   rated only once its last file (often the camera's own `.xmp`) is in.
@@ -148,15 +158,23 @@ public final class LiveShots: @unchecked Sendable {
 
     /// For `CardCopier.copy(fileVerified:)`.
     public func landed(_ file: CopiedFile) {
+        _ = complete(file)
+    }
+
+    /// Adds a verified copy to its shot. When that was the shot's last file,
+    /// gives it its first stars and returns it for the grid.
+    public func complete(_ file: CopiedFile) -> LandedShot? {
         lock.withLock {
             let index = list.add(file)
             let shot = list.shots[index]
-            guard shot.files.count >= expected[shot.id, default: 1] else { return }
+            guard shot.files.count == expected[shot.id, default: 1] else { return nil }
             do {
                 if let given = try Stars.rateOnLanding(shot) { stars[shot.id] = given }
             } catch {
                 problems.append(error.localizedDescription)
             }
+            completed += 1
+            return LandedShot(shot: shot, stars: stars[shot.id], position: completed - 1)
         }
     }
 

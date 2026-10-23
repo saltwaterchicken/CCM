@@ -170,6 +170,45 @@ final class StarsTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: card.appendingPathComponent("DCIM/100CANON/IMG_0003.XMP")), original)
     }
 
+    // MARK: Loading an earlier import
+
+    func testAnEarlierImportComesBackWithItsStarsAndBackup() throws {
+        try put("DCIM/100CANON/IMG_0001.CR3", bytes(3000, 1))
+        try put("DCIM/100CANON/IMG_0001.JPG", bytes(1000, 2))
+        try put("DCIM/100CANON/IMG_0002.CR3", bytes(3000, 3))
+        try put("DCIM/100CANON/MVI_0003.MP4", bytes(5000, 4))
+        let (plan, _, shots) = try importCard()
+        try Stars.set(4, on: try shot(shots, endingIn: "0002"))
+        let main = plan.folders[0]
+        // Things that aren't shots: a stray sidecar and a note.
+        try Data("x".utf8).write(to: main.appendingPathComponent("leftover.xmp"))
+        try Data("x".utf8).write(to: main.appendingPathComponent("notes.txt"))
+
+        let loaded = try ImportedFolder.shots(in: main, backupRoot: settings.backupRootURL, fileTypes: settings.fileTypes)
+        XCTAssertEqual(loaded.map { $0.shot.baseName.suffix(4) }, ["0001", "0002", "0003"])
+        XCTAssertEqual(loaded.map(\.stars), [1, 4, nil])
+        XCTAssertEqual(loaded.map(\.position), [0, 1, 2])
+        XCTAssertEqual(loaded[0].shot.badge, "RAW+JPG")
+        XCTAssertEqual(loaded[0].shot.primary.destinations.count, 2, "Main and backup")
+
+        // Stars given now are saved in both, as during a Copy.
+        try Stars.set(5, on: loaded[0].shot)
+        for folder in plan.folders {
+            XCTAssertEqual(Stars.read(xmp: folder.appendingPathComponent(loaded[0].shot.xmpName)), 5)
+        }
+    }
+
+    func testAFolderWithoutABackupLoadsOnItsOwn() throws {
+        settings.backupRoot = ""
+        try put("DCIM/100CANON/IMG_0001.JPG", bytes(1000, 2))
+        let (plan, _, _) = try importCard()
+        let loaded = try ImportedFolder.shots(in: plan.folders[0], backupRoot: nil, fileTypes: settings.fileTypes)
+        XCTAssertEqual(loaded.count, 1)
+        XCTAssertEqual(loaded[0].shot.primary.destinations, [plan.folders[0].appendingPathComponent(loaded[0].shot.primary.newName)])
+        XCTAssertThrowsError(try ImportedFolder.shots(in: base.appendingPathComponent("missing"), backupRoot: nil,
+                                                      fileTypes: settings.fileTypes))
+    }
+
     // MARK: After stars change a sidecar
 
     func testAnInterruptedCopyPicksUpInTheSameFolderAndKeepsTheStars() throws {
