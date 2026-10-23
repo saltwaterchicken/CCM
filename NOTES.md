@@ -12,15 +12,14 @@ The full brief is `BRIEF.md`.
 - [x] Step 3: Copy, verify with xxHash64, write the receipt. Tests for copy and verify. Confirmed on the Mac.
 - [ ] Step 4: Test on the photographer's Mac.
 
-**Milestone 2: Folder and file naming.** Spec agreed 2026-10-23 (see "Naming" below). Built and
-tested; waiting for the photographer to try it with a real card.
+**Milestone 2: Folder and file naming.** Spec agreed 2026-10-23 (see "Naming" below). Done:
+built, tested, and confirmed on the Mac with a real card (2026-10-22).
 
 - [x] Step 1: Token patterns (`{todayyear4}`, `{iseq}`, `{frame4}`, ...) in NameTemplate, with tests.
 - [x] Step 2: "Job name" becomes "Folder name" holding the pattern; import counter in settings and the
   Job panel; card folder `2026-10-23-ES001`; counter goes up after each successful import.
 - [x] Step 3: Read each file's capture date and frame number; rename files on copy; tests.
-- [ ] Step 4: Receipt shows original name next to new name (done, tested). Confirm on the Mac with a
-  real card (not yet).
+- [x] Step 4: Receipt shows original name next to new name. Confirmed on the Mac with a real card.
 
 ## Decisions
 
