@@ -12,6 +12,13 @@ The full brief is `BRIEF.md`.
 - [x] Step 3: Copy, verify with xxHash64, write the receipt. Tests for copy and verify. Confirmed on the Mac.
 - [ ] Step 4: Test on the photographer's Mac.
 
+**Milestone 2: Folder and file naming.** Spec agreed 2026-10-23 (see "Naming" below). Not started.
+
+- [ ] Step 1: Photographer initials and import counter in settings, shown and editable in the Job panel.
+- [ ] Step 2: New folder name `YYYY-MM-DD-<initials><counter>` from today's date; counter goes up after each successful import.
+- [ ] Step 3: Read each file's capture date and frame number; rename files on copy; tests.
+- [ ] Step 4: Receipt shows original name next to new name. Confirm on the Mac with a real card.
+
 ## Decisions
 
 - **Project layout:** a Swift package (`Package.swift`) with two parts. `CardIngestCore` holds
@@ -55,7 +62,7 @@ The full brief is `BRIEF.md`.
   the scan with an error instead of being quietly skipped.
 
 - **Copying** (`CardCopier.swift`): files keep their folder layout from the card inside the
-  destination folder for now (renaming is Milestone 2). Each file is read from the card once,
+  destination folder for now (renaming is Milestone 2, see Naming). Each file is read from the card once,
   hashed while being written to every destination, then each copy is read back from the drive
   (bypassing the memory cache) and compared. Copies are written under a hidden `.partial` name
   and only get their real name once verified. The original's modified date is kept.
@@ -64,6 +71,34 @@ The full brief is `BRIEF.md`.
   never overwritten. Free space is checked before starting.
 - **Receipt:** `Receipt_<card>_<yyyy-MM-dd_HHmmss>.csv` in each destination folder. One row per
   file (path, size, xxHash64, verified) followed by a short summary. Opens in Numbers or Excel.
+
+## Naming (Milestone 2)
+
+The photographer's spec, 2026-10-23. "ES" below stands for the photographer's initials, typed in
+by hand (ES is just the example).
+
+- **Card folder:** `{todayyear4}-{todaymonth0}-{todayday0}-ES{iseq}`, e.g. `2026-10-23-ES001`.
+  The date is the day the card is imported. `iseq` is a 3-digit import counter that starts at 001
+  and goes up by one for every card imported, across days and jobs, unless the photographer
+  changes it. As a pattern: `{date:YYYY-MM-DD}-{artist}{iseq:3}`, made directly inside the
+  destination root (no year folder, no job name; to be confirmed).
+- **Files:** `{year4}-{month0}-{day0}-{artist}_{frame4}`, e.g. `2026-10-14-ES_1234.CR3`. Here the
+  date is when the picture or clip was taken (EXIF DateTimeOriginal for photos, the creation date
+  in the clip's metadata for video), not the import date. `frame4` is the last 4 digits of the
+  number the camera put in its own file name (`IMG_1234.CR3` and `DSC01234.ARW` both give `1234`).
+  The extension is kept, lowercase/uppercase as on the card. As a pattern:
+  `{capture:YYYY-MM-DD}-{artist}_{frame:4}`.
+- **Readings assumed until the photographer says otherwise:**
+  - The spec writes `{artist}ES`; read as the initials appearing once (`{artist}` = the initials).
+  - The counter is saved in the settings file and only goes up after a card copies and verifies.
+  - RAW+JPEG pairs and sidecars (`.xmp`, `.thm`, `.wav`, `.lrv`) keep the same base name as the
+    file they belong to, so `IMG_1234.CR3` + `IMG_1234.JPG` become `...-ES_1234.CR3` + `...-ES_1234.JPG`.
+  - If two different files would get the same name (two cameras, or a camera's counter rolling
+    over past 9999 in one day), the later one gets `-2`, `-3`, ... : `2026-10-14-ES_1234-2.CR3`.
+    Nothing is ever overwritten.
+  - No capture date in the file: use the file's modified date. No digits in the original name:
+    use `0000` and let the duplicate rule number them.
+  - Initials left empty: Copy refuses and asks for them.
 
 ## GUI wishlist
 
@@ -89,7 +124,7 @@ Suggestions so far, not yet decided. Edit freely.
 
 - Which cameras and file types are shot most? (Defaults cover Canon, Nikon, Sony, Fuji,
   Olympus/OM, Panasonic, Pentax, Leica DNG, plus common video.)
-- Exact rename pattern and metadata template (needed for Milestone 2).
+- Metadata template (needed for Milestone 2). Rename pattern is decided, see Naming.
 
 ## How to test what exists so far
 
