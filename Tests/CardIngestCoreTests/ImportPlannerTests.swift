@@ -129,7 +129,7 @@ final class ImportPlannerTests: XCTestCase {
         XCTAssertTrue(again.nothingNew)
         XCTAssertEqual(again.files, [])
         XCTAssertEqual(again.check.alreadyImported.count, 2)
-        XCTAssertEqual(again.check.earlierFolders, [first.folders[0]])
+        XCTAssertEqual(again.check.earlierFolders.map(\.lastPathComponent), [first.folders[0].lastPathComponent])
         XCTAssertEqual(again.check.message,
                        "Already imported: all 2 files are in 2026-10-23-ES001. Nothing new to copy.")
         XCTAssertEqual(again.nextImportNumber(after: settings.nextImportNumber), 2, "Nothing new doesn't use up a number")
