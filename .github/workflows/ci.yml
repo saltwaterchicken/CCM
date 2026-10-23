@@ -21,3 +21,5 @@ jobs:
         run: swift build
       - name: Test
         run: swift test
+      - name: Build the double-click app
+        run: scripts/make-app.sh --no-install && test -x ".build/CCM Card Ingest.app/Contents/MacOS/CardIngest"
