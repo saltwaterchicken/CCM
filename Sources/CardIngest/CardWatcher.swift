@@ -15,21 +15,44 @@ struct DetectedVolume: Identifiable {
     var totalBytes: Int64 { files?.reduce(0) { $0 + $1.size } ?? 0 }
 }
 
+/// How a card ended up: what was copied, moved to its Trash and ejected.
+struct Finished: Identifiable, Sendable {
+    let id = UUID()
+    var cardName: String
+    /// Nil when every file on the card was already imported, so nothing was copied.
+    var report: CopyReport?
+    /// What was new and what earlier imports already brought in (and was skipped).
+    var check: CardCheck
+    var trash: TrashResult?
+    /// Why the originals stayed on the card, when trashing is on but didn't happen.
+    var keptOnCard: String?
+    var ejectProblem: String?
+}
+
 /// Where a card's copy job stands.
 enum CopyState {
     /// Reading capture dates and choosing names, before any copying.
     case preparing
     case copying(fraction: Double)
-    /// Copied the new files; `skipped` were already imported earlier.
-    case done(CopyReport, skipped: Int)
-    /// Every file on the card was already imported, so nothing was copied.
-    case nothingNew(CardCheck)
+    /// Copied and verified; asking before `files` go to the card's Trash.
+    case askTrash(Finished, files: [CardFile])
+    /// Moving the originals to the card's Trash.
+    case clearing
+    case done(Finished)
     case failed(String)
 
     var isCopying: Bool {
         switch self {
         case .preparing, .copying: true
-        case .done, .nothingNew, .failed: false
+        case .askTrash, .clearing, .done, .failed: false
+        }
+    }
+
+    /// Still working on this card (or waiting for an answer), so Copy isn't offered.
+    var isBusy: Bool {
+        switch self {
+        case .preparing, .copying, .askTrash, .clearing: true
+        case .done, .failed: false
         }
     }
 }
@@ -53,15 +76,21 @@ final class CardWatcher {
 
     private(set) var copyStates: [URL: CopyState] = [:]
     private var stopFlags: [URL: StopFlag] = [:]
+    /// Cards the app finished and ejected, newest first, so their summary stays on screen.
+    private(set) var ejected: [Finished] = []
 
     private var settings: IngestSettings
     /// Called after a card copies and verifies, to move the import counter on.
     private let onImported: (ImportPlan) -> Void
+    /// Called when the photographer says yes to moving a card's originals to its Trash.
+    private let onTrashConfirmed: () -> Void
     private var observers: [NSObjectProtocol] = []
 
-    init(settings: IngestSettings, onImported: @escaping (ImportPlan) -> Void) {
+    init(settings: IngestSettings, onImported: @escaping (ImportPlan) -> Void,
+         onTrashConfirmed: @escaping () -> Void) {
         self.settings = settings
         self.onImported = onImported
+        self.onTrashConfirmed = onTrashConfirmed
         let center = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification, NSWorkspace.didRenameVolumeNotification] {
             observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
@@ -94,6 +123,9 @@ final class CardWatcher {
             return volume
         }
         .sorted { $0.info.name.localizedStandardCompare($1.info.name) == .orderedAscending }
+        // A card put back in (or another card at the same path) starts fresh, not with the last result.
+        let mounted = Set(volumes.map(\.id))
+        copyStates = copyStates.filter { mounted.contains($0.key) || $0.value.isBusy }
 
         for card in cards where card.files == nil && card.scanError == nil {
             scan(card.info.url)
@@ -139,7 +171,7 @@ final class CardWatcher {
     /// Copies the card into its own folder in the destination (and backup, if
     /// set), renaming each file, and verifies every copy. Only reads the card.
     func startCopy(_ card: DetectedVolume) {
-        guard let files = card.files, copyStates[card.id]?.isCopying != true else { return }
+        guard let files = card.files, copyStates[card.id]?.isBusy != true else { return }
         let url = card.id
         let name = card.info.name
         let settings = settings
@@ -176,13 +208,11 @@ final class CardWatcher {
                 self.stopFlags[url] = nil
                 switch result {
                 case let .success((plan, report)):
-                    guard let report else {
-                        self.copyStates[url] = .nothingNew(plan.check)
-                        return
+                    if report != nil {
+                        self.onImported(plan)
+                        self.checkHistory(url)
                     }
-                    self.copyStates[url] = .done(report, skipped: plan.check.alreadyImported.count)
-                    self.onImported(plan)
-                    self.checkHistory(url)
+                    self.afterCopy(url, Finished(cardName: name, report: report, check: plan.check))
                 case let .failure(error):
                     self.copyStates[url] = .failed(error.localizedDescription)
                 }
@@ -192,5 +222,76 @@ final class CardWatcher {
 
     func stopCopy(_ card: DetectedVolume) {
         stopFlags[card.id]?.stop()
+    }
+
+    /// Once every copy is verified: the card's Trash (asking first for the
+    /// first few cards), then eject, as the settings say.
+    private func afterCopy(_ url: URL, _ finished: Finished) {
+        var finished = finished
+        guard settings.trashAfterVerify, let card = volumes.first(where: { $0.id == url }) else {
+            return finish(url, finished)
+        }
+        let protected = [settings.destinationRootURL] + [settings.backupRootURL].compactMap { $0 }
+        if let refusal = CardClearer.refusal(for: card.info, protectedFolders: protected) {
+            finished.keptOnCard = refusal
+            return finish(url, finished)
+        }
+        let files = CardClearer.safelyCopied(report: finished.report, check: finished.check)
+        if files.isEmpty { return finish(url, finished) }
+        if settings.confirmTrashForFirstCards > 0 {
+            copyStates[url] = .askTrash(finished, files: files)
+        } else {
+            clear(url, finished, files)
+        }
+    }
+
+    func confirmTrash(_ card: DetectedVolume) {
+        guard case let .askTrash(finished, files) = copyStates[card.id] else { return }
+        onTrashConfirmed()
+        clear(card.id, finished, files)
+    }
+
+    func keepOnCard(_ card: DetectedVolume) {
+        guard case var .askTrash(finished, _) = copyStates[card.id] else { return }
+        finished.keptOnCard = "You chose to keep the originals on the card."
+        finish(card.id, finished)
+    }
+
+    private func clear(_ url: URL, _ finished: Finished, _ files: [CardFile]) {
+        copyStates[url] = .clearing
+        Task.detached {
+            let result = CardClearer.trash(files, cardRoot: url)
+            await MainActor.run { [weak self] in
+                var finished = finished
+                finished.trash = result
+                self?.finish(url, finished)
+            }
+        }
+    }
+
+    /// Shows the summary, and ejects the card if that's on. An ejected card's
+    /// summary moves to `ejected` so it stays on screen.
+    private func finish(_ url: URL, _ finished: Finished) {
+        copyStates[url] = .done(finished)
+        guard settings.ejectWhenDone, volumes.contains(where: { $0.id == url && $0.verdict.isCard }) else { return }
+        FileManager.default.unmountVolume(at: url, options: [.allPartitionsAndEjectDisk]) { error in
+            let problem = error.map { "Couldn't eject the card: \($0.localizedDescription) Eject it in Finder when you're ready." }
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                var finished = finished
+                if let problem {
+                    finished.ejectProblem = problem
+                    self.copyStates[url] = .done(finished)
+                } else {
+                    if case .done = self.copyStates[url] { self.copyStates[url] = nil }
+                    self.ejected.insert(finished, at: 0)
+                    self.ejected = Array(self.ejected.prefix(5))
+                }
+            }
+        }
+    }
+
+    func dismissEjected(_ finished: Finished) {
+        ejected.removeAll { $0.id == finished.id }
     }
 }

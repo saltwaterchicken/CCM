@@ -20,6 +20,8 @@ struct CardIngestApp: App {
         _watcher = State(initialValue: CardWatcher(settings: model.settings) { plan in
             // Only a verified copy uses up the number, and the counter never goes down.
             model.change { $0.nextImportNumber = plan.nextImportNumber(after: $0.nextImportNumber) }
+        } onTrashConfirmed: {
+            model.change { $0.confirmTrashForFirstCards = max(0, $0.confirmTrashForFirstCards - 1) }
         })
     }
 
@@ -260,6 +262,25 @@ struct JobPanel: View {
                     .lineLimit(2)
                     .textSelection(.enabled)
             }
+            GridRow {
+                Text("When done").gridCellAnchor(.topTrailing)
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Move the card's photos and videos to the card's Trash once every copy is verified", isOn: Binding(
+                        get: { model.settings.trashAfterVerify },
+                        set: { on in model.change { $0.trashAfterVerify = on } }))
+                    if model.settings.trashAfterVerify {
+                        let asks = model.settings.confirmTrashForFirstCards
+                        Text((asks > 0 ? "Asks first for the next \(asks) \(asks == 1 ? "card" : "cards"). " : "")
+                             + "Only cards with a DCIM folder. They stay in the card's Trash until you format the card in the camera.")
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 20)
+                    }
+                    Toggle("Eject the card when finished", isOn: Binding(
+                        get: { model.settings.ejectWhenDone },
+                        set: { on in model.change { $0.ejectWhenDone = on } }))
+                }
+                .toggleStyle(.checkbox)
+            }
             if let problem = model.settings.folderProblem {
                 GridRow {
                     Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
@@ -295,7 +316,23 @@ struct CardsView: View {
         VStack(alignment: .leading, spacing: 10) {
             if watcher.cards.isEmpty {
                 Text("Waiting for a card…").font(.title2)
-            } else {
+            }
+            ForEach(watcher.ejected) { finished in
+                GroupBox {
+                    HStack(alignment: .top) {
+                        Image(systemName: "eject.circle").font(.largeTitle)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(finished.cardName).font(.title3).bold()
+                            Text("Ejected. You can take the card out.").foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Dismiss") { watcher.dismissEjected(finished) }
+                    }
+                    .padding(4)
+                    summary(finished)
+                }
+            }
+            if !watcher.cards.isEmpty {
                 ForEach(watcher.cards) { card in
                     GroupBox {
                         HStack(alignment: .top) {
@@ -341,6 +378,8 @@ struct CardsView: View {
     private func copyButton(_ card: DetectedVolume) -> some View {
         if watcher.copyStates[card.id]?.isCopying == true {
             Button("Stop") { watcher.stopCopy(card) }
+        } else if watcher.copyStates[card.id]?.isBusy == true {
+            EmptyView()
         } else {
             Button("Copy") { watcher.startCopy(card) }
                 .keyboardShortcut(.defaultAction)
@@ -357,9 +396,40 @@ struct CardsView: View {
             ProgressView(value: fraction) {
                 Text("Copying and verifying… \(Int(fraction * 100))%")
             }
-        case let .done(report, skipped):
+        case let .askTrash(finished, files):
+            VStack(alignment: .leading, spacing: 6) {
+                summary(finished)
+                Label("Move the \(files.count) \(files.count == 1 ? "original" : "originals") on \(card.info.name) to the card's Trash? "
+                      + "Every one has a verified copy. They stay in the card's Trash until you format the card in the camera.",
+                      systemImage: "trash")
+                HStack {
+                    Button("Move to Trash") { watcher.confirmTrash(card) }
+                        .keyboardShortcut(.defaultAction)
+                    Button("Keep on Card") { watcher.keepOnCard(card) }
+                }
+            }
+        case .clearing:
+            ProgressView { Text("Moving the originals to the card's Trash…") }
+        case let .done(finished):
+            summary(finished)
+        case let .failed(message):
             VStack(alignment: .leading, spacing: 4) {
-                Label("Copied and verified \(report.files.count) files (\(ByteCountFormatter.string(fromByteCount: report.totalBytes, countStyle: .file))). Nothing on the card was changed.",
+                Label(message, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
+                Text("Nothing on the card was changed. Copies that weren't verified were removed.")
+                    .foregroundStyle(.secondary)
+            }
+        case nil:
+            EmptyView()
+        }
+    }
+
+    /// What was copied, skipped, moved to the card's Trash and ejected.
+    @ViewBuilder
+    private func summary(_ finished: Finished) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            let skipped = finished.check.alreadyImported.count
+            if let report = finished.report {
+                Label("Copied and verified \(report.files.count) files (\(ByteCountFormatter.string(fromByteCount: report.totalBytes, countStyle: .file))).",
                       systemImage: "checkmark.seal.fill")
                     .foregroundStyle(.green)
                 if skipped > 0 {
@@ -372,34 +442,49 @@ struct CardsView: View {
                 ForEach(report.destinationFolders, id: \.self) { folder in
                     Text(folder.path).foregroundStyle(.secondary).textSelection(.enabled)
                 }
-                HStack {
-                    // Opens the main copy's folder itself, so the photos are right there.
-                    Button("Show Imported Files") {
-                        if let folder = report.destinationFolders.first { NSWorkspace.shared.open(folder) }
+            } else {
+                Label(finished.check.message ?? "Nothing new on this card.", systemImage: "checkmark.circle")
+                    .foregroundStyle(.secondary)
+                Text("Nothing was copied, and the import number wasn't used up.")
+                    .foregroundStyle(.secondary)
+            }
+            if let trash = finished.trash {
+                if trash.trashed > 0 {
+                    Label("Moved \(trash.trashed) \(trash.trashed == 1 ? "original" : "originals") to the card's Trash. "
+                          + "The space frees up once you format the card in the camera.", systemImage: "trash")
+                }
+                if !trash.failures.isEmpty {
+                    Label("Left \(trash.failures.count) \(trash.failures.count == 1 ? "file" : "files") on the card:",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    ForEach(trash.failures.prefix(5), id: \.self) { line in
+                        Text(line).foregroundStyle(.secondary).textSelection(.enabled)
                     }
+                    if trash.failures.count > 5 {
+                        Text("…and \(trash.failures.count - 5) more.").foregroundStyle(.secondary)
+                    }
+                }
+            } else if let kept = finished.keptOnCard {
+                Text(kept).foregroundStyle(.secondary)
+            } else {
+                Text("Nothing on the card was changed.").foregroundStyle(.secondary)
+            }
+            if let problem = finished.ejectProblem {
+                Label(problem, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            }
+            HStack {
+                // Opens the main copy's folder itself, so the photos are right there.
+                Button("Show Imported Files") {
+                    if let folder = finished.report?.destinationFolders.first ?? finished.check.earlierFolders.last {
+                        NSWorkspace.shared.open(folder)
+                    }
+                }
+                if let report = finished.report {
                     Button("Show Receipt in Finder") {
                         NSWorkspace.shared.activateFileViewerSelecting(report.receipts)
                     }
                 }
             }
-        case let .nothingNew(check):
-            VStack(alignment: .leading, spacing: 4) {
-                Label(check.message ?? "Nothing new on this card.", systemImage: "checkmark.circle")
-                    .foregroundStyle(.secondary)
-                Text("Nothing was copied, and the import number wasn't used up.")
-                    .foregroundStyle(.secondary)
-                Button("Show Imported Files") {
-                    if let folder = check.earlierFolders.last { NSWorkspace.shared.open(folder) }
-                }
-            }
-        case let .failed(message):
-            VStack(alignment: .leading, spacing: 4) {
-                Label(message, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
-                Text("Nothing on the card was changed. Copies that weren't verified were removed.")
-                    .foregroundStyle(.secondary)
-            }
-        case nil:
-            EmptyView()
         }
     }
 }

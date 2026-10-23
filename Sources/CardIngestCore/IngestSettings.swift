@@ -19,9 +19,14 @@ public struct IngestSettings: Codable, Equatable, Sendable {
     public var renamePattern: String
     public var checksum: String
     public var autoStartOnInsert: Bool
+    /// Move the card's originals to the card's own Trash once every copy is
+    /// verified. Never erases or formats anything.
     public var trashAfterVerify: Bool
-    /// How many cards ask for confirmation before trashing originals.
+    /// How many more cards ask before their originals go to the Trash. Goes
+    /// down by one each time the photographer says yes.
     public var confirmTrashForFirstCards: Int
+    /// Eject the card once it's copied (and trashed, if that's on).
+    public var ejectWhenDone: Bool
     public var fileTypes: FileTypes
     public var metadata: MetadataTemplate
     public var rating: RatingSettings
@@ -37,6 +42,7 @@ public struct IngestSettings: Codable, Equatable, Sendable {
         autoStartOnInsert: Bool = false,
         trashAfterVerify: Bool = true,
         confirmTrashForFirstCards: Int = 3,
+        ejectWhenDone: Bool = true,
         fileTypes: FileTypes = FileTypes(),
         metadata: MetadataTemplate = MetadataTemplate(),
         rating: RatingSettings = RatingSettings()
@@ -51,6 +57,7 @@ public struct IngestSettings: Codable, Equatable, Sendable {
         self.autoStartOnInsert = autoStartOnInsert
         self.trashAfterVerify = trashAfterVerify
         self.confirmTrashForFirstCards = confirmTrashForFirstCards
+        self.ejectWhenDone = ejectWhenDone
         self.fileTypes = fileTypes
         self.metadata = metadata
         self.rating = rating
@@ -74,6 +81,7 @@ public struct IngestSettings: Codable, Equatable, Sendable {
         autoStartOnInsert = try c.decodeIfPresent(Bool.self, forKey: .autoStartOnInsert) ?? d.autoStartOnInsert
         trashAfterVerify = try c.decodeIfPresent(Bool.self, forKey: .trashAfterVerify) ?? d.trashAfterVerify
         confirmTrashForFirstCards = try c.decodeIfPresent(Int.self, forKey: .confirmTrashForFirstCards) ?? d.confirmTrashForFirstCards
+        ejectWhenDone = try c.decodeIfPresent(Bool.self, forKey: .ejectWhenDone) ?? d.ejectWhenDone
         fileTypes = try c.decodeIfPresent(FileTypes.self, forKey: .fileTypes) ?? d.fileTypes
         metadata = try c.decodeIfPresent(MetadataTemplate.self, forKey: .metadata) ?? d.metadata
         rating = try c.decodeIfPresent(RatingSettings.self, forKey: .rating) ?? d.rating

@@ -20,9 +20,17 @@ tested; waiting for the photographer to try it with a real card.
   Job panel; card folder `2026-10-23-ES001`; counter goes up after each successful import.
 - [x] Step 3: Read each file's capture date and frame number; rename files on copy; tests.
 - [x] Already imported files are skipped when a card goes back in (see "Already imported").
-  Built and tested in CI; not yet tried on the Mac.
+  Confirmed on the Mac 2026-10-22 (steps 6 to 8 of "How to test what exists so far").
 - [ ] Step 4: Receipt shows original name next to new name (done, tested). Confirm on the Mac with a
   real card (not yet).
+
+**Milestone 5: Trash and eject.** Started early at the photographer's request, 2026-10-22, while
+Milestone 2's metadata waits on the template. Built and tested on disk images; not yet tried on the Mac.
+
+- [ ] Step 1: "When done" checkboxes in the Job panel: move the originals to the card's Trash, and
+  eject the card (see "Trash and eject"). Confirm on the Mac with the fake card.
+- [ ] Step 2: Card log (every card: date, name, file count, destination, verified, trashed). The brief
+  lists it under Milestone 6.
 
 ## Decisions
 
@@ -160,6 +168,32 @@ import brought in are copied (`ImportHistory.swift`):
   the same folder as before.
 - Only the destination is checked, not the backup.
 
+## Trash and eject (asked for 2026-10-22)
+
+Two checkboxes under "When done" in the Job panel, saved as `trashAfterVerify` and `ejectWhenDone`
+(both on by default, as the brief says). `CardClearer.swift` decides what may be trashed;
+the app only asks and shows the result.
+
+- **Trash:** after Copy has verified every file, each camera file with a safe copy is moved to the
+  card's own Trash (its hidden `.Trashes` folder), never erased, so it's recoverable until the card
+  is formatted in the camera. "Safe copy" means verified by this Copy, or brought in by an earlier
+  import and still in that card folder at the same size. So a card put back in is cleared too, and a
+  reject already deleted from the imported folder stays on the card. Copy pressed with nothing new
+  still clears the card. Files that aren't camera files (`MISC/SETTINGS.DAT`) and the folders stay.
+- **Checked again just before each move:** the file is still on the card with the size and modified
+  date it had when copied. A file that fails this, or won't move, stays and is listed; the rest go.
+- **Asks first** for the first 3 cards (`confirmTrashForFirstCards`, which goes down by one at each
+  "Move to Trash"): "Move the 11 originals on FAKECARD to the card's Trash?" with Move to Trash /
+  Keep on Card. After that it trashes without asking.
+- **Only camera cards:** a drive without a `DCIM` folder (a USB stick, a backup drive) is copied
+  from but never trashed, and a locked SD card is left alone; the summary says why. This settles the
+  open question about USB drives.
+- **Eject:** after the copy (and trash, if on) the card is ejected. It disappears from the list and
+  its summary stays on screen under "Ejected. You can take the card out." until Dismiss. If eject
+  fails (a Finder window or another app is using the card), the summary says so and the card stays.
+  Nothing is ejected after a failed copy.
+- Not yet: the receipt doesn't record trashing, and there's no card log.
+
 ## GUI wishlist
 
 Suggestions so far, not yet decided. Edit freely.
@@ -177,9 +211,8 @@ Suggestions so far, not yet decided. Edit freely.
 
 ## Open questions
 
-- Because any removable drive now counts, a USB backup drive or thumb drive will be offered as a
-  card too. Copying from it is harmless, but trashing (Milestone 5) needs a decision: confirm
-  each one, or only auto-trash drives that look like camera cards.
+- ~~Because any removable drive counts, USB drives are offered as cards: what about trashing?~~
+  Decided 2026-10-22: only drives with a `DCIM` folder are trashed (see "Trash and eject").
 - Should the app be called CCM instead of Card Ingest?
 
 - Which cameras and file types are shot most? (Defaults cover Canon, Nikon, Sony, Fuji,
@@ -237,3 +270,17 @@ Suggestions so far, not yet decided. Edit freely.
    goes into `…-ES003` and the number becomes 4.
 9. Press Copy and then Stop straight away: Next import number doesn't change, and pressing Copy
    again uses the same folder.
+10. Trash and eject, on the fake card only. Steps 6 to 9 assume both "When done" boxes are off;
+    tick both now. A tip line under the first box says "Asks first for the next 3 cards".
+    Eject FAKECARD if it is in, and run the script. Press Copy: after
+    "Copied and verified 11 files" it asks "Move the 11 originals on FAKECARD to the card's Trash?".
+    Press Keep on Card: the card ejects, the summary says "You chose to keep the originals on the
+    card.", and the tip still says 3. Run `hdiutil attach TestCards/FAKECARD.dmg` and press Copy:
+    nothing new, and it asks again for the 11. Press Move to Trash: "Moved 11 originals to the card's
+    Trash", "Ejected. You can take the card out.", and the tip says 2. Attach the image again:
+    "0 camera files", and `ls /Volumes/FAKECARD/.Trashes/*` lists the 11 originals; `MISC` is still there.
+11. Untick "Eject the card when finished". Run the script again and press Copy: it trashes without
+    asking once the tip has counted down to 0, otherwise press Move to Trash. The card stays listed
+    with the summary. Locked card: eject FAKECARD, run the script again, eject it in Finder, run `hdiutil attach -readonly
+    TestCards/FAKECARD.dmg`, and press Copy: "The card is locked (check the switch on its side), so
+    nothing was moved to the Trash."

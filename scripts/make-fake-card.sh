@@ -39,15 +39,16 @@ if [ -n "$SAMPLES" ]; then
     done
 else
     # Random bytes with camera-style names. Fine for copy and verify tests;
-    # Milestone 2 onward needs real sample photos.
+    # Milestone 2 onward needs real sample photos. Sizes vary a little each
+    # run so a new fake card never looks like one already imported.
     for i in 1 2 3; do
         base=$(printf 'IMG_%04d' "$i")
-        head -c 2000000 /dev/urandom > "$FOLDER/$base.CR3"
-        head -c 500000 /dev/urandom > "$FOLDER/$base.JPG"
+        head -c $((2000000 + RANDOM)) /dev/urandom > "$FOLDER/$base.CR3"
+        head -c $((500000 + RANDOM)) /dev/urandom > "$FOLDER/$base.JPG"
     done
-    head -c 300000 /dev/urandom > "$FOLDER/IMG_0004.HEIC"
-    head -c 5000000 /dev/urandom > "$FOLDER/MVI_0005.MP4"
-    head -c 20000 /dev/urandom > "$FOLDER/MVI_0005.THM"
+    head -c $((300000 + RANDOM)) /dev/urandom > "$FOLDER/IMG_0004.HEIC"
+    head -c $((5000000 + RANDOM)) /dev/urandom > "$FOLDER/MVI_0005.MP4"
+    head -c $((20000 + RANDOM)) /dev/urandom > "$FOLDER/MVI_0005.THM"
     # Random bytes have no capture date, so the app uses each file's modified
     # date. The clip says it was shot on 14 October; its .THM follows the clip.
     touch -t 202610140905 "$FOLDER/MVI_0005.MP4"
@@ -56,8 +57,8 @@ else
     # IMG_0001 (RAW+JPEG) shot the same day. It gets "-2" instead of a clash.
     sleep 1
     mkdir -p "${CARD}/DCIM/101TEST"
-    head -c 2000000 /dev/urandom > "${CARD}/DCIM/101TEST/IMG_0001.CR3"
-    head -c 500000 /dev/urandom > "${CARD}/DCIM/101TEST/IMG_0001.JPG"
+    head -c $((2000000 + RANDOM)) /dev/urandom > "${CARD}/DCIM/101TEST/IMG_0001.CR3"
+    head -c $((500000 + RANDOM)) /dev/urandom > "${CARD}/DCIM/101TEST/IMG_0001.JPG"
 fi
 
 # Something that should be ignored, like the files cameras leave behind.

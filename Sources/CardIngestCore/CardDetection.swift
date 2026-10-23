@@ -1,7 +1,7 @@
 import Foundation
 
 /// What macOS tells us about a mounted volume, plus whether it has a DCIM folder
-/// (shown for information only; it doesn't decide anything).
+/// (it doesn't decide what counts as a card, only whether files may go to its Trash).
 public struct VolumeInfo: Equatable, Sendable {
     public var url: URL
     public var name: String
@@ -11,9 +11,11 @@ public struct VolumeInfo: Equatable, Sendable {
     public var isLocal: Bool
     public var isRootFileSystem: Bool
     public var hasDCIM: Bool
+    /// True for a locked card (the switch on an SD card's side).
+    public var isReadOnly: Bool
 
     public init(url: URL, name: String, isRemovable: Bool, isEjectable: Bool, isInternal: Bool,
-                isLocal: Bool, isRootFileSystem: Bool, hasDCIM: Bool) {
+                isLocal: Bool, isRootFileSystem: Bool, hasDCIM: Bool, isReadOnly: Bool = false) {
         self.url = url
         self.name = name
         self.isRemovable = isRemovable
@@ -22,13 +24,14 @@ public struct VolumeInfo: Equatable, Sendable {
         self.isLocal = isLocal
         self.isRootFileSystem = isRootFileSystem
         self.hasDCIM = hasDCIM
+        self.isReadOnly = isReadOnly
     }
 
     /// Reads the volume's properties from macOS.
     public static func read(_ url: URL) throws -> VolumeInfo {
         let keys: Set<URLResourceKey> = [
             .volumeNameKey, .volumeIsRemovableKey, .volumeIsEjectableKey, .volumeIsInternalKey,
-            .volumeIsLocalKey, .volumeIsRootFileSystemKey,
+            .volumeIsLocalKey, .volumeIsRootFileSystemKey, .volumeIsReadOnlyKey,
         ]
         let values = try url.resourceValues(forKeys: keys)
         var isDirectory: ObjCBool = false
@@ -43,7 +46,8 @@ public struct VolumeInfo: Equatable, Sendable {
             isInternal: values.volumeIsInternal ?? true,
             isLocal: values.volumeIsLocal ?? false,
             isRootFileSystem: values.volumeIsRootFileSystem ?? true,
-            hasDCIM: hasDCIM
+            hasDCIM: hasDCIM,
+            isReadOnly: values.volumeIsReadOnly ?? false
         )
     }
 }
