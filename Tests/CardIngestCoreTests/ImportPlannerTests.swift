@@ -71,7 +71,8 @@ final class ImportPlannerTests: XCTestCase {
         let plan = try plan()
         XCTAssertEqual(plan.importNumber, 1)
         XCTAssertEqual(plan.folders.map(\.path), [main.path + "/2026-10-23-ES001", backup.path + "/2026-10-23-ES001"])
-        XCTAssertFalse(plan.repeatsEarlierImport)
+        XCTAssertFalse(plan.nothingNew)
+        XCTAssertNil(plan.check.message)
     }
 
     func testUsesTheNextImportNumber() throws {
@@ -116,7 +117,7 @@ final class ImportPlannerTests: XCTestCase {
         XCTAssertEqual(report.files.filter(\.alreadyThere).map(\.newName), [done.newName])
     }
 
-    func testCopyPressedTwiceFindsTheFilesAlreadyThere() throws {
+    func testCopyPressedTwiceHasNothingNew() throws {
         try put("DCIM/100CANON/IMG_1234.CR3")
         try put("DCIM/100CANON/IMG_1234.JPG", seed: 2)
         let first = try plan()
@@ -125,12 +126,123 @@ final class ImportPlannerTests: XCTestCase {
         XCTAssertEqual(settings.nextImportNumber, 2)
 
         let again = try plan()
-        XCTAssertTrue(again.repeatsEarlierImport)
-        XCTAssertEqual(again.folders, first.folders)
-        XCTAssertEqual(again.importNumber, 1)
-        let report = try copy(again)
-        XCTAssertTrue(report.files.allSatisfy(\.alreadyThere))
-        XCTAssertEqual(again.nextImportNumber(after: settings.nextImportNumber), 2, "Copying again doesn't use up a number")
+        XCTAssertTrue(again.nothingNew)
+        XCTAssertEqual(again.files, [])
+        XCTAssertEqual(again.check.alreadyImported.count, 2)
+        XCTAssertEqual(again.check.earlierFolders, [first.folders[0]])
+        XCTAssertEqual(again.check.message,
+                       "Already imported: all 2 files are in 2026-10-23-ES001. Nothing new to copy.")
+        XCTAssertEqual(again.nextImportNumber(after: settings.nextImportNumber), 2, "Nothing new doesn't use up a number")
+    }
+
+    // MARK: Cards that were imported before
+
+    /// Copies the card as it is now and moves the counter on, like the app does.
+    private func importCard() throws -> ImportPlan {
+        let plan = try plan()
+        try copy(plan)
+        settings.nextImportNumber = plan.nextImportNumber(after: settings.nextImportNumber)
+        return plan
+    }
+
+    func testCardPutBackWithNewPhotosOnlyImportsTheNewOnes() throws {
+        try put("DCIM/100CANON/IMG_1234.CR3")
+        try put("DCIM/100CANON/IMG_1234.JPG", seed: 2)
+        try put("DCIM/100CANON/IMG_1235.CR3", seed: 3)
+        let first = try importCard()
+        // More shooting, then the same card goes back in the reader.
+        try put("DCIM/100CANON/IMG_1236.CR3", seed: 4)
+        try put("DCIM/100CANON/IMG_1236.JPG", seed: 5)
+
+        let second = try plan()
+        XCTAssertEqual(Set(second.files.map(\.source.relativePath)),
+                       ["DCIM/100CANON/IMG_1236.CR3", "DCIM/100CANON/IMG_1236.JPG"])
+        XCTAssertEqual(second.importNumber, 2)
+        XCTAssertEqual(second.folders.first?.lastPathComponent, "2026-10-23-ES002")
+        XCTAssertEqual(second.check.alreadyImported.count, 3)
+        XCTAssertEqual(second.check.message,
+                       "Partly imported before: 3 of 5 files are already in 2026-10-23-ES001. Copy brings in the 2 new files only.")
+        let report = try copy(second)
+        XCTAssertEqual(report.files.count, 2)
+        XCTAssertFalse(report.files.contains(where: \.alreadyThere))
+        // The first folder is left as it was.
+        XCTAssertEqual(try fm.contentsOfDirectory(atPath: first.folders[0].path).filter { !$0.hasPrefix("Receipt_") }.count, 3)
+
+        // Back in again: everything is in one of the two folders.
+        let third = try plan()
+        XCTAssertTrue(third.nothingNew)
+        XCTAssertEqual(third.check.earlierFolders.map(\.lastPathComponent), ["2026-10-23-ES001", "2026-10-23-ES002"])
+        XCTAssertEqual(third.check.message,
+                       "Already imported: all 5 files are in 2026-10-23-ES001 and 2026-10-23-ES002. Nothing new to copy.")
+    }
+
+    func testDeletedRejectsAreNotImportedAgain() throws {
+        try put("DCIM/100CANON/IMG_1234.CR3")
+        try put("DCIM/100CANON/IMG_1235.CR3", seed: 2)
+        let first = try importCard()
+        // The photographer culled one picture from the imported folder.
+        try fm.removeItem(at: first.folders[0].appendingPathComponent(first.files[0].newName))
+        XCTAssertTrue(try plan().nothingNew)
+    }
+
+    func testDeletingTheCardFolderAllowsImportingAgain() throws {
+        try put("DCIM/100CANON/IMG_1234.CR3")
+        let first = try importCard()
+        try fm.removeItem(at: first.folders[0])
+        let again = try plan()
+        XCTAssertFalse(again.nothingNew)
+        XCTAssertEqual(again.files.count, 1)
+        XCTAssertNil(again.check.message)
+    }
+
+    func testSameNameAndSizeTakenAtAnotherTimeIsNew() throws {
+        try put("DCIM/100CANON/IMG_1234.CR3")
+        let path = card.appendingPathComponent("DCIM/100CANON/IMG_1234.CR3").path
+        try fm.setAttributes([.modificationDate: oct14], ofItemAtPath: path)
+        _ = try importCard()
+        // Card formatted, camera counter reset: a different picture with the same name and size.
+        try put("DCIM/100CANON/IMG_1234.CR3", seed: 9)
+        try fm.setAttributes([.modificationDate: oct14.addingTimeInterval(86_400 + 7)], ofItemAtPath: path)
+        let plan = try plan()
+        XCTAssertFalse(plan.nothingNew)
+        XCTAssertEqual(plan.importNumber, 2)
+    }
+
+    func testSameMomentAllowsCardRoundingAndTimeZones() {
+        let t = oct14
+        XCTAssertTrue(ImportHistory.sameMoment(t, t))
+        XCTAssertTrue(ImportHistory.sameMoment(t, t.addingTimeInterval(2)), "FAT keeps 2-second times")
+        XCTAssertTrue(ImportHistory.sameMoment(t, t.addingTimeInterval(-3 * 3600)), "Mac moved 3 time zones")
+        XCTAssertTrue(ImportHistory.sameMoment(t, t.addingTimeInterval(5.5 * 3600 + 1)), "Half-hour zone")
+        XCTAssertFalse(ImportHistory.sameMoment(t, t.addingTimeInterval(7)))
+        XCTAssertFalse(ImportHistory.sameMoment(t, t.addingTimeInterval(3600 + 30)))
+        XCTAssertFalse(ImportHistory.sameMoment(t, t.addingTimeInterval(3 * 86_400)))
+    }
+
+    func testReceiptWithoutModifiedDatesStillCounts() throws {
+        try put("DCIM/100CANON/IMG_1234.CR3")
+        let folder = main.appendingPathComponent("2026-10-22-ES001")
+        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        let receipt = """
+            File,Original Path,Size (bytes),xxHash64,Verified,Copied At
+            2026-10-22-ES_1234.CR3,DCIM/100CANON/IMG_1234.CR3,1000,0000000000000000,yes,2026-10-22T09:00:00Z
+
+            Card,CARD
+            Import number,1
+
+            """
+        try receipt.write(to: folder.appendingPathComponent("Receipt_CARD_2026-10-22_090000.csv"), atomically: true, encoding: .utf8)
+        let plan = try plan()
+        XCTAssertTrue(plan.nothingNew)
+        XCTAssertEqual(plan.check.alreadyImported.first?.newName, "2026-10-22-ES_1234.CR3")
+    }
+
+    func testOtherThingsInTheDestinationAreIgnored() throws {
+        // A stray file in the destination root, and a folder without a receipt.
+        try fm.createDirectory(at: main.appendingPathComponent("Other"), withIntermediateDirectories: true)
+        try Data("x".utf8).write(to: main.appendingPathComponent("notes.txt"))
+        try put("DCIM/100CANON/IMG_1234.CR3")
+        XCTAssertFalse(try plan().nothingNew)
     }
 
     func testFolderFromAnotherCardIsSkipped() throws {

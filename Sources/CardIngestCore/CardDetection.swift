@@ -86,10 +86,14 @@ public struct CardFile: Equatable, Sendable {
     /// Path inside the card, for example "DCIM/100CANON/IMG_0001.CR3".
     public var relativePath: String
     public var size: Int64
+    /// When the camera last wrote the file; together with the path and size it
+    /// recognises a file an earlier import already brought in.
+    public var modified: Date?
 
-    public init(relativePath: String, size: Int64) {
+    public init(relativePath: String, size: Int64, modified: Date? = nil) {
         self.relativePath = relativePath
         self.size = size
+        self.modified = modified
     }
 }
 
@@ -104,7 +108,7 @@ public enum CardScanner {
         guard FileManager.default.fileExists(atPath: root.path, isDirectory: &isDirectory), isDirectory.boolValue else {
             throw CocoaError(.fileReadNoSuchFile, userInfo: [NSFilePathErrorKey: root.path])
         }
-        let keys: [URLResourceKey] = [.isRegularFileKey, .fileSizeKey]
+        let keys: [URLResourceKey] = [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey]
         // A folder that can't be read must stop the scan, not be quietly skipped.
         final class FirstError: @unchecked Sendable { var error: Error? }
         let readError = FirstError()
@@ -129,7 +133,7 @@ public enum CardScanner {
                 break
             }
             files.append(CardFile(relativePath: String(path.dropFirst(root.path.count + 1)),
-                                  size: Int64(values.fileSize ?? 0)))
+                                  size: Int64(values.fileSize ?? 0), modified: values.contentModificationDate))
         }
         if let failure = failure ?? readError.error { throw failure }
         return files.sorted { $0.relativePath < $1.relativePath }

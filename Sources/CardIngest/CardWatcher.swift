@@ -8,6 +8,8 @@ struct DetectedVolume: Identifiable {
     /// Camera files found on the card; nil until the scan finishes.
     var files: [CardFile]?
     var scanError: String?
+    /// Which of those files earlier imports already brought in; nil until checked.
+    var check: CardCheck?
 
     var id: URL { info.url }
     var totalBytes: Int64 { files?.reduce(0) { $0 + $1.size } ?? 0 }
@@ -18,13 +20,16 @@ enum CopyState {
     /// Reading capture dates and choosing names, before any copying.
     case preparing
     case copying(fraction: Double)
-    case done(CopyReport)
+    /// Copied the new files; `skipped` were already imported earlier.
+    case done(CopyReport, skipped: Int)
+    /// Every file on the card was already imported, so nothing was copied.
+    case nothingNew(CardCheck)
     case failed(String)
 
     var isCopying: Bool {
         switch self {
         case .preparing, .copying: true
-        case .done, .failed: false
+        case .done, .nothingNew, .failed: false
         }
     }
 }
@@ -84,6 +89,7 @@ final class CardWatcher {
             if let old = previous[url], old.verdict == verdict {
                 volume.files = old.files
                 volume.scanError = old.scanError
+                volume.check = old.check
             }
             return volume
         }
@@ -91,6 +97,10 @@ final class CardWatcher {
 
         for card in cards where card.files == nil && card.scanError == nil {
             scan(card.info.url)
+        }
+        // The destination may have changed, so look again at what's already imported.
+        for card in cards where card.files != nil {
+            checkHistory(card.info.url)
         }
     }
 
@@ -102,9 +112,26 @@ final class CardWatcher {
             await MainActor.run { [weak self] in
                 guard let self, let index = self.volumes.firstIndex(where: { $0.id == url }) else { return }
                 switch result {
-                case let .success(files): self.volumes[index].files = files
+                case let .success(files):
+                    self.volumes[index].files = files
+                    self.checkHistory(url)
                 case let .failure(error): self.volumes[index].scanError = error.localizedDescription
                 }
+            }
+        }
+    }
+
+    /// Reads the destination's receipts in the background to find which of the
+    /// card's files earlier imports already brought in.
+    private func checkHistory(_ url: URL) {
+        guard let files = volumes.first(where: { $0.id == url })?.files else { return }
+        let destination = settings.destinationRootURL
+        Task.detached {
+            let check = ImportHistory.load(from: destination).check(files)
+            await MainActor.run { [weak self] in
+                guard let self, let index = self.volumes.firstIndex(where: { $0.id == url }),
+                      self.volumes[index].files == files else { return }
+                self.volumes[index].check = check
             }
         }
     }
@@ -126,9 +153,10 @@ final class CardWatcher {
         copyStates[url] = .preparing
         // Reading dates and copying block, so they run on their own thread.
         DispatchQueue.global(qos: .userInitiated).async {
-            let result = Result { () throws -> (ImportPlan, CopyReport) in
+            let result = Result { () throws -> (ImportPlan, CopyReport?) in
                 let plan = try ImportPlanner.plan(cardRoot: url, cardName: name, files: files, settings: settings)
                 if flag.isStopped { throw CopyError.cancelled }
+                if plan.nothingNew { return (plan, nil) }
                 let report = try CardCopier.copy(
                     cardRoot: url, cardName: name, files: plan.files, to: plan.folders,
                     importNumber: plan.importNumber,
@@ -148,8 +176,13 @@ final class CardWatcher {
                 self.stopFlags[url] = nil
                 switch result {
                 case let .success((plan, report)):
-                    self.copyStates[url] = .done(report)
+                    guard let report else {
+                        self.copyStates[url] = .nothingNew(plan.check)
+                        return
+                    }
+                    self.copyStates[url] = .done(report, skipped: plan.check.alreadyImported.count)
                     self.onImported(plan)
+                    self.checkHistory(url)
                 case let .failure(error):
                     self.copyStates[url] = .failed(error.localizedDescription)
                 }

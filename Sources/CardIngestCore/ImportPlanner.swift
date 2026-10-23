@@ -18,14 +18,18 @@ public struct ImportPlan: Sendable {
     public var importNumber: Int
     /// The card folder: in the destination, then in the backup if set.
     public var folders: [URL]
+    /// Only the files no earlier import brought in. Empty when the card has
+    /// nothing new; then `folders` is empty too and there's nothing to copy.
     public var files: [PlannedFile]
-    /// True when this card was already copied into `folders` by an earlier
-    /// import (Copy pressed twice), so it doesn't use up a new number.
-    public var repeatsEarlierImport: Bool
+    /// What's new on the card and what was already imported (and is skipped).
+    public var check: CardCheck
 
-    /// What `nextImportNumber` becomes once this copy has verified. It never goes down.
+    public var nothingNew: Bool { files.isEmpty }
+
+    /// What `nextImportNumber` becomes once this copy has verified. It never
+    /// goes down, and a card with nothing new doesn't use up a number.
     public func nextImportNumber(after current: Int) -> Int {
-        repeatsEarlierImport ? current : max(current, importNumber + 1)
+        nothingNew ? current : max(current, importNumber + 1)
     }
 }
 
@@ -62,24 +66,25 @@ public enum ImportPlanner {
         settings: IngestSettings,
         today: Date = Date(),
         calendar: Calendar = .current,
-        captureDate: CaptureDateReader? = nil
+        captureDate: CaptureDateReader? = nil,
+        history: ImportHistory? = nil
     ) throws -> ImportPlan {
         // Catch typos before anything is read or copied.
         _ = try settings.cardFolderName(today: today, calendar: calendar)
         try NameTemplate(settings.renamePattern).validate(forFiles: true)
 
+        // Files an earlier import brought in are skipped (card put back in, or Copy pressed twice).
+        let check = (history ?? ImportHistory.load(from: settings.destinationRootURL)).check(files)
+        if check.newFiles.isEmpty {
+            return ImportPlan(importNumber: settings.nextImportNumber, folders: [], files: [], check: check)
+        }
+
         let read = captureDate ?? { url, kind in CaptureDate.read(url, kind: kind, timeZone: calendar.timeZone) }
-        let groups = group(files, cardRoot: cardRoot, fileTypes: settings.fileTypes, today: today, read: read)
+        let groups = group(check.newFiles, cardRoot: cardRoot, fileTypes: settings.fileTypes, today: today, read: read)
         let names = { (number: Int) in
             try rename(groups, pattern: settings.renamePattern, today: today, importNumber: number, calendar: calendar)
         }
         let roots = [settings.destinationRootURL] + [settings.backupRootURL].compactMap { $0 }
-
-        if let earlier = try earlierImport(of: cardName, in: settings.destinationRootURL, names: names) {
-            return ImportPlan(importNumber: earlier.number,
-                              folders: roots.map { $0.appendingPathComponent(earlier.folder, isDirectory: true) },
-                              files: earlier.files, repeatsEarlierImport: true)
-        }
 
         var number = settings.nextImportNumber
         while true {
@@ -93,7 +98,7 @@ public enum ImportPlanner {
                 number += 1
                 continue
             }
-            return ImportPlan(importNumber: number, folders: folders, files: planned, repeatsEarlierImport: false)
+            return ImportPlan(importNumber: number, folders: folders, files: planned, check: check)
         }
     }
 
@@ -170,31 +175,6 @@ public enum ImportPlanner {
                   values.isRegularFile == true else { return false }
             return sizes[name.lowercased()] == Int64(values.fileSize ?? -1)
         }
-    }
-
-    /// A folder in the destination whose receipt lists exactly this card's
-    /// files under the names they'd get now, i.e. Copy pressed again.
-    static func earlierImport(of cardName: String, in root: URL,
-                              names: (Int) throws -> [PlannedFile]) throws -> (folder: String, number: Int, files: [PlannedFile])? {
-        let fm = FileManager.default
-        guard let folders = try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
-        else { return nil }
-        var cache: [Int: [PlannedFile]] = [:]
-        for folder in folders.sorted(by: { $0.lastPathComponent > $1.lastPathComponent }) {
-            let receipts = (try? fm.contentsOfDirectory(atPath: folder.path))?
-                .filter { Receipt.isReceipt($0, card: cardName) } ?? []
-            for receipt in receipts {
-                guard let earlier = Receipt.read(folder.appendingPathComponent(receipt)),
-                      let number = earlier.importNumber else { continue }
-                let planned = try cache[number] ?? names(number)
-                cache[number] = planned
-                let now = Set(planned.map { Receipt.Row(newName: $0.newName, originalPath: $0.source.relativePath, size: $0.source.size) })
-                if Set(earlier.rows) == now {
-                    return (folder.lastPathComponent, number, planned)
-                }
-            }
-        }
-        return nil
     }
 }
 

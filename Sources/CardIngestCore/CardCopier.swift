@@ -7,6 +7,9 @@ public struct CopiedFile: Equatable, Sendable {
     /// Where it came from on the card, e.g. "DCIM/100CANON/IMG_1234.CR3".
     public var originalPath: String
     public var size: Int64
+    /// The original's modified date on the card, kept in the receipt so a
+    /// later import can tell this file was already brought in.
+    public var originalModified: Date?
     /// xxHash64 of the original on the card, as 16 hex digits.
     public var checksum: String
     /// One entry per destination (main, then backup if set).
@@ -178,7 +181,7 @@ public enum CardCopier {
                     }
                 }
                 results.append(CopiedFile(newName: planned.newName, originalPath: file.relativePath, size: file.size,
-                                          checksum: XXHash64.hex(checksum), destinations: targets,
+                                          originalModified: file.modified ?? modified, checksum: XXHash64.hex(checksum), destinations: targets,
                                           alreadyThere: alreadyThere))
             } catch {
                 for (_, temp) in pending { try? fm.removeItem(at: temp) }
@@ -240,7 +243,8 @@ public enum Receipt {
         for file in report.files {
             lines.append([csv(file.newName), csv(file.originalPath), String(file.size), file.checksum,
                           file.alreadyThere ? "yes (already there)" : "yes",
-                          iso.string(from: report.finishedAt)].joined(separator: ","))
+                          iso.string(from: report.finishedAt),
+                          file.originalModified.map { iso.string(from: $0) } ?? ""].joined(separator: ","))
         }
         lines.append("")
         lines.append("Card,\(csv(report.cardName))")
@@ -258,7 +262,9 @@ public enum Receipt {
         return url
     }
 
-    static let header = "File,Original Path,Size (bytes),xxHash64,Verified,Copied At"
+    static let header = "File,Original Path,Size (bytes),xxHash64,Verified,Copied At,Original Modified"
+    /// Receipts from before the original's modified date was recorded.
+    static let headerWithoutModified = "File,Original Path,Size (bytes),xxHash64,Verified,Copied At"
 
     static func csv(_ value: String) -> String {
         guard value.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" }) else { return value }
@@ -275,6 +281,8 @@ public enum Receipt {
         var newName: String
         var originalPath: String
         var size: Int64
+        /// Nil in receipts written before this was recorded.
+        var modified: Date? = nil
     }
 
     /// Reads back the files and import number from a receipt this app wrote.
@@ -282,7 +290,8 @@ public enum Receipt {
     static func read(_ url: URL) -> (rows: [Row], importNumber: Int?)? {
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
         let lines = text.components(separatedBy: "\n")
-        guard lines.first == header else { return nil }
+        guard lines.first == header || lines.first == headerWithoutModified else { return nil }
+        let iso = ISO8601DateFormatter()
         var rows: [Row] = []
         var importNumber: Int?
         var inSummary = false
@@ -293,7 +302,8 @@ public enum Receipt {
                 if fields.count == 2, fields[0] == "Import number" { importNumber = Int(fields[1]) }
             } else {
                 guard fields.count >= 3, let size = Int64(fields[2]) else { return nil }
-                rows.append(Row(newName: fields[0], originalPath: fields[1], size: size))
+                let modified = fields.count >= 7 ? iso.date(from: fields[6]) : nil
+                rows.append(Row(newName: fields[0], originalPath: fields[1], size: size, modified: modified))
             }
         }
         return (rows, importNumber)

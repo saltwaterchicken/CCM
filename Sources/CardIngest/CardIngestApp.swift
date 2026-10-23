@@ -307,6 +307,10 @@ struct CardsView: View {
                                     Text("Couldn't read the card: \(error)").foregroundStyle(.red)
                                 } else if let files = card.files {
                                     Text("\(files.count) camera files, \(ByteCountFormatter.string(fromByteCount: card.totalBytes, countStyle: .file))")
+                                    if let message = card.check?.message {
+                                        Label(message, systemImage: "clock.arrow.circlepath")
+                                            .foregroundStyle(.orange)
+                                    }
                                 } else {
                                     ProgressView().controlSize(.small)
                                 }
@@ -353,11 +357,15 @@ struct CardsView: View {
             ProgressView(value: fraction) {
                 Text("Copying and verifying… \(Int(fraction * 100))%")
             }
-        case let .done(report):
+        case let .done(report, skipped):
             VStack(alignment: .leading, spacing: 4) {
                 Label("Copied and verified \(report.files.count) files (\(ByteCountFormatter.string(fromByteCount: report.totalBytes, countStyle: .file))). Nothing on the card was changed.",
                       systemImage: "checkmark.seal.fill")
                     .foregroundStyle(.green)
+                if skipped > 0 {
+                    Text("Skipped \(skipped) \(skipped == 1 ? "file" : "files") already imported earlier.")
+                        .foregroundStyle(.secondary)
+                }
                 if let number = report.importNumber {
                     Text("Import number \(String(format: "%03d", number))").foregroundStyle(.secondary)
                 }
@@ -372,6 +380,16 @@ struct CardsView: View {
                     Button("Show Receipt in Finder") {
                         NSWorkspace.shared.activateFileViewerSelecting(report.receipts)
                     }
+                }
+            }
+        case let .nothingNew(check):
+            VStack(alignment: .leading, spacing: 4) {
+                Label(check.message ?? "Nothing new on this card.", systemImage: "checkmark.circle")
+                    .foregroundStyle(.secondary)
+                Text("Nothing was copied, and the import number wasn't used up.")
+                    .foregroundStyle(.secondary)
+                Button("Show Imported Files") {
+                    if let folder = check.earlierFolders.last { NSWorkspace.shared.open(folder) }
                 }
             }
         case let .failed(message):

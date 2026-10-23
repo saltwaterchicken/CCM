@@ -19,6 +19,8 @@ tested; waiting for the photographer to try it with a real card.
 - [x] Step 2: "Job name" becomes "Folder name" holding the pattern; import counter in settings and the
   Job panel; card folder `2026-10-23-ES001`; counter goes up after each successful import.
 - [x] Step 3: Read each file's capture date and frame number; rename files on copy; tests.
+- [x] Already imported files are skipped when a card goes back in (see "Already imported").
+  Built and tested in CI; not yet tried on the Mac.
 - [ ] Step 4: Receipt shows original name next to new name (done, tested). Confirm on the Mac with a
   real card (not yet).
 
@@ -126,10 +128,37 @@ pattern by hand like any other text (ES is just the example).
     and sizes (an interrupted copy); then it's reused with the same number. Anything else makes
     the counter skip on. With no `{iseq}` in the folder name there's no next folder, so Copy
     stops and says to add `{iseq}`.
-  - Pressing Copy again after a card finished: the app finds the earlier folder from its receipt
-    (same card name, same files, same new names), checks the files are there and identical, and
-    doesn't use up another number. A card copied yesterday and copied again today gets a new
-    folder, because it's a new day.
+  - Pressing Copy again after a card finished, or putting the card back in: see "Already
+    imported" below.
+
+## Already imported (asked for 2026-10-23)
+
+The photographer put the same card back in and it was copied again. Now only files no earlier
+import brought in are copied (`ImportHistory.swift`):
+
+- **How the app knows:** it reads the receipts in every card folder directly inside the
+  destination. A card file counts as already imported when a receipt lists the same path on the
+  card, the same size and the same modified date. Receipts now have an "Original Modified"
+  column for this; receipts from before it (no column) match on path and size alone.
+  Card name doesn't matter, because most cards are called EOS_DIGITAL or Untitled.
+- **Modified dates:** cards keep them to 2 seconds, and FAT cards store local time, so after the
+  Mac changes time zone the same file looks whole hours off. Both still count as the same file.
+  A reformatted card whose new IMG_0001 happens to have the same size but was taken at another
+  time is a new file.
+- **When the card is shown,** before Copy is pressed, an orange line says e.g. "Partly imported
+  before: 120 of 142 files are already in 2026-10-23-ES001. Copy brings in the 22 new files only."
+  or "Already imported: all 142 files are in 2026-10-23-ES001. Nothing new to copy."
+- **Copy with some new files:** only the new ones are copied, into a new card folder with the next
+  import number (the earlier folder is left as it is). The done message adds "Skipped 120 files
+  already imported earlier." The receipt lists only the files copied this time.
+- **Copy with nothing new:** nothing is read or copied, no receipt is written, the import number
+  isn't used up, and Show Imported Files opens the folder they're in.
+- **Culling:** deleting rejects from an imported folder doesn't bring them back next time, because
+  the receipt still lists them. Deleting a whole card folder (with its receipt) lets that card be
+  imported again.
+- An interrupted copy writes no receipt, so its files aren't "already imported"; Copy picks up in
+  the same folder as before.
+- Only the destination is checked, not the backup.
 
 ## GUI wishlist
 
@@ -196,10 +225,15 @@ Suggestions so far, not yet decided. Edit freely.
      thumbnail follows it.
    "Show Receipt in Finder" selects the receipt; open it in Numbers: each row has the new name,
    then the original path on the card (e.g. `DCIM/101TEST/IMG_0001.CR3`), then size and checksum.
-7. Press Copy again: it finishes quickly into the same `…-ES001` folder (the files are already
-   there and identical), and Next import number stays at 2.
+7. The card now shows an orange "Already imported: all 11 files are in …-ES001. Nothing new to
+   copy." Press Copy: nothing is copied, it says so, and Next import number stays at 2. Eject
+   FAKECARD and mount it again with `hdiutil attach TestCards/FAKECARD.dmg`: same message.
+   Add a file (`head -c 300000 /dev/urandom > /Volumes/FAKECARD/DCIM/100TEST/IMG_0006.JPG`),
+   eject FAKECARD in Finder and attach it again: it says "Partly imported before: 11 of 12 files…
+   Copy brings in the 1 new file only." Press Copy: only IMG_0006 goes into a new `…-ES002`,
+   "Skipped 11 files already imported earlier", and Next import number is 3.
 8. Eject FAKECARD, run the script again (a new card with new random files), and set Next import
-   number back to 1. Press Copy: `…-ES001` already holds the first card, so this one goes into
-   `…-ES002` and the number becomes 3.
+   number back to 1. Press Copy: `…-ES001` and `…-ES002` already hold the first card, so this one
+   goes into `…-ES003` and the number becomes 4.
 9. Press Copy and then Stop straight away: Next import number doesn't change, and pressing Copy
    again uses the same folder.

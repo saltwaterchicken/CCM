@@ -176,8 +176,15 @@ final class CardCopierTests: XCTestCase {
         let report = try CardCopier.copy(cardRoot: card, cardName: "CARD", files: files, to: [main], importNumber: 3)
         let read = try XCTUnwrap(Receipt.read(report.receipts[0]))
         XCTAssertEqual(read.importNumber, 3)
-        XCTAssertEqual(Set(read.rows), Set(files.map {
+        XCTAssertEqual(Set(read.rows.map { Receipt.Row(newName: $0.newName, originalPath: $0.originalPath, size: $0.size) }), Set(files.map {
             Receipt.Row(newName: $0.newName, originalPath: $0.source.relativePath, size: $0.source.size)
         }))
+    }
+
+    func testReceiptKeepsTheOriginalsModifiedDate() throws {
+        let report = try CardCopier.copy(cardRoot: card, cardName: "CARD", files: try scan(), to: [main])
+        let read = try XCTUnwrap(Receipt.read(report.receipts[0]))
+        let raw = try XCTUnwrap(read.rows.first { $0.originalPath == "DCIM/100TEST/IMG_0001.CR3" })
+        XCTAssertEqual(raw.modified, Date(timeIntervalSince1970: 1_700_000_000))
     }
 }
