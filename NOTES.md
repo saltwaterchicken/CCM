@@ -27,9 +27,12 @@ tested; waiting for the photographer to try it with a real card.
 **Milestone 3 (new): Live culling grid with star rating.** Agreed 2026-10-23, ahead of metadata
 and auto-rating (see "Culling grid"). Not started.
 
-- [ ] Step 1: Copier reports each file as it's verified; files grouped by shot (RAW+JPEG+sidecars). Tests.
-- [ ] Step 2: Star storage in `.xmp` sidecars, 1 star by default on landing. Tests, then check in
-  Lightroom, Bridge or Photo Mechanic.
+- [x] Step 1: Copier reports each file as it's verified; files grouped by shot (RAW+JPEG+sidecars). Tests.
+  `CardCopier.copy(fileVerified:)` and `ShotList` in `Shots.swift`; nothing on screen yet (Step 4).
+- [x] Step 2: Star storage in `.xmp` sidecars, 1 star by default on landing. Tests, then check in
+  Lightroom, Bridge or Photo Mechanic. Confirmed in Lightroom Classic 2026-10-22 with a Sony RX100
+  card (after the RAW digest fix below), then with Nikon NEF, Canon CR3 and Fujifilm RAF files
+  copied from a card: all showed 1 star.
 - [ ] Step 3: Thumbnail maker (embedded RAW preview, JPEG/HEIC, video frame), background and cached.
 - [ ] Step 4: Grid in the main window filling live during Copy; selection, 0 to 5 keys, auto-advance.
 - [ ] Step 5: Larger view (double-click), Space for 100%, arrows, star filter.
@@ -239,6 +242,13 @@ How it works:
 
 - **File landed:** `CardCopier.copy` gains a per-file report, called once a file is verified and has
   its final name in every destination (not for `.partial` files). The app adds or updates the tile.
+  Built 2026-10-22: `fileVerified` runs on the copying thread, once per file, before the receipt is
+  written; files already there from an interrupted copy are reported too, and files verified before a
+  failure have already been reported. `ShotList.add` groups copies by new base name, ignoring case
+  (the planner gives a RAW+JPEG pair and its sidecars one base name, and `-2` twins stay separate).
+  A shot's tile file is its RAW, else JPEG/HEIC, else clip; the badge lists the picture files
+  (`RAW+JPG`, sidecars don't count); its stars go in the `.xmp` from the card if there is one.
+  Shots keep the order their first file landed.
 - **Thumbnails and preview:** ImageIO's `CGImageSourceCreateThumbnailAtIndex` pulls the camera's
   embedded JPEG out of the RAW without decoding it; JPEG and HEIC open directly; a video frame comes
   from AVFoundation. Made on a background queue, only for tiles on screen, and cached, so a
@@ -258,6 +268,33 @@ How it works:
   file afterwards (its size changes), so treat `.xmp` files as matched by name, not size.
 - **In-camera ratings:** if the photo already carries a rating set in the camera (read with ImageIO),
   keep it instead of the 1-star default.
+- **Built 2026-10-22** (`Stars.swift`, decided while building):
+  - Sidecars are read and written with ImageIO's XMP support (`CGImageMetadata`), not by hand, so a
+    camera's sidecar keeps all its other fields and any prefix it used for the rating is understood.
+    Written atomically. Unreadable sidecars are left alone and listed in the summary.
+  - A shot gets its stars when its **last** file is verified, not its first: the camera's `.xmp`
+    sorts after the CR3 and JPG, and a sidecar made earlier would have collided with it.
+  - On landing, stars already in the sidecar win (from the card, or an earlier interrupted copy),
+    then a rating set in the camera, then 1. A 0 from either counts as "not rated", because cameras
+    write 0 for that. Known gap: a hand-set 0 in an interrupted copy comes back as 1 on re-copy.
+  - Matched by name once copied, because stars change them: an `.xmp` already in the card folder is
+    kept as it is (not re-verified against the card) when an interrupted copy is picked up; it
+    doesn't make the folder look like another card's; and it still lets the card's original go to
+    the Trash when the card goes back in.
+  - The summary says "Stars for 9 photos are in their .xmp sidecars". The receipt lists only the
+    card's files, so a sidecar the app made isn't in it.
+  - Not yet: telling a hand-set star from the landing 1, which the auto-rating milestones need.
+  - **Lightroom needs the RAW's digest** (found 2026-10-22 with a Sony RX100 card: Lightroom showed
+    no stars). Many RAWs (Sony ARW, Nikon, DNG, Canon CR3) carry their own XMP block inside, Sony's
+    saying `xmp:Rating 0`. Lightroom and Camera Raw only trust a sidecar over it when the sidecar's
+    `photoshop:EmbeddedXMPDigest` is the MD5 of that block; otherwise they take the RAW's 0 and ignore
+    the sidecar. So a RAW shot's sidecar now also gets that digest (`RawXMP.swift`: tag 700 of a
+    TIFF-style RAW, or the XMP `uuid` box of a CR3), `photoshop:SidecarForExtension` and
+    `xmp:MetadataDate`, as Adobe writes them.
+  - Per brand (checked on files on the photographer's Mac, 2026-10-22): Sony ARW and Nikon NEF match
+    the digests Lightroom itself wrote. Canon CR3 keeps the block (`Rating 0`) in the XMP `uuid` box;
+    Fujifilm RAF keeps it in the XMP section of the preview JPEG inside the RAF (pointer at byte 84).
+    All four showed 1 star in Lightroom Classic after a Copy from a card (2026-10-22).
 - **If the copy fails part way:** stars already given stay in the sidecars next to the verified
   copies; the card is untouched, as now. The tiles stay so the photographer can keep culling.
 
@@ -280,6 +317,11 @@ Suggestions so far, not yet decided. Edit freely.
 - [x] The user interface should be dark or black like the software capture one pro or AI-Flow
 
 ## Open questions
+
+- Found on a Sony RX100 card, 2026-10-22: `PRIVATE/M4ROOT/MEDIAPRO.XML` (the camera's index of its
+  clips) is copied and renamed like a photo (`2026-10-23-ES_0000.XML`) because `xml` is a sidecar
+  type for Sony clips, and with Trash on it would be moved off the card. Proposed: skip it and the
+  other M4ROOT index files (`STATUS.BIN`, `CUEUP.XML`...). Waiting for the photographer.
 
 - ~~Because any removable drive counts, USB drives are offered as cards: what about trashing?~~
   Decided 2026-10-22: only drives with a `DCIM` folder are trashed (see "Trash and eject").
@@ -354,3 +396,13 @@ Suggestions so far, not yet decided. Edit freely.
     with the summary. Locked card: eject FAKECARD, run the script again, eject it in Finder, run `hdiutil attach -readonly
     TestCards/FAKECARD.dmg`, and press Copy: "The card is locked (check the switch on its side), so
     nothing was moved to the Trash."
+12. Stars in an editor (needs real photos; the fake card's random bytes won't open in Lightroom).
+    Put a few RAW+JPEG pairs from your camera in a folder, e.g. `~/Desktop/samples`, untick the
+    Trash box, and run `scripts/make-fake-card.sh ~/Desktop/samples`. Press Copy: the summary says
+    "Stars for N photos are in their .xmp sidecars". In the card folder each photo has a `.xmp`
+    next to it (one per RAW+JPEG pair). Import the folder into Lightroom Classic: the RAWs show
+    1 star. Open the folder in Bridge or Photo Mechanic: 1 star there too. Change a star in Bridge,
+    then open that `.xmp` in TextEdit: `<xmp:Rating>` has the new number. Known gap: Lightroom
+    ignores sidecars for JPEG-only and HEIC shots until the metadata milestone embeds stars.
+    A card copied before the digest fix (2026-10-22-ES006) shows no stars in Lightroom; re-test with
+    new pictures (a card put back in only brings in pictures it hasn't seen).

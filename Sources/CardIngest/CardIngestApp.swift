@@ -439,6 +439,16 @@ struct CardsView: View {
                 if let number = report.importNumber {
                     Text("Import number \(String(format: "%03d", number))").foregroundStyle(.secondary)
                 }
+                if finished.rated > 0 {
+                    Text("Stars for \(finished.rated) \(finished.rated == 1 ? "photo are" : "photos are") in their .xmp sidecars "
+                         + "(1 star, or what the camera set).")
+                        .foregroundStyle(.secondary)
+                }
+                if !finished.starProblems.isEmpty {
+                    Label("Couldn't write stars for \(finished.starProblems.count) \(finished.starProblems.count == 1 ? "photo" : "photos"): "
+                          + finished.starProblems[0], systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                }
                 ForEach(report.destinationFolders, id: \.self) { folder in
                     Text(folder.path).foregroundStyle(.secondary).textSelection(.enabled)
                 }

@@ -67,6 +67,9 @@ public enum CardCopier {
 
     /// - Parameters:
     ///   - progress: called with bytes processed so far and the total to process.
+    ///   - fileVerified: called once per file, as soon as every copy of it is
+    ///     verified and has its real name (never for a `.partial`), so the app
+    ///     can show it before the whole card is done. Runs on the copying thread.
     ///   - isCancelled: checked between chunks; return true to stop.
     public static func copy(
         cardRoot: URL,
@@ -76,6 +79,7 @@ public enum CardCopier {
         importNumber: Int? = nil,
         now: Date = Date(),
         progress: @Sendable (Int64, Int64) -> Void = { _, _ in },
+        fileVerified: @Sendable (CopiedFile) -> Void = { _ in },
         isCancelled: @Sendable () -> Bool = { false }
     ) throws -> CopyReport {
         let fm = FileManager.default
@@ -158,6 +162,9 @@ public enum CardCopier {
                 // Read every copy back from the destination and compare.
                 for target in targets {
                     let written = pending.first { $0.final == target }?.temp ?? target
+                    // An .xmp already there holds its stars, set after it was verified, so it
+                    // no longer matches the card. It's kept as it is (see Stars).
+                    if written == target && Stars.isSidecar(target.lastPathComponent) { continue }
                     let copyChecksum = try hashFile(written, name: file.relativePath) { bytes in
                         workDone += bytes
                         progress(workDone, workTotal)
@@ -180,9 +187,11 @@ public enum CardCopier {
                         throw CopyError.writeFailed(file: file.relativePath, reason: error.localizedDescription)
                     }
                 }
-                results.append(CopiedFile(newName: planned.newName, originalPath: file.relativePath, size: file.size,
-                                          originalModified: file.modified ?? modified, checksum: XXHash64.hex(checksum), destinations: targets,
-                                          alreadyThere: alreadyThere))
+                let copied = CopiedFile(newName: planned.newName, originalPath: file.relativePath, size: file.size,
+                                        originalModified: file.modified ?? modified, checksum: XXHash64.hex(checksum),
+                                        destinations: targets, alreadyThere: alreadyThere)
+                results.append(copied)
+                fileVerified(copied)
             } catch {
                 for (_, temp) in pending { try? fm.removeItem(at: temp) }
                 throw error

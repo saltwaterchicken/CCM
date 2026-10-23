@@ -138,6 +138,52 @@ final class CardCopierTests: XCTestCase {
         XCTAssertEqual(receipts, [], "No receipt for a failed job")
     }
 
+    /// Collects what the copier reports, from the copying thread.
+    private final class Landed: @unchecked Sendable {
+        private let lock = NSLock()
+        private var files: [CopiedFile] = []
+        func add(_ file: CopiedFile) { lock.withLock { files.append(file) } }
+        var all: [CopiedFile] { lock.withLock { files } }
+    }
+
+    func testEachFileIsReportedAsSoonAsItsCopiesAreVerified() throws {
+        let landed = Landed()
+        let folders = [main, backup]
+        let report = try CardCopier.copy(cardRoot: card, cardName: "CARD", files: try scan(), to: folders,
+                                         fileVerified: { file in
+            // Every copy already has its real name, and the receipt isn't written yet.
+            for destination in file.destinations {
+                XCTAssertTrue(FileManager.default.fileExists(atPath: destination.path), destination.path)
+            }
+            for folder in folders {
+                let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
+                XCTAssertFalse(names.contains { $0.hasPrefix("Receipt_") })
+            }
+            landed.add(file)
+        })
+        XCTAssertEqual(landed.all, report.files)
+        XCTAssertEqual(landed.all.count, 3)
+    }
+
+    func testFilesVerifiedBeforeAFailureWereStillReported() throws {
+        var files = try scan()
+        let gone = CardFile(relativePath: "DCIM/100TEST/GONE.CR3", size: 10)
+        files.append(PlannedFile(source: gone, newName: gone.relativePath))
+        let landed = Landed()
+        XCTAssertThrowsError(try CardCopier.copy(cardRoot: card, cardName: "CARD", files: files, to: [main],
+                                                 fileVerified: { landed.add($0) }))
+        XCTAssertEqual(landed.all.map(\.originalPath), files.dropLast().map(\.source.relativePath))
+    }
+
+    func testFilesAlreadyThereAreReportedToo() throws {
+        let files = try scan()
+        _ = try CardCopier.copy(cardRoot: card, cardName: "CARD", files: files, to: [main])
+        let landed = Landed()
+        _ = try CardCopier.copy(cardRoot: card, cardName: "CARD", files: files, to: [main], fileVerified: { landed.add($0) })
+        XCTAssertEqual(landed.all.count, 3)
+        XCTAssertTrue(landed.all.allSatisfy(\.alreadyThere))
+    }
+
     func testNotEnoughSpaceIsCheckedFirst() throws {
         let huge = [PlannedFile(source: CardFile(relativePath: "DCIM/100TEST/IMG_0001.CR3", size: Int64.max / 4),
                                 newName: "IMG_0001.CR3")]

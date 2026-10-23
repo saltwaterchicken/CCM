@@ -30,12 +30,19 @@ FOLDER="${CARD}/DCIM/100TEST"
 mkdir -p "$FOLDER"
 
 if [ -n "$SAMPLES" ]; then
-    # Copy (never move) the samples, numbered like a camera would.
-    n=1
+    # Copy (never move) the samples, numbered like a camera would. Files that
+    # share a name (a RAW+JPEG pair, a sidecar) share a number, so they stay a pair.
+    n=0
+    previous=""
     find "$SAMPLES" -maxdepth 1 -type f ! -name '.*' -print0 | sort -z | while IFS= read -r -d '' f; do
-        ext="${f##*.}"
+        name="$(basename "$f")"
+        stem="${name%.*}"
+        ext="${name##*.}"
+        if [ "$stem" != "$previous" ]; then
+            n=$((n + 1))
+            previous="$stem"
+        fi
         cp "$f" "$(printf '%s/IMG_%04d.%s' "$FOLDER" "$n" "$ext")"
-        n=$((n + 1))
     done
 else
     # Random bytes with camera-style names. Fine for copy and verify tests;

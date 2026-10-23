@@ -162,15 +162,19 @@ public enum ImportPlanner {
     }
 
     /// True when the folder doesn't exist yet, or only holds this card's own
-    /// files from an earlier, unfinished copy (same names and sizes).
+    /// files from an earlier, unfinished copy (same names and sizes; `.xmp`
+    /// sidecars by name alone, since stars change them).
     static func holdsNothingElse(_ folder: URL, _ planned: [PlannedFile]) -> Bool {
         guard let entries = try? FileManager.default.contentsOfDirectory(
             at: folder, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey], options: [.skipsHiddenFiles])
         else { return true }
         let sizes = Dictionary(planned.map { ($0.newName.lowercased(), $0.source.size) }, uniquingKeysWith: { a, _ in a })
+        let bases = Set(planned.map { ($0.newName.lowercased() as NSString).deletingPathExtension })
         return entries.allSatisfy { url in
             let name = url.lastPathComponent
             if Receipt.isReceipt(name) { return true }
+            // A sidecar holding the stars of one of this card's shots.
+            if Stars.isSidecar(name) && bases.contains((name.lowercased() as NSString).deletingPathExtension) { return true }
             guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),
                   values.isRegularFile == true else { return false }
             return sizes[name.lowercased()] == Int64(values.fileSize ?? -1)
