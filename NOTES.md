@@ -43,6 +43,14 @@ and auto-rating (see "Culling grid"). **Done**, confirmed by the photographer 20
   and up/down arrows. Confirmed on the Mac 2026-10-23.
 - [x] Step 6: Confirm on the Mac. Confirmed with real cards 2026-10-23; the slow fake card option
   wasn't needed and wasn't built.
+- [x] Step 7 (asked for 2026-10-24): clips play in the large view, to scrub them in the app.
+  Double-click a clip: it fills the window with a time bar at the bottom; Space plays and pauses,
+  dragging the bar scrubs frame by frame, clicking the picture also plays and pauses, `,` and `.`
+  step one frame back and forward (`<` `>` with Shift: ten). Space in the grid on a clip opens it and
+  plays. In the grid, moving the pointer across a clip's tile scrubs it, as in Premiere (left edge
+  the start, right edge the end; a line and the time show where). `ClipPlayer.swift` (AVPlayer with
+  our own bar, so the keys stay with the app). Hover frames measured at 10 to 50 ms on the ES014
+  clips (HEVC and H.264). Confirmed on the Mac by the photographer 2026-10-24.
 
 **Milestone 4: Metadata template.** Started 2026-10-23 with a test of what the NAS reads, before
 any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropped 2026-10-23 (see
@@ -409,6 +417,31 @@ Synology Photos reads, for every camera and video format, and copy whatever work
 5. Keep the tagged folders on the Mac. Claude inspects each file and sidecar to see where each app
    wrote what, and why the NAS missed Photo Mechanic's.
 
+**Sample folders ready (2026-10-23):** `~/Desktop/NAS Metadata Test/Bridge` and `…/PhotoMechanic`,
+identical untagged copies of files already on the Mac: Sony ARW+JPG, Fujifilm RAF, Nikon NEF, Canon
+CR3 (no JPEGs for those three), iPhone HEIC, camera MP4 (HEVC, timecode), Nikon MOV (HEVC), iPhone
+MOV, DJI drone MP4, and `ProRes_422LT.mov` (a Premiere render). No MPEG, MXF or MTS on the Mac. The
+photographer fills the checklist themselves; Claude leaves it alone until then.
+
+**Existing Photo Mechanic template** (found in `Documents/Camp K & E consulting/2026 Notes/Media
+Team/Ingesting Presets/Photo Mechanic Metadata/PM_Metadata.XMP`): keywords `Camp`, `2026`, `Summer`,
+and the caption set to the rename pattern `{year4}-{month0}-{day0}-{artist}ES_{frame4}`. No
+creator, copyright or location. The ingest presets in `PM_Export.pmx` (KE 2026, KE 2024, KE) use the
+same folder and rename patterns Card Ingest already has. A starting point for Step 2's values.
+
+**First results (2026-10-24),** from Card Ingest imports `2026-10-23-ES013` and `2026-10-24-ES014`
+copied to the Synology (the Desktop sample folders weren't used; the checklist is still blank):
+- **RAW stars: Lightroom yes, Synology Photos no**, for every brand, whether 1 from landing or a
+  hand-set 2 or 3. The sidecars are right (ES014: 19 at 1, 18 at 3) and Lightroom follows them.
+  Synology Photos ignores `.xmp` sidecars and reads only what's inside a file. The NEFs' own
+  embedded block still says `xmp:Rating 0`.
+- **Lightroom-exported JPEGs show their stars on Synology** (`•To Campanion`: 19 at 1, 18 at 3,
+  embedded as `xmp:Rating` by Lightroom Classic 14.4). So Synology reads ratings embedded in a JPEG.
+- **Clips:** the photographer saw no stars on the H.265 ones. Checked: none of ES014's 5 clips (2 HEVC
+  MOV, 1 H.264 MOV, 2 H.264 MP4) has a rating inside it or a sidecar. Card Ingest doesn't rate clips,
+  so any star shown on an H.264 clip came from somewhere other than the file (a catalog?). To ask.
+- So the problem is **where** stars are stored, not the 1-star default: hand-set stars failed too.
+
 **Still to decide (Step 2):** receipt and already-imported handling once JPEG, HEIC and video are
 changed after verifying (proposed: receipt keeps the card's checksum and adds the final one, those
 files matched by name like `.xmp`); per-job fields in the Job panel or the settings file; the
@@ -541,3 +574,13 @@ Suggestions so far, not yet decided. Edit freely.
     tiles show grey empty stars (or the camera's rating), and no `.xmp` appears next to them. Then
     press Load Folder… and pick a folder of JPEGs exported from Capture One or Lightroom with stars:
     the tiles show the same stars as Capture One or Lightroom. Choose 0★: the grey ones aren't in it.
+17. Playing clips (2026-10-24). Load Folder… a card folder with clips (e.g. `2026-10-24-ES014`, which
+    has H.264 and HEVC ones). Double-click a clip: it fills the window, paused, with a bar at the
+    bottom (play button, time, track, length). Press Space: it plays; Space again pauses. Drag along
+    the bar: the picture follows frame by frame, and if it was playing it carries on when let go.
+    Click the picture: play/pause. Paused, press `.` a few times: one frame forward each; `,` back;
+    Shift-`.` jumps ten. → moves on to the next shot and the clip stops. Esc back to the
+    grid, select a clip and press Space: it opens and plays straight away. On a photo, Space still
+    goes to 100%. Back in the grid, move the pointer slowly across a clip's tile without clicking: the
+    picture follows the pointer through the clip, a thin line along the bottom and the time in the
+    corner show where, and moving off puts the first frame back.

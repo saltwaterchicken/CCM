@@ -137,12 +137,17 @@ final class GridModel {
     }
 
     /// Opens the large view on a shot (or the focused one), fitted or at 100%.
+    /// A clip asked for at 100% (Space in the grid) starts playing instead.
     func view(_ id: String? = nil, actualSize: Bool = false) {
         if let id, grid.focus != id { grid.click(id) }
-        guard grid.focus != nil else { return }
-        self.actualSize = actualSize
+        guard let focus = grid.focus, let shot = grid.shot(focus) else { return }
+        self.actualSize = actualSize && shot.isRatable
+        playWhenShown = actualSize && shot.kind == .video
         isViewing = true
     }
+
+    /// Set by Space in the grid on a clip; the large view plays it once and clears this.
+    var playWhenShown = false
 
     func closeView() {
         isViewing = false
@@ -357,7 +362,8 @@ struct CullingView: View {
 }
 
 /// One shot: its thumbnail, a badge for RAW+JPEG, its name and stars. Clips
-/// show a play mark and their length instead of stars.
+/// show a play mark and their length instead of stars, and scrub under the
+/// pointer: left edge the start, right edge the end.
 struct TileView: View {
     let shot: Shot
     let stars: Int?
@@ -365,12 +371,24 @@ struct TileView: View {
     let cache: ThumbnailCache
     @State private var thumbnail: Thumbnail?
     @State private var tried = false
+    /// Hover scrubbing: where the pointer is across the tile (0 to 1), the
+    /// frame there, and the one asked for next while a frame is being made.
+    @State private var frames: ClipFrames?
+    @State private var hoverShare: Double?
+    @State private var hoverFrame: CGImage?
+    @State private var making = false
+    @State private var wanted: Double?
+    @State private var width: CGFloat = 1
 
     var body: some View {
         VStack(spacing: 6) {
             ZStack {
                 Color(white: 0.07)
-                if let thumbnail {
+                if let hoverFrame, hoverShare != nil {
+                    Image(decorative: hoverFrame, scale: 1)
+                        .resizable()
+                        .scaledToFit()
+                } else if let thumbnail {
                     Image(decorative: thumbnail.image, scale: 1)
                         .resizable()
                         .scaledToFit()
@@ -379,7 +397,7 @@ struct TileView: View {
                 } else {
                     ProgressView().controlSize(.small)
                 }
-                if shot.kind == .video {
+                if shot.kind == .video && hoverShare == nil {
                     Image(systemName: "play.circle.fill")
                         .font(.largeTitle)
                         .foregroundStyle(.white.opacity(0.85))
@@ -393,7 +411,28 @@ struct TileView: View {
                 if let badge = shot.badge { tag(badge).padding(4) }
             }
             .overlay(alignment: .bottomTrailing) {
-                if let seconds = thumbnail?.duration { tag(Self.length(seconds)).padding(4) }
+                if let seconds = thumbnail?.duration {
+                    tag(hoverShare.map { Self.length($0 * seconds) } ?? Self.length(seconds)).padding(4)
+                }
+            }
+            .overlay(alignment: .bottomLeading) {
+                if let hoverShare {
+                    Rectangle().fill(Color.accentColor).frame(width: width * hoverShare, height: 2)
+                }
+            }
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = max($0, 1) }
+            .onContinuousHover { phase in
+                guard shot.kind == .video else { return }
+                switch phase {
+                case .active(let point):
+                    let share = min(max(point.x / width, 0), 1)
+                    hoverShare = share
+                    scrub(to: share)
+                case .ended:
+                    hoverShare = nil
+                    hoverFrame = nil
+                    wanted = nil
+                }
             }
 
             Text(shot.baseName)
@@ -423,6 +462,26 @@ struct TileView: View {
                     thumbnail = made
                     tried = true
                 }
+            }
+        }
+    }
+
+    /// One frame at a time: moves made while one is being made only keep the
+    /// latest, so the frame never lags far behind the pointer.
+    private func scrub(to share: Double) {
+        guard !making else { return wanted = share }
+        guard let url = shot.primary.destinations.first else { return }
+        let frames = frames ?? ClipFrames(url: url, maxPixels: 400)
+        self.frames = frames
+        making = true
+        Task {
+            let image = await frames.frame(at: share)
+            making = false
+            guard hoverShare != nil else { return }
+            if let image { hoverFrame = image }
+            if let next = wanted {
+                wanted = nil
+                scrub(to: next)
             }
         }
     }
@@ -465,7 +524,8 @@ struct StarsView: View {
 
 /// One shot filling the window. Space switches between fitted and 100%
 /// (actual pixels, to check focus); clicking a spot zooms to 100% right there;
-/// drag to look around. Arrows, 0 to 5 and auto-advance work as in the grid;
+/// drag to look around. A clip plays instead: Space plays and pauses, the bar
+/// at the bottom scrubs. Arrows, 0 to 5 and auto-advance work as in the grid;
 /// Esc goes back.
 struct LargeView: View {
     var model: GridModel
@@ -483,6 +543,9 @@ struct LargeView: View {
     /// A spot clicked in the fitted picture, as a share of it from its centre,
     /// waiting for the 100% image to centre on it.
     @State private var zoomTarget: CGPoint?
+    /// The clip showing, if the shot is one.
+    @State private var clip: ClipPlayback?
+    @State private var clipFor: String?
 
     private var shot: Shot? { model.grid.focus.flatMap { model.grid.shot($0) } }
     private var scale: CGFloat { NSScreen.main?.backingScaleFactor ?? 2 }
@@ -491,7 +554,16 @@ struct LargeView: View {
         GeometryReader { geometry in
             ZStack {
                 Color.black
-                if model.actualSize, let actual, actualFor == shot?.id {
+                if let clip, clipFor == shot?.id {
+                    // The tile's frame shows until the clip's first frame covers it.
+                    if let fitted {
+                        Image(decorative: fitted.image, scale: 1).resizable().scaledToFit().padding(.vertical, 44)
+                    }
+                    ClipLayer(player: clip.player)
+                        .padding(.vertical, 44)
+                        .contentShape(Rectangle())
+                        .onTapGesture { clip.togglePlay() }
+                } else if model.actualSize, let actual, actualFor == shot?.id {
                     actualPixels(actual, in: geometry.size)
                 } else if let fitted {
                     Image(decorative: fitted.image, scale: 1)
@@ -507,6 +579,9 @@ struct LargeView: View {
                 }
             }
             .overlay(alignment: .top) { bar }
+            .overlay(alignment: .bottom) {
+                if let clip, clipFor == shot?.id { ScrubBar(clip: clip) }
+            }
             .frame(width: geometry.size.width, height: geometry.size.height)
             .clipped()
         }
@@ -519,6 +594,10 @@ struct LargeView: View {
             return .handled
         }
         .onKeyPress(.space) {
+            if let clip, clipFor == shot?.id {
+                clip.togglePlay()
+                return .handled
+            }
             if shot?.isRatable == true { model.actualSize.toggle() }
             if !model.actualSize { offset = .zero }
             return .handled
@@ -534,6 +613,14 @@ struct LargeView: View {
         .onKeyPress(characters: CharacterSet(charactersIn: "012345")) { press in
             guard let stars = Int(press.characters) else { return .ignored }
             model.rate(stars)
+            return .handled
+        }
+        // A clip: , and . one frame back and forward; with Shift (< and >) ten.
+        .onKeyPress(characters: CharacterSet(charactersIn: ",.<>")) { press in
+            guard let clip, clipFor == shot?.id else { return .ignored }
+            let frames: [String: Int] = [",": -1, ".": 1, "<": -10, ">": 10]
+            guard let count = frames[press.characters] else { return .ignored }
+            clip.step(by: count)
             return .handled
         }
         // The fitted picture, at the screen's size. The grid's tile shows at once
@@ -557,9 +644,22 @@ struct LargeView: View {
                 fittedFor = shot.id
             }
         }
+        // A player for a clip, made as it comes up and stopped when moving on or going back.
+        .onChange(of: shot?.id, initial: true) { _, _ in
+            clip?.stop()
+            clip = nil
+            clipFor = nil
+            guard let shot, shot.kind == .video, let url = shot.primary.destinations.first else { return }
+            let playback = ClipPlayback(url: url)
+            clip = playback
+            clipFor = shot.id
+            if model.playWhenShown { playback.togglePlay() }
+            model.playWhenShown = false
+        }
+        .onDisappear { clip?.stop() }
         // Every pixel, only when asked for. The same spot stays in view from photo to photo.
         .task(id: "\(shot?.id ?? "")-\(model.actualSize)") {
-            guard model.actualSize, let shot, actualFor != shot.id else { return }
+            guard model.actualSize, let shot, shot.isRatable, actualFor != shot.id else { return }
             loadingActual = true
             let made = await model.actualPixels(shot)
             if !Task.isCancelled {
@@ -580,10 +680,12 @@ struct LargeView: View {
                 if let index = model.grid.visible.firstIndex(where: { $0.id == shot.id }) {
                     Text("\(index + 1) of \(model.grid.visible.count)").foregroundStyle(.secondary)
                 }
-                if model.actualSize { Text("100%").font(.caption.bold()).foregroundStyle(.yellow) }
+                if model.actualSize && shot.isRatable { Text("100%").font(.caption.bold()).foregroundStyle(.yellow) }
             }
             Spacer()
-            Text("Space 100% · click to zoom there · drag to look around · ← → · 0–5 · Esc back")
+            Text(shot?.kind == .video
+                 ? "Space play/pause · , . frame (⇧ ten) · drag the bar to scrub · ← → · Esc back"
+                 : "Space 100% · click to zoom there · drag to look around · ← → · 0–5 · Esc back")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Button("Back to Grid") { model.closeView() }
