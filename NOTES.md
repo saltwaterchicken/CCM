@@ -62,6 +62,30 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   inside the tagged files to see where each app wrote the metadata.
 - [ ] Step 2: Agree the spec from what the test shows, plus the photographer's template values.
 
+**Milestone 6: Auto-rating, sharpness and exposure.** Plan written 2026-10-24
+(https://claude.ai/artifact/7UMysgBFBPp1DokgpAdt81); waiting on the photographer's answers to its
+four questions (culled folders to calibrate on, what counts as a keeper, keep-or-flag when unsure,
+sidecars for outtakes too). Blinks follow as Milestone 7.
+
+- **Revised 2026-10-24:** faces and no-face shots get **separate sharpness limits**
+  (`minimumSharpnessFaces`, `minimumSharpnessNoFaces`): skin is smooth, so a sharp face has less edge
+  contrast than sharp grass, and a landscape is never marked down for having no face. A **Job panel
+  checkbox** "Rate sharpness and exposure" (`autoRating`) turns it on or off like the When done boxes.
+  The checks read the copies, never the card, at lower priority than copy and verify, so the copy
+  isn't slowed and trash/eject never wait for them; on a fast CFexpress card they may finish a little
+  after the copy. All on-device with Apple frameworks (Vision, Accelerate/Core Image, ImageIO).
+- [ ] Step 1: Scoring in Core (RAW preview at one working size, Vision faces else sharpest area,
+  Laplacian variance, blown/crushed share), tests on synthetic sharp/blurred images with and without
+  faces, then a run over a hand-culled folder per camera, with timings, as a go/no-go. Sony's built-in preview is only 1616×1080 (Nikon
+  and Canon embed full size, Fuji 4000×3000), so small faces may need decoding from the RAW.
+- [ ] Step 2: Calibration window: score a hand-rated folder once, sliders for the face, no-face and
+  two exposure limits with live agreement and the misses as thumbnails, Save to the settings file.
+- [ ] Step 3: Check each shot as it lands and on Load Folder (Check button): 1 star to keepers, 0
+  plus a private "checked by Card Ingest" marker, scores and reason for outtakes; never a shot that
+  already has stars or that's rated while it's checked. App stars look different from hand ones,
+  reason chips, a Flagged filter, the Job panel checkbox.
+- [ ] Step 4: Confirm on the Mac with real cards and tune.
+
 **Milestone 5: Trash and eject.** Started early at the photographer's request, 2026-10-22, while
 Milestone 2's metadata waits on the template. Built and tested on disk images; not yet tried on the Mac.
 
