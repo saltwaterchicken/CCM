@@ -27,9 +27,6 @@ struct Finished: Identifiable, Sendable {
     /// Why the originals stayed on the card, when trashing is on but didn't happen.
     var keptOnCard: String?
     var ejectProblem: String?
-    /// How many photos got stars in their .xmp sidecars, and any sidecars that couldn't be written.
-    var rated = 0
-    var starProblems: [String] = []
 }
 
 /// Where a card's copy job stands.
@@ -194,11 +191,11 @@ final class CardWatcher {
         let session = UUID()
         // Reading dates and copying block, so they run on their own thread.
         DispatchQueue.global(qos: .userInitiated).async {
-            let result = Result { () throws -> (ImportPlan, CopyReport?, LiveShots?) in
+            let result = Result { () throws -> (ImportPlan, CopyReport?) in
                 let plan = try ImportPlanner.plan(cardRoot: url, cardName: name, files: files, settings: settings)
                 if flag.isStopped { throw CopyError.cancelled }
-                if plan.nothingNew { return (plan, nil, nil) }
-                // Each shot gets its stars as soon as its last file is verified.
+                if plan.nothingNew { return (plan, nil) }
+                // Each shot goes on the grid as soon as its last file is verified.
                 let shots = LiveShots(planned: plan.files, fileTypes: settings.fileTypes)
                 let report = try CardCopier.copy(
                     cardRoot: url, cardName: name, files: plan.files, to: plan.folders,
@@ -212,27 +209,23 @@ final class CardWatcher {
                         }
                     },
                     fileVerified: { file in
-                        // Each shot goes on the grid once its last file is in and its star written.
                         guard let landed = shots.complete(file) else { return }
                         let folder = plan.folders.first
                         Task { @MainActor in grid.add(landed, session: session, cardName: name, folder: folder) }
                     },
                     isCancelled: { flag.isStopped })
-                return (plan, report, shots)
+                return (plan, report)
             }
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.stopFlags[url] = nil
                 switch result {
-                case let .success((plan, report, shots)):
+                case let .success((plan, report)):
                     if report != nil {
                         self.onImported(plan)
                         self.checkHistory(url)
                     }
-                    var finished = Finished(cardName: name, report: report, check: plan.check)
-                    finished.rated = shots?.ratings.count ?? 0
-                    finished.starProblems = shots?.starProblems ?? []
-                    self.afterCopy(url, finished)
+                    self.afterCopy(url, Finished(cardName: name, report: report, check: plan.check))
                 case let .failure(error):
                     self.copyStates[url] = .failed(error.localizedDescription)
                 }

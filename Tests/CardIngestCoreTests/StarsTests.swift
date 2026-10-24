@@ -3,8 +3,8 @@ import UniformTypeIdentifiers
 import XCTest
 @testable import CardIngestCore
 
-/// Stars in .xmp sidecars: 1 star when a RAW lands, kept through re-copies and trashing.
-/// JPEG or HEIC shots with no RAW get nothing written; their embedded rating is only read.
+/// Stars in .xmp sidecars, kept through re-copies and trashing. Nothing is written when a
+/// shot lands: it shows the stars it came with (card sidecar or camera), or none.
 final class StarsTests: XCTestCase {
     private var base: URL!
     private var card: URL { base.appendingPathComponent("CARD", isDirectory: true) }
@@ -44,11 +44,20 @@ final class StarsTests: XCTestCase {
 
     /// A real JPEG, optionally with a rating set "in the camera".
     private func jpeg(rating: Int?) throws -> Data {
+        try image(UTType.jpeg, rating: rating)
+    }
+
+    /// A real TIFF, which ImageIO reads as it does a DNG: a RAW with a rating inside.
+    private func dng(rating: Int?) throws -> Data {
+        try image(UTType.tiff, rating: rating)
+    }
+
+    private func image(_ type: UTType, rating: Int?) throws -> Data {
         let context = try XCTUnwrap(CGContext(data: nil, width: 16, height: 16, bitsPerComponent: 8, bytesPerRow: 0,
                                               space: CGColorSpaceCreateDeviceRGB(),
                                               bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
         let data = NSMutableData()
-        let dest = try XCTUnwrap(CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil))
+        let dest = try XCTUnwrap(CGImageDestinationCreateWithData(data, type.identifier as CFString, 1, nil))
         let metadata = CGImageMetadataCreateMutable()
         if let rating {
             XCTAssertTrue(CGImageMetadataSetValueWithPath(metadata, nil, "xmp:Rating" as CFString, String(rating) as CFString))
@@ -58,17 +67,28 @@ final class StarsTests: XCTestCase {
         return data as Data
     }
 
-    /// Plans and copies the card with stars given as shots land, like the app does.
+    /// Plans and copies the card, handing shots to the grid as they land, like the app does.
     @discardableResult
     private func importCard() throws -> (ImportPlan, CopyReport, LiveShots) {
+        try importCardShowing().0
+    }
+
+    /// Also what the grid was given, in the order shots landed.
+    private func importCardShowing() throws -> ((ImportPlan, CopyReport, LiveShots), [LandedShot]) {
         let plan = try ImportPlanner.plan(cardRoot: card, cardName: "CARD",
                                           files: try CardScanner.scan(cardRoot: card, fileTypes: settings.fileTypes),
                                           settings: settings, captureDate: { _, _ in nil })
         let shots = LiveShots(planned: plan.files, fileTypes: settings.fileTypes)
         let report = try CardCopier.copy(cardRoot: card, cardName: "CARD", files: plan.files, to: plan.folders,
-                                         importNumber: plan.importNumber, fileVerified: shots.landed)
+                                         importNumber: plan.importNumber)
+        // As the app hands each verified copy over.
+        let landed = report.files.compactMap(shots.complete)
         settings.nextImportNumber = plan.nextImportNumber(after: settings.nextImportNumber)
-        return (plan, report, shots)
+        return ((plan, report, shots), landed)
+    }
+
+    private func xmpNames(in folder: URL) throws -> [String] {
+        try fm.contentsOfDirectory(atPath: folder.path).filter { $0.lowercased().hasSuffix(".xmp") }.sorted()
     }
 
     private func shot(_ shots: LiveShots, endingIn frame: String) throws -> Shot {
@@ -124,28 +144,43 @@ final class StarsTests: XCTestCase {
 
     // MARK: On landing
 
-    func testEveryRAWLandsWithOneStarInEveryDestination() throws {
+    func testNothingIsWrittenWhenShotsLand() throws {
         try put("DCIM/100CANON/IMG_0001.CR3", RawXMPTests.cr3(xmp: RawXMPTests.block))
         try put("DCIM/100CANON/IMG_0001.JPG", bytes(1000, 2))
         try put("DCIM/100CANON/IMG_0004.HEIC", bytes(900, 3))
         try put("DCIM/100CANON/MVI_0005.MP4", bytes(5000, 4))
         try put("DCIM/100CANON/MVI_0005.THM", bytes(100, 5))
-        let (plan, _, shots) = try importCard()
+        let ((plan, _, _), landed) = try importCardShowing()
 
-        XCTAssertEqual(shots.ratings.count, 1)
-        XCTAssertEqual(shots.starProblems, [])
+        XCTAssertEqual(landed.count, 3)
+        XCTAssertEqual(landed.map(\.stars), [nil, nil, nil], "Unrated until the photographer or the checks rate them")
+        for folder in plan.folders { XCTAssertEqual(try xmpNames(in: folder), []) }
+    }
+
+    func testRatingTheShotWritesItsSidecarWithTheRAWsDigest() throws {
+        try put("DCIM/100CANON/IMG_0001.CR3", RawXMPTests.cr3(xmp: RawXMPTests.block))
+        try put("DCIM/100CANON/IMG_0001.JPG", bytes(1000, 2))
+        let (plan, _, shots) = try importCard()
+        let pair = try shot(shots, endingIn: "0001")
+        try Stars.set(3, on: pair)
         for folder in plan.folders {
-            let names = Set(try fm.contentsOfDirectory(atPath: folder.path))
-            let pair = try shot(shots, endingIn: "0001")
-            XCTAssertTrue(names.contains(pair.xmpName), "One sidecar for the RAW+JPEG pair")
-            XCTAssertEqual(Stars.read(xmp: folder.appendingPathComponent(pair.xmpName)), 1)
+            XCTAssertEqual(try xmpNames(in: folder), [pair.xmpName], "One sidecar for the RAW+JPEG pair")
+            XCTAssertEqual(Stars.read(xmp: folder.appendingPathComponent(pair.xmpName)), 3)
             // The RAW's digest is in its sidecar, so Lightroom reads the stars.
             let text = try String(contentsOf: folder.appendingPathComponent(pair.xmpName), encoding: .utf8)
             XCTAssertTrue(text.contains(RawXMPTests.md5(RawXMPTests.block)))
-            XCTAssertFalse(names.contains(try shot(shots, endingIn: "0004").xmpName), "No star for a HEIC with no RAW")
-            XCTAssertFalse(names.contains(try shot(shots, endingIn: "0005").xmpName), "Videos get no star")
-            XCTAssertEqual(names.filter { $0.hasSuffix(".xmp") }.count, 1)
         }
+    }
+
+    func testARatingSetInTheCameraShowsAndTheCamerasZeroMeansUnrated() throws {
+        try put("DCIM/100CANON/IMG_0001.DNG", try dng(rating: 3))
+        try put("DCIM/100CANON/IMG_0002.DNG", try dng(rating: 0))
+        let ((plan, _, _), landed) = try importCardShowing()
+        XCTAssertEqual(landed.map(\.stars), [3, nil])
+        XCTAssertEqual(try xmpNames(in: plan.folders[0]), [], "Read from the RAW, nothing written")
+        // Loading the folder later agrees: inside a RAW only the camera writes, so its 0 is unrated.
+        let loaded = try ImportedFolder.shots(in: plan.folders[0], backupRoot: nil, fileTypes: settings.fileTypes)
+        XCTAssertEqual(loaded.map(\.stars), [3, nil])
     }
 
     func testTheCamerasSidecarAndRatingAreKept() throws {
@@ -155,20 +190,22 @@ final class StarsTests: XCTestCase {
         try put("DCIM/100CANON/IMG_0003.XMP", Data(cameraSidecar(rating: 0).utf8))
         try put("DCIM/100CANON/IMG_0006.JPG", try jpeg(rating: 2))
         let original = try Data(contentsOf: card.appendingPathComponent("DCIM/100CANON/IMG_0003.XMP"))
-        let (plan, _, shots) = try importCard()
+        let ((plan, _, shots), landed) = try importCardShowing()
         let main = plan.folders[0]
 
+        // The camera's 0 means "not rated".
+        XCTAssertEqual(landed.map(\.stars), [3, nil, 2])
         let three = try shot(shots, endingIn: "0002")
         XCTAssertEqual(three.xmpName, three.baseName + ".XMP", "The card's sidecar, not a second one")
         XCTAssertEqual(Stars.read(xmp: main.appendingPathComponent(three.xmpName)), 3)
-        // The camera's 0 means "not rated", so it gets 1, keeping the camera's other fields.
+        // Copied as it is: nothing written into it when it lands.
         let zero = main.appendingPathComponent(try shot(shots, endingIn: "0003").xmpName)
-        XCTAssertEqual(Stars.read(xmp: zero), 1)
+        XCTAssertEqual(try Data(contentsOf: zero), original)
+        XCTAssertEqual(try xmpNames(in: main).count, 2, "Only the card's two sidecars")
+        // Rating it later keeps the camera's other fields, and the card's own sidecar is untouched.
+        try Stars.set(4, on: try shot(shots, endingIn: "0003"))
+        XCTAssertEqual(Stars.read(xmp: zero), 4)
         XCTAssertTrue(try String(contentsOf: zero, encoding: .utf8).contains("Canon"))
-        XCTAssertFalse(fm.fileExists(atPath: main.appendingPathComponent(try shot(shots, endingIn: "0006").xmpName).path),
-                       "The JPEG with no RAW keeps its own rating, nothing written")
-        XCTAssertEqual(try fm.contentsOfDirectory(atPath: main.path).filter { $0.lowercased().hasSuffix(".xmp") }.count, 2)
-        // Only the copies are written; the card's own sidecar is untouched.
         XCTAssertEqual(try Data(contentsOf: card.appendingPathComponent("DCIM/100CANON/IMG_0003.XMP")), original)
     }
 
@@ -188,8 +225,6 @@ final class StarsTests: XCTestCase {
 
         // The camera's 0 means "not rated", as for RAWs.
         XCTAssertEqual(landed.map(\.stars), [3, nil, nil])
-        XCTAssertEqual(live.ratings, [:])
-        XCTAssertEqual(live.starProblems, [])
         for folder in plan.folders {
             XCTAssertEqual(try fm.contentsOfDirectory(atPath: folder.path).filter { $0.lowercased().hasSuffix(".xmp") }, [])
             let copy = folder.appendingPathComponent(report.files[0].newName)
@@ -232,7 +267,7 @@ final class StarsTests: XCTestCase {
 
         let loaded = try ImportedFolder.shots(in: main, backupRoot: settings.backupRootURL, fileTypes: settings.fileTypes)
         XCTAssertEqual(loaded.map { $0.shot.baseName.suffix(4) }, ["0001", "0002", "0003"])
-        XCTAssertEqual(loaded.map(\.stars), [1, 4, nil])
+        XCTAssertEqual(loaded.map(\.stars), [nil, 4, nil], "Only the shot given stars has any")
         XCTAssertEqual(loaded.map(\.position), [0, 1, 2])
         XCTAssertEqual(loaded[0].shot.badge, "RAW+JPG")
         XCTAssertEqual(loaded[0].shot.primary.destinations.count, 2, "Main and backup")

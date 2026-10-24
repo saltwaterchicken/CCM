@@ -210,7 +210,7 @@ final class CullingTests: XCTestCase {
         XCTAssertEqual(try PropertyListDecoder().decode(IngestSettings.self, from: old).openWith, "Adobe Lightroom Classic")
     }
 
-    /// Shots reach the grid only once all their files are in, with stars already written.
+    /// Shots reach the grid only once all their files are in, with nothing written for them.
     func testLiveShotsHandOverEachShotWhenItsLastFileLands() throws {
         let fm = FileManager.default
         let folder = fm.temporaryDirectory.appendingPathComponent("CullingTests-\(UUID().uuidString)", isDirectory: true)
@@ -230,9 +230,9 @@ final class CullingTests: XCTestCase {
         }
         XCTAssertEqual(landed.map(\.shot.files.count), [2, 1])
         XCTAssertEqual(landed.map(\.position), [0, 1])
-        XCTAssertEqual(landed.map(\.stars), [1, nil], "A JPEG with no RAW gets no star")
+        XCTAssertEqual(landed.map(\.stars), [nil, nil], "Unrated until someone rates them")
         XCTAssertEqual(landed[0].shot.badge, "RAW+JPG")
-        XCTAssertTrue(fm.fileExists(atPath: folder.appendingPathComponent("2026-10-14-ES_0001.xmp").path))
+        XCTAssertFalse(fm.fileExists(atPath: folder.appendingPathComponent("2026-10-14-ES_0001.xmp").path))
         XCTAssertFalse(fm.fileExists(atPath: folder.appendingPathComponent("2026-10-14-ES_0002.xmp").path))
     }
 }

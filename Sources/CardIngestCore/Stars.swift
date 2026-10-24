@@ -4,11 +4,10 @@ import ImageIO
 /// Star ratings, kept as the standard `xmp:Rating` in each shot's `.xmp`
 /// sidecar next to its copies, so Lightroom, Bridge and Photo Mechanic all see
 /// them. RAW files are never rewritten. Only the sidecars in the destination
-/// and backup are written, never anything on the card.
+/// and backup are written, never anything on the card. Nothing is written when
+/// a shot lands: it arrives with the stars it already has, or unrated, and a
+/// sidecar is written once it's rated.
 public enum Stars {
-    /// What every photo gets when it lands. 0 is kept for the automatic checks.
-    public static let landing = 1
-
     /// The stars in a sidecar, or nil when it has none (or doesn't exist).
     public static func read(xmp url: URL) -> Int? {
         guard let data = try? Data(contentsOf: url),
@@ -75,33 +74,15 @@ public enum Stars {
     }
 
     /// The stars a shot already has, without writing anything: its sidecar's
-    /// in any destination, else, for a JPEG or HEIC with no RAW, the rating
-    /// embedded in the photo (as Lightroom and Capture One write it there).
-    /// Nil for videos and unrated photos.
+    /// in any destination, else the rating inside the photo (the RAW of a
+    /// RAW+JPEG pair). A JPEG or HEIC keeps a 0 as it is, since Lightroom and
+    /// Capture One write 0s there; inside a RAW only the camera writes, and its
+    /// 0 means "not rated". Nil for videos and unrated photos.
     public static func found(for shot: Shot) -> Int? {
         guard shot.isRatable else { return nil }
         if let stars = sidecars(of: shot).lazy.compactMap({ read(xmp: $0) }).first { return stars }
-        return shot.kind == .photo ? shot.primary.destinations.lazy.compactMap(inCamera).first : nil
-    }
-
-    /// Gives a RAW shot that just landed its first stars, in every destination,
-    /// and says what they are; nil for videos. Stars already in its sidecar
-    /// (from the card, or an earlier interrupted copy) are kept, then a rating
-    /// set in the camera, then 1 star. Cameras write 0 for "not rated", so a
-    /// 0 found here counts as no rating (0 is kept for the automatic checks).
-    /// A JPEG or HEIC with no RAW gets nothing written and returns nil.
-    @discardableResult
-    public static func rateOnLanding(_ shot: Shot) throws -> Int? {
-        guard shot.kind == .raw else { return nil }
-        let urls = sidecars(of: shot)
-        let rated = { (stars: Int?) in stars == 0 ? nil : stars }
-        let stars = urls.lazy.compactMap { rated(read(xmp: $0)) }.first
-            ?? rated(shot.primary.destinations.first.flatMap(inCamera))
-            ?? landing
-        for (url, raw) in zip(urls, raws(of: shot)) {
-            try write(stars, toXMP: url, raw: raw)
-        }
-        return stars
+        let inside = shot.primary.destinations.lazy.compactMap(inCamera).first
+        return shot.kind == .raw && inside == 0 ? nil : inside
     }
 
     /// Sets the photographer's stars on a shot, in every destination.
@@ -143,24 +124,22 @@ public enum StarsError: Error, LocalizedError, Equatable {
 /// A shot whose files are all in, ready for the grid.
 public struct LandedShot: Sendable {
     public let shot: Shot
-    /// Its first stars; nil for videos, unrated JPEG/HEIC-only shots, or if its sidecar couldn't be written.
+    /// The stars it already had; nil for videos and unrated photos.
     public let stars: Int?
     /// 0 for the first shot of the Copy to land, then 1, 2 ...
     public let position: Int
 }
 
-/// The shots of one Copy as their files land, rating each one as soon as all
-/// of its files are in. Safe to call from the copying thread.
+/// The shots of one Copy as their files land, each handed to the grid as soon
+/// as all of its files are in. Safe to call from the copying thread.
 public final class LiveShots: @unchecked Sendable {
     private let lock = NSLock()
     private var list: ShotList
     private var expected: [String: Int]
-    private var stars: [String: Int] = [:]
-    private var problems: [String] = []
     private var completed = 0
 
     /// - Parameter planned: everything this Copy will bring in, so a shot is
-    ///   rated only once its last file (often the camera's own `.xmp`) is in.
+    ///   shown only once its last file (often the camera's own `.xmp`) is in.
     public init(planned: [PlannedFile], fileTypes: FileTypes) {
         list = ShotList(fileTypes: fileTypes)
         expected = Dictionary(planned.map { (($0.newName as NSString).deletingPathExtension.lowercased(), 1) },
@@ -173,32 +152,18 @@ public final class LiveShots: @unchecked Sendable {
     }
 
     /// Adds a verified copy to its shot. When that was the shot's last file,
-    /// gives it its first stars and returns it for the grid.
+    /// returns it for the grid with the stars it came with (its card sidecar's
+    /// or the camera's), a 0 counting as unrated since cameras write 0 for that.
     public func complete(_ file: CopiedFile) -> LandedShot? {
         lock.withLock {
             let index = list.add(file)
             let shot = list.shots[index]
             guard shot.files.count == expected[shot.id, default: 1] else { return nil }
-            var shown: Int?
-            do {
-                if let given = try Stars.rateOnLanding(shot) {
-                    stars[shot.id] = given
-                    shown = given
-                } else if shot.kind == .photo {
-                    // Nothing written: shown as its card sidecar or the camera rates it, 0 counting as unrated.
-                    shown = Stars.found(for: shot).flatMap { $0 == 0 ? nil : $0 }
-                }
-            } catch {
-                problems.append(error.localizedDescription)
-            }
             completed += 1
-            return LandedShot(shot: shot, stars: shown, position: completed - 1)
+            let stars = Stars.found(for: shot).flatMap { $0 == 0 ? nil : $0 }
+            return LandedShot(shot: shot, stars: stars, position: completed - 1)
         }
     }
 
     public var shots: [Shot] { lock.withLock { list.shots } }
-    /// Stars written to sidecars by shot id, so far.
-    public var ratings: [String: Int] { lock.withLock { stars } }
-    /// Sidecars that couldn't be written. The copies themselves are fine.
-    public var starProblems: [String] { lock.withLock { problems } }
 }

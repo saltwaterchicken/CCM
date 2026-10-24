@@ -29,7 +29,8 @@ and auto-rating (see "Culling grid"). **Done**, confirmed by the photographer 20
 
 - [x] Step 1: Copier reports each file as it's verified; files grouped by shot (RAW+JPEG+sidecars). Tests.
   `CardCopier.copy(fileVerified:)` and `ShotList` in `Shots.swift`; nothing on screen yet (Step 4).
-- [x] Step 2: Star storage in `.xmp` sidecars, 1 star by default on landing. Tests, then check in
+- [x] Step 2: Star storage in `.xmp` sidecars, 1 star by default on landing (dropped 2026-10-24:
+  nothing is written on landing now). Tests, then check in
   Lightroom, Bridge or Photo Mechanic. Confirmed in Lightroom Classic 2026-10-22 with a Sony RX100
   card (after the RAW digest fix below), then with Nikon NEF, Canon CR3 and Fujifilm RAF files
   copied from a card: all showed 1 star.
@@ -242,6 +243,11 @@ larger and rate straight away instead of waiting for the whole card. The order o
 milestones is now: 3 culling grid, 4 metadata template (ExifTool), 5 sharpness and exposure rating
 plus calibration, 6 blink rating, then settings/menu bar/polish. Trash and eject was built early.
 
+**Changed 2026-10-24:** no star on landing any more (see "Decided 2026-10-24" under Metadata). Shots
+arrive unrated; the checks will give **1 to keepers** and leave outtakes at 0, never touching a star
+set by hand. The checks will mark the shots they've looked at, so "checked, failed" can be told from
+"not checked yet". The rest of this paragraph is the earlier rule, kept for its list of checks.
+
 **Star rule (the photographer's call, 2026-10-23):** every photo gets **1 star** the moment it lands.
 **0 stars is reserved for the automatic checks**: subject out of focus, badly overexposed, badly
 underexposed, or a blinking face. So a 0 always means "the app flagged this". The auto-rating
@@ -360,16 +366,18 @@ How it works:
     Written atomically. Unreadable sidecars are left alone and listed in the summary.
   - A shot gets its stars when its **last** file is verified, not its first: the camera's `.xmp`
     sorts after the CR3 and JPG, and a sidecar made earlier would have collided with it.
-  - On landing, stars already in the sidecar win (from the card, or an earlier interrupted copy),
-    then a rating set in the camera, then 1. A 0 from either counts as "not rated", because cameras
-    write 0 for that. Known gap: a hand-set 0 in an interrupted copy comes back as 1 on re-copy.
+  - On landing (since 2026-10-24) nothing is written. The tile shows the stars already in the
+    sidecar (from the card, or an earlier interrupted copy), else a rating set in the camera, else
+    grey "not rated". A 0 from either shows as not rated, because cameras write 0 for that; the
+    file keeps its 0. Load Folder reads the same way, except a 0 in a sidecar, JPEG or HEIC shows
+    as 0; a RAW's own 0 (only the camera writes inside a RAW) shows as not rated.
   - Matched by name once copied, because stars change them: an `.xmp` already in the card folder is
     kept as it is (not re-verified against the card) when an interrupted copy is picked up; it
     doesn't make the folder look like another card's; and it still lets the card's original go to
     the Trash when the card goes back in.
-  - The summary says "Stars for 9 photos are in their .xmp sidecars". The receipt lists only the
-    card's files, so a sidecar the app made isn't in it.
-  - Not yet: telling a hand-set star from the landing 1, which the auto-rating milestones need.
+  - The receipt lists only the card's files, so a sidecar the app made isn't in it. (The summary's
+    "Stars for 9 photos are in their .xmp sidecars" went with the landing star.)
+  - Not yet: marking the stars the checks give, so they never overwrite a hand rating (auto-rating).
   - **Lightroom needs the RAW's digest** (found 2026-10-22 with a Sony RX100 card: Lightroom showed
     no stars). Many RAWs (Sony ARW, Nikon, DNG, Canon CR3) carry their own XMP block inside, Sony's
     saying `xmp:Rating 0`. Lightroom and Camera Raw only trust a sidecar over it when the sidecar's
@@ -454,7 +462,8 @@ copied to the Synology (the Desktop sample folders weren't used; the checklist i
 - **No 1 star on landing.** Shots arrive unrated (0); the auto-rater gives 1 to keepers, and you rate
   by hand. A private marker in the sidecar ("rated by Card Ingest") will tell the app's stars from
   yours, so it never overwrites a hand rating; downgrading from 1 could still become a setting.
-  Not built yet: **this is the next job.**
+  **Built and confirmed on the Mac 2026-10-24**; the marker comes with auto-rating, the first thing
+  to write stars itself.
 
 **Still to decide (Step 2):** receipt and already-imported handling once JPEG, HEIC and video are
 changed after verifying (proposed: receipt keeps the card's checksum and adds the final one, those
@@ -558,17 +567,18 @@ Suggestions so far, not yet decided. Edit freely.
     nothing was moved to the Trash."
 12. Stars in an editor (needs real photos; the fake card's random bytes won't open in Lightroom).
     Put a few RAW+JPEG pairs from your camera in a folder, e.g. `~/Desktop/samples`, untick the
-    Trash box, and run `scripts/make-fake-card.sh ~/Desktop/samples`. Press Copy: the summary says
-    "Stars for N photos are in their .xmp sidecars". In the card folder each photo has a `.xmp`
-    next to it (one per RAW+JPEG pair). Import the folder into Lightroom Classic: the RAWs show
-    1 star. Open the folder in Bridge or Photo Mechanic: 1 star there too. Change a star in Bridge,
+    Trash box, and run `scripts/make-fake-card.sh ~/Desktop/samples`. Press Copy: no `.xmp` files
+    appear in the card folder (since 2026-10-24 nothing is written on landing). Give a few photos
+    stars in the grid: each gets a `.xmp` next to it (one per RAW+JPEG pair). Import the folder into
+    Lightroom Classic: those RAWs show your stars, the rest none. Open the folder in Bridge or Photo
+    Mechanic: the same. Change a star in Bridge,
     then open that `.xmp` in TextEdit: `<xmp:Rating>` has the new number. Known gap: Lightroom
     ignores sidecars for JPEG-only and HEIC shots (see "JPEG-only and HEIC shots").
     A card copied before the digest fix (2026-10-22-ES006) shows no stars in Lightroom; re-test with
     new pictures (a card put back in only brings in pictures it hasn't seen).
 13. The culling grid (needs real photos, as in step 12; Trash unticked). Press Copy: tiles appear on
-    the right as each shot lands, RAW+JPEG pairs as one tile with a "RAW+JPG" badge, each with one
-    yellow star. Clips show a frame, a play mark and their length, and no stars. Click a photo and
+    the right as each shot lands, RAW+JPEG pairs as one tile with a "RAW+JPG" badge, each with grey
+    empty stars (not rated), or the stars the camera gave. Clips show a frame, a play mark and their length, and no stars. Click a photo and
     press 3: it gets 3 stars and the next photo is selected. Press 0: it shows five empty orange
     stars. Shift-click and Cmd-click select several; a number rates them all and stays put. ⌘A
     selects all. ← → move along. Import the folder into Lightroom: it shows the stars you gave.
