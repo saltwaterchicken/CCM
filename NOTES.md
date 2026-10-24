@@ -442,6 +442,20 @@ copied to the Synology (the Desktop sample folders weren't used; the checklist i
   so any star shown on an H.264 clip came from somewhere other than the file (a catalog?). To ask.
 - So the problem is **where** stars are stored, not the 1-star default: hand-set stars failed too.
 
+**Decided 2026-10-24 (photographer):**
+- **Option A:** the Synology is for archiving and for finding and downloading JPEGs and video. Shoots
+  are almost all RAW-only. Photos reach the NAS as Lightroom exports, which carry stars and keywords
+  inside; RAW stars and template fields stay in `.xmp` sidecars for Lightroom. No ExifTool, nothing
+  written into RAWs or camera JPEGs.
+- **Stars are a stand-in for all metadata** (keywords gave trouble on the NAS before). Synology reads
+  only what's inside a file, so the real gap is **video**: clips go to the NAS without an export.
+  Milestone 4 narrows to template fields in RAW sidecars plus keywords written inside MP4/MOV. Next
+  test: one MP4 and one MOV with a test keyword inside, searched for on the Synology. Parked for now.
+- **No 1 star on landing.** Shots arrive unrated (0); the auto-rater gives 1 to keepers, and you rate
+  by hand. A private marker in the sidecar ("rated by Card Ingest") will tell the app's stars from
+  yours, so it never overwrites a hand rating; downgrading from 1 could still become a setting.
+  Not built yet: **this is the next job.**
+
 **Still to decide (Step 2):** receipt and already-imported handling once JPEG, HEIC and video are
 changed after verifying (proposed: receipt keeps the card's checksum and adds the final one, those
 files matched by name like `.xmp`); per-job fields in the Job panel or the settings file; the
