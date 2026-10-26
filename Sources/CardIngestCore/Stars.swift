@@ -4,9 +4,10 @@ import ImageIO
 /// Star ratings, kept as the standard `xmp:Rating` in each shot's `.xmp`
 /// sidecar next to its copies, so Lightroom, Bridge and Photo Mechanic all see
 /// them. RAW files are never rewritten. Only the sidecars in the destination
-/// and backup are written, never anything on the card. Nothing is written when
-/// a shot lands: it arrives with the stars it already has, or unrated, and a
-/// sidecar is written once it's rated.
+/// and backup are written, never anything on the card. Every RAW gets a
+/// sidecar as it lands, so a folder of 350 RAWs holds 700 files and the
+/// sidecar is there for keywords later; it carries only a rating the shot
+/// already had (the camera's), else none.
 public enum Stars {
     /// The stars in a sidecar, or nil when it has none (or doesn't exist).
     public static func read(xmp url: URL) -> Int? {
@@ -27,11 +28,11 @@ public enum Stars {
     }
 
     /// Sets the stars in a sidecar, keeping everything else in it, or makes
-    /// the sidecar if there isn't one. Written atomically, so a sidecar is
+    /// the sidecar if there isn't one; nil leaves its rating as it is. Written atomically, so a sidecar is
     /// never left half-written. With the RAW it belongs to, it also records
     /// the RAW's embedded-XMP digest, without which Lightroom ignores the
     /// sidecar's stars (see RawXMP).
-    public static func write(_ stars: Int, toXMP url: URL, raw: URL? = nil, now: Date = Date()) throws {
+    public static func write(_ stars: Int?, toXMP url: URL, raw: URL? = nil, now: Date = Date()) throws {
         var metadata = CGImageMetadataCreateMutable()
         if let data = try? Data(contentsOf: url) {
             guard let existing = CGImageMetadataCreateFromXMPData(data as CFData),
@@ -40,7 +41,8 @@ public enum Stars {
             }
             metadata = copy
         }
-        var values = ["xmp:Rating": String(clamp(stars)), "xmp:MetadataDate": metadataDate(now)]
+        var values = ["xmp:MetadataDate": metadataDate(now)]
+        if let stars { values["xmp:Rating"] = String(clamp(stars)) }
         if let raw {
             values["photoshop:SidecarForExtension"] = raw.pathExtension
             if let digest = RawXMP.digest(of: raw) { values["photoshop:EmbeddedXMPDigest"] = digest }
@@ -85,6 +87,19 @@ public enum Stars {
         return shot.kind == .raw && inside == 0 ? nil : inside
     }
 
+    /// Gives a RAW shot that just landed its sidecar in each destination that
+    /// has none, holding the rating set in the camera if there is one (the
+    /// camera's 0 means unrated, so it's left out). A sidecar copied from the
+    /// card is kept as it is. JPEG, HEIC and video get nothing.
+    public static func giveSidecar(to shot: Shot) throws {
+        guard shot.kind == .raw else { return }
+        let stars = found(for: shot).flatMap { $0 == 0 ? nil : $0 }
+        for (url, raw) in zip(sidecars(of: shot), raws(of: shot))
+        where !FileManager.default.fileExists(atPath: url.path) {
+            try write(stars, toXMP: url, raw: raw)
+        }
+    }
+
     /// Sets the photographer's stars on a shot, in every destination.
     public static func set(_ stars: Int, on shot: Shot) throws {
         guard shot.isRatable else { return }
@@ -116,7 +131,7 @@ public enum StarsError: Error, LocalizedError, Equatable {
         case let .unreadableSidecar(name):
             return "\(name) isn't a sidecar the app can read, so its stars weren't changed."
         case let .couldNotWrite(name):
-            return "Couldn't write the stars into \(name)."
+            return "Couldn't write \(name)."
         }
     }
 }
@@ -137,6 +152,7 @@ public final class LiveShots: @unchecked Sendable {
     private var list: ShotList
     private var expected: [String: Int]
     private var completed = 0
+    private var problems: [String] = []
 
     /// - Parameter planned: everything this Copy will bring in, so a shot is
     ///   shown only once its last file (often the camera's own `.xmp`) is in.
@@ -152,18 +168,27 @@ public final class LiveShots: @unchecked Sendable {
     }
 
     /// Adds a verified copy to its shot. When that was the shot's last file,
-    /// returns it for the grid with the stars it came with (its card sidecar's
-    /// or the camera's), a 0 counting as unrated since cameras write 0 for that.
+    /// gives a RAW its sidecar and returns the shot for the grid with the stars
+    /// it came with (its card sidecar's or the camera's), a 0 counting as
+    /// unrated since cameras write 0 for that.
     public func complete(_ file: CopiedFile) -> LandedShot? {
         lock.withLock {
             let index = list.add(file)
             let shot = list.shots[index]
             guard shot.files.count == expected[shot.id, default: 1] else { return nil }
             completed += 1
+            do {
+                try Stars.giveSidecar(to: shot)
+            } catch {
+                problems.append(error.localizedDescription)
+            }
             let stars = Stars.found(for: shot).flatMap { $0 == 0 ? nil : $0 }
             return LandedShot(shot: shot, stars: stars, position: completed - 1)
         }
     }
 
     public var shots: [Shot] { lock.withLock { list.shots } }
+
+    /// Why sidecars couldn't be written, one line per shot.
+    public var sidecarProblems: [String] { lock.withLock { problems } }
 }

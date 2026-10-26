@@ -452,6 +452,12 @@ struct CardsView: View {
                 if let number = report.importNumber {
                     Text("Import number \(String(format: "%03d", number))").foregroundStyle(.secondary)
                 }
+                if let first = finished.sidecarProblems.first {
+                    let count = finished.sidecarProblems.count
+                    Label("Couldn't write the .xmp sidecar for \(count) \(count == 1 ? "photo" : "photos"): \(first)",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                }
                 ForEach(report.destinationFolders, id: \.self) { folder in
                     Text(folder.path).foregroundStyle(.secondary).textSelection(.enabled)
                 }

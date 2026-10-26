@@ -63,9 +63,19 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
 - [ ] Step 2: Agree the spec from what the test shows, plus the photographer's template values.
 
 **Milestone 6: Auto-rating, sharpness and exposure.** Plan written 2026-10-24
-(https://claude.ai/artifact/7UMysgBFBPp1DokgpAdt81); waiting on the photographer's answers to its
-four questions (culled folders to calibrate on, what counts as a keeper, keep-or-flag when unsure,
-sidecars for outtakes too). Blinks follow as Milestone 7.
+(https://claude.ai/artifact/7UMysgBFBPp1DokgpAdt81). Blinks follow as Milestone 7.
+
+- **Answered 2026-10-26 (photographer):**
+  1. Calibration folders: finished jobs, to be pulled onto this Mac (maybe later on the 26th), with
+     Lightroom's ratings saved to the files (Metadata › Save Metadata to File).
+  2. **A keeper is 1 star or more.** 0 never gets exported from Lightroom.
+  3. **When unsure, keep.** Looking through the 0s with the filter off is fine, and a great but
+     slightly soft shot can be re-rated by hand.
+  4. **A sidecar for every RAW, always**, not only checked ones: 350 RAWs make 700 files, so the count
+     shows the folder is complete; survivability; and keywords and other metadata will go in them.
+     **Built and confirmed on the Mac 2026-10-26:** Copy writes an unrated sidecar (with the RAW's digest, and the camera's
+     rating if it set one) for every RAW as it lands, whether or not auto-rating is on. A sidecar
+     from the card is kept as it is. JPEG-only, HEIC and clips get none (Option A).
 
 - **Revised 2026-10-24:** faces and no-face shots get **separate sharpness limits**
   (`minimumSharpnessFaces`, `minimumSharpnessNoFaces`): skin is smooth, so a sharp face has less edge
@@ -370,7 +380,7 @@ How it works:
     set a JPEG's rating without re-compressing, but it rewrites the EXIF block too (re-rounded
     values), which risks a camera's maker notes. Not worth it on originals.
   - **No star on import:** nothing is written for them when they land (they used to get a 1-star
-    `.xmp`, probably a mistake). The tile shows the rating already in the photo (as the camera or an
+    `.xmp`, probably a mistake). RAWs do get a sidecar on landing (since 2026-10-26), with no rating. The tile shows the rating already in the photo (as the camera or an
     editor set it, a 0 counting as unrated), else grey empty stars for "not rated".
   - **Load Folder** reads the shot's sidecar if there is one, else the rating embedded in the photo,
     as it is: Capture One and Lightroom write `xmp:Rating` inside a JPEG, not in a sidecar. A 0
@@ -591,9 +601,10 @@ Suggestions so far, not yet decided. Edit freely.
     nothing was moved to the Trash."
 12. Stars in an editor (needs real photos; the fake card's random bytes won't open in Lightroom).
     Put a few RAW+JPEG pairs from your camera in a folder, e.g. `~/Desktop/samples`, untick the
-    Trash box, and run `scripts/make-fake-card.sh ~/Desktop/samples`. Press Copy: no `.xmp` files
-    appear in the card folder (since 2026-10-24 nothing is written on landing). Give a few photos
-    stars in the grid: each gets a `.xmp` next to it (one per RAW+JPEG pair). Import the folder into
+    Trash box, and run `scripts/make-fake-card.sh ~/Desktop/samples`. Press Copy: every RAW gets a
+    `.xmp` next to it, with no stars in it (since 2026-10-26; one per RAW+JPEG pair, none for a JPEG
+    on its own), so the tiles show "not rated". Give a few photos stars in the grid: their `.xmp`
+    gets the number. Import the folder into
     Lightroom Classic: those RAWs show your stars, the rest none. Open the folder in Bridge or Photo
     Mechanic: the same. Change a star in Bridge,
     then open that `.xmp` in TextEdit: `<xmp:Rating>` has the new number. Known gap: Lightroom

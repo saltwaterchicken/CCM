@@ -27,6 +27,8 @@ struct Finished: Identifiable, Sendable {
     /// Why the originals stayed on the card, when trashing is on but didn't happen.
     var keptOnCard: String?
     var ejectProblem: String?
+    /// RAW sidecars that couldn't be written; the copies themselves are fine.
+    var sidecarProblems: [String] = []
 }
 
 /// Where a card's copy job stands.
@@ -191,11 +193,11 @@ final class CardWatcher {
         let session = UUID()
         // Reading dates and copying block, so they run on their own thread.
         DispatchQueue.global(qos: .userInitiated).async {
-            let result = Result { () throws -> (ImportPlan, CopyReport?) in
+            let result = Result { () throws -> (ImportPlan, CopyReport?, [String]) in
                 let plan = try ImportPlanner.plan(cardRoot: url, cardName: name, files: files, settings: settings)
                 if flag.isStopped { throw CopyError.cancelled }
-                if plan.nothingNew { return (plan, nil) }
-                // Each shot goes on the grid as soon as its last file is verified.
+                if plan.nothingNew { return (plan, nil, []) }
+                // Each shot gets its sidecar and goes on the grid as soon as its last file is verified.
                 let shots = LiveShots(planned: plan.files, fileTypes: settings.fileTypes)
                 let report = try CardCopier.copy(
                     cardRoot: url, cardName: name, files: plan.files, to: plan.folders,
@@ -214,18 +216,20 @@ final class CardWatcher {
                         Task { @MainActor in grid.add(landed, session: session, cardName: name, folder: folder) }
                     },
                     isCancelled: { flag.isStopped })
-                return (plan, report)
+                return (plan, report, shots.sidecarProblems)
             }
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.stopFlags[url] = nil
                 switch result {
-                case let .success((plan, report)):
+                case let .success((plan, report, sidecarProblems)):
                     if report != nil {
                         self.onImported(plan)
                         self.checkHistory(url)
                     }
-                    self.afterCopy(url, Finished(cardName: name, report: report, check: plan.check))
+                    var finished = Finished(cardName: name, report: report, check: plan.check)
+                    finished.sidecarProblems = sidecarProblems
+                    self.afterCopy(url, finished)
                 case let .failure(error):
                     self.copyStates[url] = .failed(error.localizedDescription)
                 }

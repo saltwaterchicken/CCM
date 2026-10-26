@@ -144,17 +144,29 @@ final class StarsTests: XCTestCase {
 
     // MARK: On landing
 
-    func testNothingIsWrittenWhenShotsLand() throws {
+    func testEveryRAWGetsAnUnratedSidecarWhenItLands() throws {
         try put("DCIM/100CANON/IMG_0001.CR3", RawXMPTests.cr3(xmp: RawXMPTests.block))
         try put("DCIM/100CANON/IMG_0001.JPG", bytes(1000, 2))
+        try put("DCIM/100CANON/IMG_0002.CR3", RawXMPTests.cr3(xmp: RawXMPTests.block))
         try put("DCIM/100CANON/IMG_0004.HEIC", bytes(900, 3))
         try put("DCIM/100CANON/MVI_0005.MP4", bytes(5000, 4))
         try put("DCIM/100CANON/MVI_0005.THM", bytes(100, 5))
-        let ((plan, _, _), landed) = try importCardShowing()
+        let ((plan, _, shots), landed) = try importCardShowing()
 
-        XCTAssertEqual(landed.count, 3)
-        XCTAssertEqual(landed.map(\.stars), [nil, nil, nil], "Unrated until the photographer or the checks rate them")
-        for folder in plan.folders { XCTAssertEqual(try xmpNames(in: folder), []) }
+        XCTAssertEqual(landed.count, 4)
+        XCTAssertEqual(landed.map(\.stars), [nil, nil, nil, nil], "Unrated until the photographer or the checks rate them")
+        XCTAssertEqual(shots.sidecarProblems, [])
+        let raws = [try shot(shots, endingIn: "0001"), try shot(shots, endingIn: "0002")]
+        for folder in plan.folders {
+            // One per RAW (the pair shares its RAW's); none for the HEIC or the clip.
+            XCTAssertEqual(try xmpNames(in: folder), raws.map(\.xmpName).sorted())
+            for raw in raws {
+                let sidecar = folder.appendingPathComponent(raw.xmpName)
+                XCTAssertNil(Stars.read(xmp: sidecar), "No rating in it")
+                // The RAW's digest is there, so Lightroom trusts the sidecar once it's rated.
+                XCTAssertTrue(try String(contentsOf: sidecar, encoding: .utf8).contains(RawXMPTests.md5(RawXMPTests.block)))
+            }
+        }
     }
 
     func testRatingTheShotWritesItsSidecarWithTheRAWsDigest() throws {
@@ -177,7 +189,10 @@ final class StarsTests: XCTestCase {
         try put("DCIM/100CANON/IMG_0002.DNG", try dng(rating: 0))
         let ((plan, _, _), landed) = try importCardShowing()
         XCTAssertEqual(landed.map(\.stars), [3, nil])
-        XCTAssertEqual(try xmpNames(in: plan.folders[0]), [], "Read from the RAW, nothing written")
+        // Copied into the sidecar too, so Lightroom keeps the camera's stars once it trusts the sidecar.
+        let sidecars = try xmpNames(in: plan.folders[0])
+        XCTAssertEqual(sidecars.count, 2)
+        XCTAssertEqual(sidecars.map { Stars.read(xmp: plan.folders[0].appendingPathComponent($0)) }, [3, nil])
         // Loading the folder later agrees: inside a RAW only the camera writes, so its 0 is unrated.
         let loaded = try ImportedFolder.shots(in: plan.folders[0], backupRoot: nil, fileTypes: settings.fileTypes)
         XCTAssertEqual(loaded.map(\.stars), [3, nil])
