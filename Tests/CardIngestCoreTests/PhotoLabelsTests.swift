@@ -98,11 +98,11 @@ final class PhotoLabelsTests: XCTestCase {
     func testLooksFineAndTheOthersRuleEachOtherOut() {
         let shot = photo("A_1")
         var labels = labelled([(shot, .imageTooDark), (shot, .subjectTooDark)])
-        XCTAssertEqual(labels.labels(folder: folder, name: "A_1"), [.imageTooDark, .subjectTooDark])
+        XCTAssertEqual(labels.labels(folder: folder, name: shot.id), [.imageTooDark, .subjectTooDark])
         labels.toggle(.fine, for: shot, folder: folder)
-        XCTAssertEqual(labels.labels(folder: folder, name: "A_1"), [.fine])
+        XCTAssertEqual(labels.labels(folder: folder, name: shot.id), [.fine])
         labels.toggle(.imageTooDark, for: shot, folder: folder)
-        XCTAssertEqual(labels.labels(folder: folder, name: "A_1"), [.imageTooDark])
+        XCTAssertEqual(labels.labels(folder: folder, name: shot.id), [.imageTooDark])
         labels.toggle(.imageTooDark, for: shot, folder: folder)
         XCTAssertEqual(labels.photos, [], "A photo with no labels left is forgotten")
     }
