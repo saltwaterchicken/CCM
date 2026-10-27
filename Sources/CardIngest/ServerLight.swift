@@ -62,11 +62,35 @@ final class ServerStatus {
     var allGood: Bool { onServer && wifiOn != true && wired }
 }
 
-/// The light above the cards: green when wired to the server, red with what's wrong.
+/// The light above the cards: green when wired to the server, red with what's
+/// wrong, grey when the backup isn't going to a server at all.
 struct ServerLight: View {
     var status: ServerStatus
 
     var body: some View {
+        switch status.backup {
+        case .notSet:
+            idle("No backup folder", detail: "Choose a folder on the server as Backup in the Job panel to back up each card as it's copied.")
+        case let .localDrive(name):
+            idle("Backing up to \(name)", detail: "A drive on this Mac, not the server.")
+        default:
+            light
+        }
+    }
+
+    private func idle(_ title: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Circle().fill(Color.gray).frame(width: 14, height: 14)
+                Text(title).font(.headline)
+            }
+            Text(detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var light: some View {
         if status.applies {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {

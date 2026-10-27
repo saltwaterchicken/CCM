@@ -167,11 +167,6 @@ struct ContentView: View {
 
     private var controls: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if server.applies {
-                GroupBox("Server") {
-                    ServerLight(status: server).padding(4)
-                }
-            }
             CardsView(watcher: watcher)
 
             GroupBox("Job") {
@@ -180,6 +175,13 @@ struct ContentView: View {
                     .padding(4)
             }
 
+            GroupBox("Server") {
+                VStack(alignment: .leading, spacing: 10) {
+                    ServerLight(status: server)
+                    if !watcher.backups.isEmpty { BackupsView(backups: watcher.backups) }
+                }
+                .padding(4)
+            }
             GroupBox("Settings File") {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(model.fileURL.path).textSelection(.enabled)

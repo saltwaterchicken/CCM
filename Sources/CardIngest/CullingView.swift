@@ -28,7 +28,6 @@ final class GridModel {
     /// From the settings file: the app the Open button uses, and where Load Folder looks.
     var openWith = IngestSettings().openWith
     var destinationRoot = IngestSettings().destinationRootURL
-    var backupRoot: URL?
     var fileTypes = FileTypes()
     /// The auto-rating limits, and whether shots are checked as they land.
     var rating = RatingSettings()
@@ -115,7 +114,8 @@ final class GridModel {
     /// An earlier import back in the grid, with its stars, to carry on culling.
     func load(_ folder: URL) {
         do {
-            let shots = try ImportedFolder.shots(in: folder, backupRoot: backupRoot, fileTypes: fileTypes)
+            // Stars stay on this Mac: the server's copies are written once, by the backup and Sync.
+            let shots = try ImportedFolder.shots(in: folder, backupRoot: nil, fileTypes: fileTypes)
             begin(UUID(), cardName: "Loaded", folder: folder)
             for shot in shots { grid.add(shot) }
             if shots.isEmpty { problem = "No photos or clips in \(folder.lastPathComponent)." }
@@ -187,7 +187,6 @@ final class GridModel {
     func use(_ settings: IngestSettings) {
         openWith = settings.openWith
         destinationRoot = settings.destinationRootURL
-        backupRoot = settings.backupRootURL
         fileTypes = settings.fileTypes
         rating = settings.rating
         if !rating.available, grid.filter == .appFlagged { grid.filter = .all }

@@ -647,7 +647,22 @@ the photographer's Sync puts the new versions up (they're new files again). This
 a junior photographer can't delete everything by mistake; the app must work within it, never ask
 for more.
 
-**Light built and confirmed on the Mac 2026-10-27.** A "Server" panel above the cards, shown when
+**Backup worker built 2026-10-27, not yet tried on the Mac.** The card is copied to the local
+destination only; trash and eject follow that alone. With a backup folder set and its volume there
+(`BackupVolume` server or drive), a `ServerBackupJob` per card sends each file as soon as the local
+copy verifies it, one at a time at utility priority, from the local copy: `open(O_CREAT|O_EXCL)`
+under the final name, read back and checked against the card's xxHash64; already there and
+matching counts as done, a different file is left alone and listed, a bad read-back is listed for
+the admin. The card's date is set if the account allows. Server receipt written once at the end,
+listing only what reached it. If the server goes away the rest are listed "not sent"; if it wasn't
+there at the start the card shows "Not backed up". Progress per card in the Server panel (last 5).
+Stars, landing sidecars and auto-rating stay local (Load Folder no longer reaches into the backup);
+they go up with Sync With Server, next. Tested against a create-only folder made with macOS ACLs
+(deny delete_child, delete, writeattr), including a whole fake card the way the app runs it.
+
+**Light built and confirmed on the Mac 2026-10-27.** Since then the Server panel always shows (grey "No backup folder" or
+"Backing up to <drive>" when it isn't the server) and sits between Job and Settings File;
+confirmed on the Mac 2026-10-27. A "Server" panel above the cards, shown when
 a backup folder is set and isn't on a local drive: green "Wired to the server" when the backup
 folder is on a mounted network share, Wi-Fi is off (CoreWLAN) and an Ethernet cable is connected
 (Network framework); otherwise red, with each check and what to do. Rechecked every 3 s, the share
@@ -816,4 +831,14 @@ Suggestions so far, not yet decided. Edit freely.
     Backup in the Job panel: a "Server" panel appears above the cards. With Wi-Fi on and no cable it
     is red and says so; turn Wi-Fi off and plug in the cable: within a few seconds it turns green,
     "Wired to the server". Eject the share in Finder: red, "Server not mounted". Choose a backup on
-    a USB drive instead: the panel goes away. Copy works in every case.
+    a USB drive instead: the light goes grey, "Backing up to <drive>". With no Backup set it is grey,
+    "No backup folder". Copy works in every case.
+21. Server backup (2026-10-27; fake card, Trash ticked). With the Synology mounted as Backup and the
+    light green, press Copy: the tiles fill in at the usual speed and the card goes to its Trash and
+    ejects as soon as the local copy is verified, while the Server panel shows "Sending to the
+    server: N of M" and carries on. At the end: "All M files on the server and checked", and in
+    Finder the server's card folder has the card's files and a Receipt, no hidden partial files.
+    The sidecars the app made and any stars aren't there yet (Sync With Server, next). Pull the
+    network cable part way through: "The server went away: N of M files reached it". Unmount the
+    share and Copy another card: "Not backed up: the server wasn't connected", and the copy is
+    unaffected.

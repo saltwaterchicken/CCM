@@ -12,7 +12,8 @@ public struct CopiedFile: Equatable, Sendable {
     public var originalModified: Date?
     /// xxHash64 of the original on the card, as 16 hex digits.
     public var checksum: String
-    /// One entry per destination (main, then backup if set).
+    /// One entry per destination folder copied to in lockstep (the app copies
+    /// to the main one only; the server backup runs beside it, see ServerBackup).
     public var destinations: [URL]
     /// True when it was already at the destination with the same checksum,
     /// for example after an earlier copy was interrupted.
@@ -241,13 +242,25 @@ public enum CardCopier {
 /// checksum, saved next to the copies.
 public enum Receipt {
     public static func write(_ report: CopyReport, in folder: URL) throws -> URL {
+        let url = folder.appendingPathComponent(fileName(for: report))
+        do {
+            try text(for: report).write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            throw CopyError.writeFailed(file: url.lastPathComponent, reason: error.localizedDescription)
+        }
+        return url
+    }
+
+    /// e.g. Receipt_EOS_DIGITAL_2026-10-23_141502.csv
+    public static func fileName(for report: CopyReport) -> String {
         let stamp = DateFormatter()
         stamp.locale = Locale(identifier: "en_US_POSIX")
         stamp.dateFormat = "yyyy-MM-dd_HHmmss"
-        let iso = ISO8601DateFormatter()
-        let safeCard = NameTemplate.clean(report.cardName)
-        let url = folder.appendingPathComponent("Receipt_\(safeCard)_\(stamp.string(from: report.startedAt)).csv")
+        return "Receipt_\(NameTemplate.clean(report.cardName))_\(stamp.string(from: report.startedAt)).csv"
+    }
 
+    public static func text(for report: CopyReport) -> String {
+        let iso = ISO8601DateFormatter()
         var lines = [header]
         for file in report.files {
             lines.append([csv(file.newName), csv(file.originalPath), String(file.size), file.checksum,
@@ -263,12 +276,7 @@ public enum Receipt {
         lines.append("Started,\(iso.string(from: report.startedAt))")
         lines.append("Finished,\(iso.string(from: report.finishedAt))")
         lines.append("Copies,\(csv(report.destinationFolders.map(\.path).joined(separator: " | ")))")
-        do {
-            try (lines.joined(separator: "\n") + "\n").write(to: url, atomically: true, encoding: .utf8)
-        } catch {
-            throw CopyError.writeFailed(file: url.lastPathComponent, reason: error.localizedDescription)
-        }
-        return url
+        return lines.joined(separator: "\n") + "\n"
     }
 
     static let header = "File,Original Path,Size (bytes),xxHash64,Verified,Copied At,Original Modified"

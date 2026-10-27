@@ -82,6 +82,8 @@ final class CardWatcher {
     private(set) var ejected: [Finished] = []
     /// The photos of the card copied last, for culling.
     let grid = GridModel()
+    /// Each card's backup to the server, running beside the local copy.
+    let backups = ServerBackups()
 
     private var settings: IngestSettings
     /// Called after a card copies and verifies, to move the import counter on.
@@ -174,8 +176,11 @@ final class CardWatcher {
         }
     }
 
-    /// Copies the card into its own folder in the destination (and backup, if
-    /// set), renaming each file, and verifies every copy. Only reads the card.
+    /// Copies the card into its own folder in the destination, renaming each
+    /// file, and verifies every copy. Only reads the card. With a backup set,
+    /// each verified file is also sent to the backup (the server) from the
+    /// local copy, beside it: the local copy, trash and eject never wait for
+    /// it (photographer's call, 2026-10-27: a card may be needed back at once).
     func startCopy(_ card: DetectedVolume) {
         guard let files = card.files, copyStates[card.id]?.isBusy != true else { return }
         let url = card.id
@@ -190,6 +195,7 @@ final class CardWatcher {
         stopFlags[url] = flag
         copyStates[url] = .preparing
         let grid = grid
+        let backups = backups
         let session = UUID()
         // Reading dates and copying block, so they run on their own thread.
         DispatchQueue.global(qos: .userInitiated).async {
@@ -197,25 +203,35 @@ final class CardWatcher {
                 let plan = try ImportPlanner.plan(cardRoot: url, cardName: name, files: files, settings: settings)
                 if flag.isStopped { throw CopyError.cancelled }
                 if plan.nothingNew { return (plan, nil, []) }
+                let job = Self.startBackup(plan, root: settings.backupRootURL, cardName: name, backups: backups)
                 // Each shot gets its sidecar and goes on the grid as soon as its last file is verified.
                 let shots = LiveShots(planned: plan.files, fileTypes: settings.fileTypes)
-                let report = try CardCopier.copy(
-                    cardRoot: url, cardName: name, files: plan.files, to: plan.folders,
-                    importNumber: plan.importNumber,
-                    progress: { done, total in
-                        let fraction = total > 0 ? min(1, Double(done) / Double(total)) : 1
-                        Task { @MainActor [weak self] in
-                            if self?.copyStates[url]?.isCopying == true {
-                                self?.copyStates[url] = .copying(fraction: fraction)
+                let report: CopyReport
+                do {
+                    report = try CardCopier.copy(
+                        cardRoot: url, cardName: name, files: plan.files, to: Array(plan.folders.prefix(1)),
+                        importNumber: plan.importNumber,
+                        progress: { done, total in
+                            let fraction = total > 0 ? min(1, Double(done) / Double(total)) : 1
+                            Task { @MainActor [weak self] in
+                                if self?.copyStates[url]?.isCopying == true {
+                                    self?.copyStates[url] = .copying(fraction: fraction)
+                                }
                             }
-                        }
-                    },
-                    fileVerified: { file in
-                        guard let landed = shots.complete(file) else { return }
-                        let folder = plan.folders.first
-                        Task { @MainActor in grid.add(landed, session: session, cardName: name, folder: folder) }
-                    },
-                    isCancelled: { flag.isStopped })
+                        },
+                        fileVerified: { file in
+                            job?.send(file)
+                            guard let landed = shots.complete(file) else { return }
+                            let folder = plan.folders.first
+                            Task { @MainActor in grid.add(landed, session: session, cardName: name, folder: folder) }
+                        },
+                        isCancelled: { flag.isStopped })
+                } catch {
+                    // What did copy still goes up; there's no receipt for a copy that didn't finish.
+                    job?.finish(nil)
+                    throw error
+                }
+                job?.finish(report)
                 return (plan, report, shots.sidecarProblems)
             }
             Task { @MainActor [weak self] in
@@ -234,6 +250,28 @@ final class CardWatcher {
                     self.copyStates[url] = .failed(error.localizedDescription)
                 }
             }
+        }
+    }
+
+    /// The backup of one card, if a backup folder is set: started when it's on
+    /// a server (or a drive) that's there now, otherwise shown as not backed up.
+    nonisolated private static func startBackup(_ plan: ImportPlan, root: URL?, cardName: String,
+                                                backups: ServerBackups) -> ServerBackupJob? {
+        guard let root, plan.folders.count > 1 else { return nil }
+        let folder = plan.folders[1]
+        let notStarted: String?
+        switch BackupVolume.check(root) {
+        case .server, .localDrive: notStarted = nil
+        case .standIn: notStarted = "the server isn't connected (a folder on this Mac is standing in for it)."
+        case .missing, .notSet: notStarted = "the server wasn't connected."
+        }
+        let id = UUID()
+        Task { @MainActor in
+            backups.begin(id: id, cardName: cardName, folderName: folder.lastPathComponent, notStarted: notStarted)
+        }
+        guard notStarted == nil else { return nil }
+        return ServerBackupJob(folder: folder, root: root) { status in
+            Task { @MainActor in backups.update(id, status) }
         }
     }
 
