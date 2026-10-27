@@ -140,6 +140,16 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   and Canon embed full size, Fuji 4000×3000), so small faces may need decoding from the RAW.
 - [ ] Step 2: Calibration window: score a hand-rated folder once, sliders for the face, no-face and
   two exposure limits with live agreement and the misses as thumbnails, Save to the settings file.
+  **Built and confirmed on the Mac 2026-10-26.** Job panel "Auto-rating" row shows the limits and a
+  Calibrate… button that opens the window. Choose Folder… scores every photo once (reads only; stars
+  from XMP sidecars, inside JPEGs, or a Capture One session's `.cos`). Sliders: Faces and No face on
+  a log scale (1–1,000), Blown to white and Black 50–100%. Live: keepers flagged (green up to 2%,
+  orange above) and outtakes flagged, counts by reason. Grid of the flagged keepers or outtakes,
+  softest first, with reason chips and the score; click for a large view. Suggest sets both
+  sharpness limits to flag ~1% of the folder's keepers (none with few keepers); Starting Values;
+  Save to Settings / Undo Changes. Settings: `rating.autoRating` (off; the old placeholder
+  `enabled` key is ignored), `minimumSharpnessFaces` 50, `minimumSharpnessNoFaces` 30,
+  `maximumBlown` 0.8, `maximumCrushed` 0.95 (at 50/30, ≤1% of camp keepers flagged per photographer).
 - [ ] Step 3: Check each shot as it lands and on Load Folder (Check button): 1 star to keepers, 0
   plus a private "checked by Card Ingest" marker, scores and reason for outtakes; never a shot that
   already has stars or that's rated while it's checked. App stars look different from hand ones,
@@ -693,3 +703,11 @@ Suggestions so far, not yet decided. Edit freely.
     goes to 100%. Back in the grid, move the pointer slowly across a clip's tile without clicking: the
     picture follows the pointer through the clip, a thin line along the bottom and the time in the
     corner show where, and moving off puts the first frame back.
+18. Calibrating auto-rating (2026-10-26). In the Job panel, the Auto-rating row reads "Faces 50 · No
+    face 30 · White 80% · Black 95%". Click Calibrate…: a second window opens. Choose Folder… and pick
+    a culled job with its stars saved to the files (e.g. a card folder from `Look at`): a bar counts
+    the photos as they're checked, then the summary (photos, keepers, outtakes). The grid shows the
+    keepers these limits would flag, softest first; click one to see it large (Esc closes). Switch to
+    "Outtakes it would flag": they should look soft. Drag Faces up: both counts rise as you drag.
+    Suggest: the keepers figure goes to about 1%. Save to Settings: "Saved in Settings.plist", and the
+    Job panel row shows the new numbers. Nothing in the folder changes.

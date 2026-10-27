@@ -35,6 +35,16 @@ public struct QualityScore: Sendable, Equatable {
     public let measuredAt: Int
 }
 
+extension QualityScore {
+    /// What the face limit is compared with: the sharpest face measured at
+    /// 64 pixels across, allowing for its brightness, since a face in shade
+    /// has less edge contrast than the same face in sun. Nil with no face.
+    public var faceScore: Double? {
+        guard let scaled = faceSharpnessScaled else { return nil }
+        return scaled * pow(128 / max(faceBrightness ?? 128, 12), 2)
+    }
+}
+
 public enum QualityCheck {
     /// Every photo is measured at the same size, so scores compare across
     /// cameras. Sony's built-in preview is 1,616 pixels, so a bigger size

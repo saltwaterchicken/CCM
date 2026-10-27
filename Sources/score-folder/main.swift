@@ -26,16 +26,7 @@ func stars(for raw: URL) -> Int? {
     if let stars = ["xmp", "XMP"].lazy.compactMap({ Stars.read(xmp: base.appendingPathExtension($0)) }).first {
         return stars
     }
-    let sessions = raw.deletingLastPathComponent().appendingPathComponent("CaptureOne")
-    for settings in (try? FileManager.default.contentsOfDirectory(atPath: sessions.path)) ?? [] where settings.hasPrefix("Settings") {
-        let cos = sessions.appendingPathComponent(settings).appendingPathComponent(raw.lastPathComponent + ".cos")
-        // One entry per variant; the last is the one Capture One shows (checked against an export).
-        guard let text = try? String(contentsOf: cos, encoding: .utf8),
-              let range = text.range(of: #"K="Basic_Rating" V="(-?\d)""#, options: [.regularExpression, .backwards])
-        else { continue }
-        return Int(text[range].filter { $0.isNumber || $0 == "-" })
-    }
-    return nil
+    return Calibration.captureOneStars(for: raw)
 }
 
 /// The RAW itself, drawn at the working size.

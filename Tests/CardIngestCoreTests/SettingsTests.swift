@@ -30,7 +30,8 @@ final class SettingsTests: XCTestCase {
         settings.nextImportNumber = 42
         settings.backupRoot = "/Volumes/Backup/Photos"
         settings.metadata.keywords = ["wedding", "Portland"]
-        settings.rating.sharpnessThreshold = 42
+        settings.rating.minimumSharpnessFaces = 42
+        settings.rating.autoRating = true
         try SettingsStore.save(settings, to: url)
         XCTAssertEqual(try SettingsStore.load(from: url), settings)
     }
@@ -53,13 +54,14 @@ final class SettingsTests: XCTestCase {
     func testPartialProjectFileFallsBackToDefaults() throws {
         let url = try writePlist("Project.plist", """
             <key>folderName</key><string>{todayyear4}-Camp-{iseq}</string>
-            <key>rating</key><dict><key>enabled</key><false/></dict>
+            <key>rating</key><dict><key>enabled</key><true/><key>maximumBlown</key><real>0.9</real></dict>
         """)
         let settings = try SettingsStore.load(from: url)
         XCTAssertEqual(settings.folderName, "{todayyear4}-Camp-{iseq}")
         XCTAssertEqual(settings.nextImportNumber, 1)
-        XCTAssertFalse(settings.rating.enabled)
-        XCTAssertEqual(settings.rating.sharpnessThreshold, RatingSettings().sharpnessThreshold)
+        XCTAssertFalse(settings.rating.autoRating, "The old placeholder enabled key doesn't switch it on")
+        XCTAssertEqual(settings.rating.maximumBlown, 0.9)
+        XCTAssertEqual(settings.rating.minimumSharpnessFaces, RatingSettings().minimumSharpnessFaces)
         XCTAssertEqual(settings.renamePattern, IngestSettings().renamePattern)
         XCTAssertEqual(settings.fileTypes, FileTypes())
     }

@@ -35,6 +35,13 @@ struct CardIngestApp: App {
                 .preferredColorScheme(.dark)
                 .onChange(of: model.settings) { _, settings in watcher.update(settings: settings) }
         }
+        Window("Calibrate Auto-Rating", id: "calibration") {
+            CalibrationView(settings: model)
+                .frame(minWidth: 1000, minHeight: 640)
+                .background(Theme.window)
+                .groupBoxStyle(PanelStyle())
+                .preferredColorScheme(.dark)
+        }
     }
 }
 
@@ -197,6 +204,7 @@ struct ContentView: View {
 /// to the settings file.
 struct JobPanel: View {
     @Bindable var model: SettingsModel
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
@@ -293,6 +301,18 @@ struct JobPanel: View {
                         set: { on in model.change { $0.ejectWhenDone = on } }))
                 }
                 .toggleStyle(.checkbox)
+            }
+            GridRow {
+                Text("Auto-rating")
+                HStack {
+                    let r = model.settings.rating
+                    Text("Faces \(Int(r.minimumSharpnessFaces)) · No face \(Int(r.minimumSharpnessNoFaces)) · "
+                         + "White \(Int((r.maximumBlown * 100).rounded()))% · Black \(Int((r.maximumCrushed * 100).rounded()))%")
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                    Spacer()
+                    Button("Calibrate…") { openWindow(id: "calibration") }
+                }
             }
             if let problem = model.settings.folderProblem {
                 GridRow {

@@ -204,26 +204,73 @@ public struct MetadataTemplate: Codable, Equatable, Sendable {
     }
 }
 
-/// First-pass star rating (used from Milestone 3). Thresholds are starting
-/// points to be tuned with the calibration tool.
+/// Auto-rating: checking each photo's sharpness and exposure. The limits are
+/// starting points, set from 34,000 camp photos (Milestone 6); each
+/// photographer tunes them in the calibration window. A photo falls short
+/// when its score is under a sharpness limit or its blown or black share is
+/// over an exposure limit.
 public struct RatingSettings: Codable, Equatable, Sendable {
-    public var enabled: Bool
-    /// Laplacian variance below this counts as out of focus.
-    public var sharpnessThreshold: Double
-    /// Eye-openness ratio below this counts as a blink.
+    /// The Job panel's "Rate sharpness and exposure" box. Saved as
+    /// `autoRating`; files from before Milestone 6 had a placeholder
+    /// `enabled` that is ignored, so nobody is switched on by surprise.
+    public var autoRating: Bool
+    /// The lowest face score that passes (`QualityScore.faceScore`).
+    public var minimumSharpnessFaces: Double
+    /// The lowest sharpest-area score that passes, for photos with no face.
+    public var minimumSharpnessNoFaces: Double
+    /// The most of the picture that may be blown to white, and crushed to
+    /// black (0 to 1). Extremes only: camp keepers went up to 72% and 98%.
+    public var maximumBlown: Double
+    public var maximumCrushed: Double
+    /// Eye-openness ratio below this counts as a blink (Milestone 7).
     public var eyeOpennessThreshold: Double
 
-    public init(enabled: Bool = true, sharpnessThreshold: Double = 100, eyeOpennessThreshold: Double = 0.2) {
-        self.enabled = enabled
-        self.sharpnessThreshold = sharpnessThreshold
+    public init(autoRating: Bool = false, minimumSharpnessFaces: Double = 50, minimumSharpnessNoFaces: Double = 30,
+                maximumBlown: Double = 0.8, maximumCrushed: Double = 0.95, eyeOpennessThreshold: Double = 0.2) {
+        self.autoRating = autoRating
+        self.minimumSharpnessFaces = minimumSharpnessFaces
+        self.minimumSharpnessNoFaces = minimumSharpnessNoFaces
+        self.maximumBlown = maximumBlown
+        self.maximumCrushed = maximumCrushed
         self.eyeOpennessThreshold = eyeOpennessThreshold
     }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = RatingSettings()
-        enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? d.enabled
-        sharpnessThreshold = try c.decodeIfPresent(Double.self, forKey: .sharpnessThreshold) ?? d.sharpnessThreshold
+        autoRating = try c.decodeIfPresent(Bool.self, forKey: .autoRating) ?? d.autoRating
+        minimumSharpnessFaces = try c.decodeIfPresent(Double.self, forKey: .minimumSharpnessFaces) ?? d.minimumSharpnessFaces
+        minimumSharpnessNoFaces = try c.decodeIfPresent(Double.self, forKey: .minimumSharpnessNoFaces) ?? d.minimumSharpnessNoFaces
+        maximumBlown = try c.decodeIfPresent(Double.self, forKey: .maximumBlown) ?? d.maximumBlown
+        maximumCrushed = try c.decodeIfPresent(Double.self, forKey: .maximumCrushed) ?? d.maximumCrushed
         eyeOpennessThreshold = try c.decodeIfPresent(Double.self, forKey: .eyeOpennessThreshold) ?? d.eyeOpennessThreshold
+    }
+
+    /// Why a photo falls short, or nothing when it passes. A photo with a face
+    /// is judged on its face only, so a soft background never counts against it.
+    public func problems(_ score: QualityScore) -> [QualityProblem] {
+        var found: [QualityProblem] = []
+        if let face = score.faceScore {
+            if face < minimumSharpnessFaces { found.append(.softFace) }
+        } else if score.areaSharpness < minimumSharpnessNoFaces {
+            found.append(.soft)
+        }
+        if score.blown > maximumBlown { found.append(.blown) }
+        if score.crushed > maximumCrushed { found.append(.dark) }
+        return found
+    }
+}
+
+/// Why a photo was flagged, for its tile.
+public enum QualityProblem: String, Codable, Sendable, CaseIterable {
+    case softFace, soft, blown, dark
+
+    public var label: String {
+        switch self {
+        case .softFace: "Soft face"
+        case .soft: "Soft"
+        case .blown: "Blown out"
+        case .dark: "Too dark"
+        }
     }
 }
