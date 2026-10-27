@@ -598,6 +598,62 @@ changed after verifying (proposed: receipt keeps the card's checksum and adds th
 files matched by name like `.xmp`); per-job fields in the Job panel or the settings file; the
 template values themselves.
 
+## Server backup (asked 2026-10-27, not started)
+
+The backup goes to the Synology over a network cable. Today the backup is written in lockstep with
+the main copy (each chunk to both, then both read back), so a slow NAS slows the whole copy. Asked:
+1. **Backup in parallel, neither holding the other up.** Proposed: copy the card to the local drive
+   as now; a second worker copies each verified local file to the NAS and verifies it there, reading
+   the local copy (fast SSD), not the card, so the card is read once and the local copy runs at card
+   speed. The grid, culling and auto-rating start on the local copy as now; the NAS catches up.
+   To decide: trashing waits for the NAS copy to verify (safest: two verified copies before the
+   card is touched; eject then waits for the NAS), or the card is trashed after the local copy and
+   the NAS copies from it (faster, but one copy only until the NAS finishes).
+2. **Green/red light before Copy:** NAS share mounted (the backup folder's volume is there and is a
+   network volume), Wi-Fi off (CoreWLAN), wired Ethernet up (Network framework). Red says which.
+   To decide: whether red blocks Copy or only warns.
+3. **"Sync With Server" after culling:** copies to the NAS card folder any `.xmp` sidecar that
+   changed since (stars, keywords from Lightroom's Save Metadata to File) and the
+   `•To Campanion` export folder's new or changed JPEGs; never deletes on the NAS. Needs which card:
+   the one in the grid, or a list of past cards (the card log, Milestone 5 Step 2).
+
+**Decided 2026-10-27 (photographer):**
+- **The card goes to the Trash once the local copy is verified,** not waiting for the NAS: budget
+  photographers may be waiting on their only card. The NAS copy is made from the local copy.
+- **The light only warns;** Copy still works with the cable out or the server offline.
+- **Sync With Server syncs the card in the grid only**, a convenience (they've done it by hand
+  before). Proposed: it also copies anything the backup missed (the RAWs, if the server was offline
+  during the copy), so it doubles as catch-up.
+- **Sync never deletes or shrinks the server (photographer, 2026-10-27).** Cards already dragged to
+  the server may since have been deleted from the local drive; the server is the final destination.
+  Rules: only adds and updates, never deletes; a file missing locally is left alone on the server;
+  RAWs, JPEGs from the card and clips are never overwritten (only added if missing); only `.xmp`
+  sidecars and `•To Campanion` JPEGs are updated, and only when the local one is newer; a summary
+  ("adds 3, updates 412 sidecars, deletes nothing") to confirm before anything is written.
+
+**Write-once server (raised 2026-10-27):** many photographers can create files on the server but
+not change or delete them. With the backup as built today that breaks: each copy is written as a
+hidden `.partial` file and renamed once verified (a rename needs change rights), a failed copy's
+`.partial` is deleted (delete rights), and stars, landing sidecars and auto-rating rewrite the
+sidecars in the backup (each save replaces the file). Plan for the server worker: write each file
+once under its final name, then read it back to verify (no temporary name); never write stars or
+auto-rating to the server during culling (local only); sidecars and `•To Campanion` JPEGs go up
+with Sync With Server, created once; a file already on the server is never rewritten, and Sync
+lists any it couldn't update instead of failing. A failed copy on the server can't be cleaned up,
+so it's reported by name. Test with macOS ACLs on a local folder that deny delete and write to
+existing files. **Confirmed 2026-10-27:** photographers can create files and folders but not
+overwrite, rename or delete. Re-editing old work is rare: the admin deletes it on the server, then
+the photographer's Sync puts the new versions up (they're new files again). This is deliberate, so
+a junior photographer can't delete everything by mistake; the app must work within it, never ask
+for more.
+
+**Light built and confirmed on the Mac 2026-10-27.** A "Server" panel above the cards, shown when
+a backup folder is set and isn't on a local drive: green "Wired to the server" when the backup
+folder is on a mounted network share, Wi-Fi is off (CoreWLAN) and an Ethernet cable is connected
+(Network framework); otherwise red, with each check and what to do. Rechecked every 3 s, the share
+looked at off the main thread. Also catches a stand-in: the share not mounted but a plain folder
+of its name in /Volumes on the Mac's drive, which would fill the Mac. Warning only.
+
 ## GUI wishlist
 
 Suggestions so far, not yet decided. Edit freely.
@@ -756,3 +812,8 @@ Suggestions so far, not yet decided. Edit freely.
     Then, on a card with flagged photos: in "Flagged by app" press 1 on two you'd keep, click
     Calibrate… beside it: the window opens on that card and shows "Rescued by you (2)", both "still
     flagged". Slide "Soft faces" right until they say "Kept now", watching "Your keepers flagged".
+20. Server light (2026-10-27). Mount the Synology share in Finder and choose a folder on it as
+    Backup in the Job panel: a "Server" panel appears above the cards. With Wi-Fi on and no cable it
+    is red and says so; turn Wi-Fi off and plug in the cable: within a few seconds it turns green,
+    "Wired to the server". Eject the share in Finder: red, "Server not mounted". Choose a backup on
+    a USB drive instead: the panel goes away. Copy works in every case.

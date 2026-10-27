@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 struct CardIngestApp: App {
     @State private var model: SettingsModel
     @State private var watcher: CardWatcher
+    @State private var server = ServerStatus()
 
     init() {
         // Needed so the window comes to the front when launched from Terminal.
@@ -27,13 +28,17 @@ struct CardIngestApp: App {
 
     var body: some Scene {
         WindowGroup("Card Ingest") {
-            ContentView(model: model, watcher: watcher)
+            ContentView(model: model, watcher: watcher, server: server)
                 .frame(minWidth: 1000, minHeight: 620)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Theme.window)
                 .groupBoxStyle(PanelStyle())
                 .preferredColorScheme(.dark)
-                .onChange(of: model.settings) { _, settings in watcher.update(settings: settings) }
+                .onChange(of: model.settings) { _, settings in
+                    watcher.update(settings: settings)
+                    server.use(settings)
+                }
+                .onAppear { server.use(model.settings) }
         }
         Window("Calibrate Auto-Rating", id: "calibration") {
             CalibrationView(settings: model, grid: watcher.grid)
@@ -143,6 +148,7 @@ final class SettingsModel {
 struct ContentView: View {
     @Bindable var model: SettingsModel
     var watcher: CardWatcher
+    var server: ServerStatus
 
     var body: some View {
         // Cards and settings on the left, the photos just copied on the right, like Photo Mechanic.
@@ -161,6 +167,11 @@ struct ContentView: View {
 
     private var controls: some View {
         VStack(alignment: .leading, spacing: 16) {
+            if server.applies {
+                GroupBox("Server") {
+                    ServerLight(status: server).padding(4)
+                }
+            }
             CardsView(watcher: watcher)
 
             GroupBox("Job") {
