@@ -598,7 +598,7 @@ changed after verifying (proposed: receipt keeps the card's checksum and adds th
 files matched by name like `.xmp`); per-job fields in the Job panel or the settings file; the
 template values themselves.
 
-## Server backup (asked 2026-10-27, not started)
+## Server backup (asked 2026-10-27, built and confirmed on the Mac 2026-10-27)
 
 The backup goes to the Synology over a network cable. Today the backup is written in lockstep with
 the main copy (each chunk to both, then both read back), so a slow NAS slows the whole copy. Asked:
@@ -647,8 +647,8 @@ the photographer's Sync puts the new versions up (they're new files again). This
 a junior photographer can't delete everything by mistake; the app must work within it, never ask
 for more.
 
-**Sync With Server built 2026-10-27; worked on an external USB drive (photographer). Server still
-to try.** A button at the right of the Server panel's first line, the card's name under it
+**Sync With Server built 2026-10-27; worked on an external USB drive, then confirmed on the server
+(photographer, 2026-10-27) with a slower card, the light included.** A button at the right of the Server panel's first line, the card's name under it
 (card folder shown and a backup folder set; waits while that card's backup is still sending).
 Compares the card folder's own files and any `•To Campanion…` folder (subfolders too; hidden
 files and Capture One's folders skipped) with its folder on the server, then shows a summary: adds
@@ -659,7 +659,8 @@ backup's write-once copier and checks it; progress and the result under the head
 copy newer than this Mac's is left as it is; files gone from this Mac and other cards are never
 looked at; the server's own receipt isn't a conflict. Tested against a create-only folder.
 
-**Backup worker built 2026-10-27, not yet tried on the Mac.** The card is copied to the local
+**Backup worker built 2026-10-27; confirmed on the Mac with the server 2026-10-27 (the slower card
+above).** The card is copied to the local
 destination only; trash and eject follow that alone. With a backup folder set and its volume there
 (`BackupVolume` server or drive), a `ServerBackupJob` per card sends each file as soon as the local
 copy verifies it, one at a time at utility priority, from the local copy: `open(O_CREAT|O_EXCL)`
