@@ -681,6 +681,20 @@ folder is on a mounted network share, Wi-Fi is off (CoreWLAN) and an Ethernet ca
 looked at off the main thread. Also catches a stand-in: the share not mounted but a plain folder
 of its name in /Volumes on the Mac's drive, which would fill the Mac. Warning only.
 
+## Searchable help (asked 2026-10-27, not started)
+
+A search field at the top of the window: as the photographer types ("trash", "stars not in
+Lightroom", "server red", "blue stars"), matching answers drop down, FAQ style, each with a "Show
+me" that points at the part of the window it's about (the Job panel's Backup row, the Server
+light, Flagged by app, Calibrate…) with a pulsing outline, scrolling to it if needed.
+Proposed: the answers are written ahead of time (by Claude, from the app and these notes, and
+updated as features change), stored in the app, and searched on the Mac, so it works offline and
+on any Mac. Optional later: Apple's on-device model (macOS 26 with Apple Intelligence) to answer
+questions in the photographer's own words from those same answers, never made up. Also worth
+doing: put the main actions in the menus too, so the standard Help menu search finds and points at
+them for free. To decide: search box in the window's toolbar or the Help menu; which questions
+come up most (the photographer's list from past summers).
+
 ## GUI wishlist
 
 Suggestions so far, not yet decided. Edit freely.
