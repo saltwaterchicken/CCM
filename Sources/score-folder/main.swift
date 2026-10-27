@@ -48,17 +48,34 @@ DispatchQueue.concurrentPerform(iterations: photos.count) { i in
     let began = Date()
     var score: QualityScore?
     do {
-        score = try decode ? decoded(url).flatMap { try QualityCheck.score($0) } : QualityCheck.score(url)
+        if decode {
+            if let image = decoded(url) { score = try QualityCheck.score(image) }
+        } else {
+            score = try QualityCheck.score(url)
+        }
     } catch {
         FileHandle.standardError.write("\(url.lastPathComponent): \(error)\n".data(using: .utf8)!)
     }
-    let ms = Date().timeIntervalSince(began) * 1000
-    let line = [folder, url.lastPathComponent, stars(for: url).map(String.init) ?? "",
-                score.map { String($0.faces) } ?? "ERROR", text(score?.faceSharpness), text(score?.areaSharpness),
-                text(score?.blown), text(score?.crushed), text(score?.faceQuality),
-                text(score?.faceBrightness), text(score?.faceContrast), text(score?.areaBrightness), text(score?.areaContrast),
-                text(score?.faceSharpnessScaled), score?.facePixels.map(String.init) ?? "",
-                score.map { String($0.measuredAt) } ?? "", String(format: "%.0f", ms)].joined(separator: ",")
+    let ms: Double = Date().timeIntervalSince(began) * 1000
+    // Built a piece at a time: as one array literal the compiler gives up
+    // type-checking it.
+    var fields: [String] = [folder, url.lastPathComponent]
+    fields.append(stars(for: url).map(String.init) ?? "")
+    if let score {
+        fields.append(String(score.faces))
+    } else {
+        fields.append("ERROR")
+    }
+    let measures: [Double?] = [score?.faceSharpness, score?.areaSharpness, score?.blown, score?.crushed,
+                               score?.faceQuality, score?.faceBrightness, score?.faceContrast,
+                               score?.areaBrightness, score?.areaContrast, score?.faceSharpnessScaled]
+    fields += measures.map(text)
+    let facePixels: Int? = score?.facePixels
+    fields.append(facePixels.map(String.init) ?? "")
+    let measuredAt: Int? = score?.measuredAt
+    fields.append(measuredAt.map(String.init) ?? "")
+    fields.append(String(format: "%.0f", ms))
+    let line = fields.joined(separator: ",")
     lock.withLock { lines[i] = line }
 }
 print("folder,file,stars,faces,face_sharpness,area_sharpness,blown,crushed,face_quality,face_brightness,face_contrast,area_brightness,area_contrast,face_scaled,face_pixels,measured_at,ms")
