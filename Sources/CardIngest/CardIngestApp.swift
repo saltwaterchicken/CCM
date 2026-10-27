@@ -36,7 +36,7 @@ struct CardIngestApp: App {
                 .onChange(of: model.settings) { _, settings in watcher.update(settings: settings) }
         }
         Window("Calibrate Auto-Rating", id: "calibration") {
-            CalibrationView(settings: model)
+            CalibrationView(settings: model, grid: watcher.grid)
                 .frame(minWidth: 1000, minHeight: 640)
                 .background(Theme.window)
                 .groupBoxStyle(PanelStyle())
@@ -302,17 +302,28 @@ struct JobPanel: View {
                 }
                 .toggleStyle(.checkbox)
             }
-            GridRow {
-                Text("Auto-rating")
-                HStack {
-                    let r = model.settings.rating
-                    Text("Faces \(Int(r.minimumSharpnessFaces)) · No face \(Int(r.minimumSharpnessNoFaces)) · "
-                         + "White \(Int((r.maximumBlown * 100).rounded()))% · Black \(Int((r.maximumCrushed * 100).rounded()))%")
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                    Spacer()
-                    Button("Calibrate…") { openWindow(id: "calibration") }
-                }
+            if model.settings.rating.available {
+                GridRow {
+                    Text("Auto-rating").gridCellAnchor(.topTrailing)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Toggle("Rate sharpness and exposure as each photo lands", isOn: Binding(
+                            get: { model.settings.rating.autoRating },
+                            set: { on in model.change { $0.rating.autoRating = on } }))
+                            .toggleStyle(.checkbox)
+                        HStack {
+                            let r = model.settings.rating
+                            Text("1★ for keepers, 0 for soft or badly exposed. Limits: faces \(Int(r.minimumSharpnessFaces)) · "
+                                 + "no face \(Int(r.minimumSharpnessNoFaces)) · white \(Int((r.maximumBlown * 100).rounded()))% · "
+                                 + "black \(Int((r.maximumCrushed * 100).rounded()))%")
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer()
+                            Button("Calibrate…") { openWindow(id: "calibration") }
+                        }
+                        .padding(.leading, 20)
+                    }
+            }
             }
             if let problem = model.settings.folderProblem {
                 GridRow {

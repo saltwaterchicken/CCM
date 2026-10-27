@@ -15,6 +15,9 @@ final class CalibrationModel {
     }
 
     private(set) var folder: URL?
+    /// The card just imported and reviewed in the grid, with the app's own
+    /// stars counted where the photographer left them.
+    private(set) var isThisCard = false
     private(set) var phase = Phase.idle
     private(set) var scored: [ScoredShot] = []
     /// Photos that couldn't be read or checked.
@@ -27,14 +30,14 @@ final class CalibrationModel {
     var viewing: ScoredShot?
     private var flag: StopFlag?
 
-    enum Showing: Hashable { case keepers, outtakes }
+    enum Showing: Hashable { case keepers, outtakes, rescued }
 
     var report: CalibrationReport { Calibration.report(scored, limits: limits) }
 
     /// The flagged photos the grid shows, softest first.
     var flagged: [ScoredShot] {
         let report = report
-        let ids = Set(showing == .keepers ? report.flaggedKeepers : report.flaggedOuttakes)
+        let ids = Set(showing == .keepers ? report.flaggedKeepers : showing == .outtakes ? report.flaggedOuttakes : report.rescued)
         return scored.filter { ids.contains($0.id) }
             .sorted { ($0.score.faceScore ?? $0.score.areaSharpness) < ($1.score.faceScore ?? $1.score.areaSharpness) }
     }
@@ -49,11 +52,12 @@ final class CalibrationModel {
         if panel.runModal() == .OK, let url = panel.url { score(url) }
     }
 
-    func score(_ url: URL) {
+    func score(_ url: URL, thisCard: Bool = false) {
         flag?.stop()
         let flag = StopFlag()
         self.flag = flag
         folder = url
+        isThisCard = thisCard
         scored = []
         unreadable = []
         viewing = nil
@@ -62,7 +66,7 @@ final class CalibrationModel {
         Task.detached(priority: .userInitiated) { [self] in
             let photos: [LandedShot]
             do {
-                photos = try Calibration.photos(in: url, fileTypes: FileTypes())
+                photos = try Calibration.photos(in: url, fileTypes: FileTypes(), includingAppStars: thisCard)
             } catch {
                 await finish(flag, failure: "Couldn't read the folder: \(error.localizedDescription)")
                 return
@@ -99,7 +103,7 @@ final class CalibrationModel {
             scored = result.scored
             unreadable = result.failed
             phase = .ready
-            showing = .keepers
+            showing = result.scored.contains(where: \.rescued) ? .rescued : .keepers
         }
     }
 }
@@ -108,9 +112,21 @@ final class CalibrationModel {
 /// how many of your keepers they'd flag, and which.
 struct CalibrationView: View {
     @Bindable var settings: SettingsModel
+    /// The grid, for its card: Calibrate… there asks for it to be scored here.
+    var grid: GridModel
     @State private var model = CalibrationModel()
 
     var body: some View {
+        if settings.settings.rating.available {
+            calibration
+        } else {
+            Text("Auto-rating is turned off in the settings file (rating › available).")
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private var calibration: some View {
         HStack(alignment: .top, spacing: 16) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
@@ -125,11 +141,21 @@ struct CalibrationView: View {
             flaggedGrid
         }
         .padding(16)
-        .onAppear { model.limits = settings.settings.rating }
+        .onAppear {
+            model.limits = settings.settings.rating
+            scoreRequestedCard()
+        }
+        .onChange(of: grid.calibrationRequest) { scoreRequestedCard() }
         .onDisappear { model.stop() }
         .sheet(item: $model.viewing) { photo in
             CalibrationPhotoView(photo: photo, problems: model.report.problems[photo.id] ?? []) { model.viewing = nil }
         }
+    }
+
+    private func scoreRequestedCard() {
+        guard let card = grid.calibrationRequest else { return }
+        grid.calibrationRequest = nil
+        model.score(card, thisCard: true)
     }
 
     // MARK: Folder
@@ -143,10 +169,17 @@ struct CalibrationView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 if let folder = model.folder {
                     Text(folder.path).lineLimit(2).truncationMode(.middle).textSelection(.enabled)
+                    if model.isThisCard {
+                        Text("The card in the grid. Your stars count as they are, and so do the app's where you left them.")
+                            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 switch model.phase {
                 case .idle:
-                    Button("Choose Folder…") { model.choose() }
+                    HStack {
+                        Button("Choose Folder…") { model.choose() }
+                        thisCardButton
+                    }
                 case let .scoring(done, total):
                     ProgressView(value: Double(done), total: Double(max(total, 1)))
                     HStack {
@@ -157,13 +190,32 @@ struct CalibrationView: View {
                     }
                 case .ready:
                     summary
-                    Button("Choose Another Folder…") { model.choose() }
+                    HStack {
+                        Button("Choose Another Folder…") { model.choose() }
+                        thisCardButton
+                    }
                 case let .failed(message):
                     Label(message, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                    Button("Choose Folder…") { model.choose() }
+                    HStack {
+                        Button("Choose Folder…") { model.choose() }
+                        thisCardButton
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// The card in the grid, while it's fresh: rescue the flagged keepers
+    /// there, then come here to see what limits would have kept them.
+    @ViewBuilder
+    private var thisCardButton: some View {
+        if let card = grid.folder, !(model.isThisCard && model.folder == card) {
+            Button("Use \(card.lastPathComponent)") { model.score(card, thisCard: true) }
+                .help("The card in the grid. Rate the flagged photos you'd keep first, then check them here.")
+        } else if let card = grid.folder, model.phase == .ready {
+            Button("Check Again") { model.score(card, thisCard: true) }
+                .help("Reads the card's stars again, after rating more photos in the grid")
         }
     }
 
@@ -193,13 +245,15 @@ struct CalibrationView: View {
     private var limitsPanel: some View {
         GroupBox("Limits") {
             VStack(alignment: .leading, spacing: 14) {
-                sharpnessSlider("Faces", help: "Faces scoring under this are flagged as soft.",
+                Text("Slide left to flag more photos, right to keep more.")
+                    .font(.caption).foregroundStyle(.secondary)
+                sharpnessSlider("Soft faces", help: "How soft a face can be before the photo is flagged.",
                                 value: $model.limits.minimumSharpnessFaces)
-                sharpnessSlider("No face", help: "Photos with no face are judged on their sharpest area.",
+                sharpnessSlider("Soft, no face", help: "How soft the sharpest part can be, for photos with no face.",
                                 value: $model.limits.minimumSharpnessNoFaces)
-                shareSlider("Blown to white", help: "Flagged when more of the picture than this is pure white.",
+                shareSlider("Too bright", help: "How much of the picture can be pure white.",
                             value: $model.limits.maximumBlown)
-                shareSlider("Black", help: "Flagged when more of the picture than this is pure black.",
+                shareSlider("Too dark", help: "How much of the picture can be pure black.",
                             value: $model.limits.maximumCrushed)
                 HStack {
                     Button("Suggest") { model.limits = Calibration.suggested(model.scored, from: model.limits) }
@@ -247,30 +301,39 @@ struct CalibrationView: View {
             || saved.maximumBlown != tried.maximumBlown || saved.maximumCrushed != tried.maximumCrushed
     }
 
-    /// Sharpness scores run from about 1 to 1,000, so the slider moves along
-    /// a log scale: as fine around 20 as around 500.
+    /// The lowest score that passes, from about 1 to 1,000 on a log scale (as
+    /// fine around 20 as around 500), turned round so that, like the exposure
+    /// sliders, right keeps more: a lower limit flags fewer photos.
     private func sharpnessSlider(_ title: String, help: String, value: Binding<Double>) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                Text(title)
-                Spacer()
-                Text(String(Int(value.wrappedValue.rounded()))).monospacedDigit()
-            }
-            Slider(value: Binding(get: { log10(max(value.wrappedValue, 1)) / 3 },
-                                  set: { value.wrappedValue = pow(10, $0 * 3).rounded() }),
+        limitSlider(title, help: help, shown: "limit \(Int(value.wrappedValue.rounded()))") {
+            Slider(value: Binding(get: { 1 - log10(max(value.wrappedValue, 1)) / 3 },
+                                  set: { value.wrappedValue = pow(10, (1 - $0) * 3).rounded() }),
                    in: 0...1)
-            Text(help).font(.caption).foregroundStyle(.secondary)
         }
     }
 
+    /// The most of the picture allowed, 50 to 100%: right allows more, so keeps more.
     private func shareSlider(_ title: String, help: String, value: Binding<Double>) -> some View {
+        limitSlider(title, help: help, shown: "up to \(Int((value.wrappedValue * 100).rounded()))%") {
+            Slider(value: value, in: 0.5...1, step: 0.01)
+        }
+    }
+
+    private func limitSlider(_ title: String, help: String, shown: String, slider: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack {
                 Text(title)
                 Spacer()
-                Text("\(Int((value.wrappedValue * 100).rounded()))%").monospacedDigit()
+                Text(shown).font(.caption).monospacedDigit().foregroundStyle(.secondary)
             }
-            Slider(value: value, in: 0.5...1, step: 0.01)
+            slider()
+            HStack {
+                Label("Flag more", systemImage: "arrow.left")
+                Spacer()
+                Label("Keep more", systemImage: "arrow.right").labelStyle(TrailingIcon())
+            }
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
             Text(help).font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -299,6 +362,18 @@ struct CalibrationView: View {
                 Text("Most outtakes are culled for the moment or a near-duplicate, not focus, so this stays a small share. "
                      + "Check the flagged ones look soft.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                if !report.rescued.isEmpty {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("Flagged photos you starred")
+                        Spacer()
+                        Text("\(report.rescuedStillFlagged.count) of \(report.rescued.count) still flagged")
+                            .monospacedDigit()
+                            .foregroundStyle(report.rescuedStillFlagged.isEmpty ? .green : .orange)
+                    }
+                    Text("The app's mistakes you fixed in the grid. Slide right until the ones you'd keep are no longer flagged, "
+                         + "if that doesn't flag too many of your other keepers.")
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
                 let counts = Dictionary(grouping: report.problems.values.flatMap { $0 }, by: { $0 }).mapValues(\.count)
                 if !counts.isEmpty {
                     Text(QualityProblem.allCases.compactMap { p in counts[p].map { "\(p.label): \($0)" } }.joined(separator: " · "))
@@ -322,20 +397,25 @@ struct CalibrationView: View {
                 Picker("", selection: $model.showing) {
                     Text("Keepers it would flag (\(report.flaggedKeepers.count))").tag(CalibrationModel.Showing.keepers)
                     Text("Outtakes it would flag (\(report.flaggedOuttakes.count))").tag(CalibrationModel.Showing.outtakes)
+                    if !report.rescued.isEmpty {
+                        Text("Rescued by you (\(report.rescued.count))").tag(CalibrationModel.Showing.rescued)
+                    }
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                .frame(maxWidth: 520)
+                .frame(maxWidth: 700)
                 let photos = model.flagged
                 if photos.isEmpty {
-                    Text(model.showing == .keepers ? "None of your keepers would be flagged." : "None of your outtakes would be flagged.")
+                    Text(model.showing == .keepers ? "None of your keepers would be flagged."
+                         : model.showing == .outtakes ? "None of your outtakes would be flagged." : "Nothing rescued.")
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     ScrollView {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 10)], spacing: 10) {
                             ForEach(photos) { photo in
-                                CalibrationTile(photo: photo, problems: report.problems[photo.id] ?? [])
+                                CalibrationTile(photo: photo, problems: report.problems[photo.id] ?? [],
+                                                showsKept: model.showing == .rescued)
                                     .onTapGesture { model.viewing = photo }
                             }
                         }
@@ -355,6 +435,8 @@ struct CalibrationView: View {
 struct CalibrationTile: View {
     let photo: ScoredShot
     let problems: [QualityProblem]
+    /// In the Rescued list, a passing photo says so instead of showing nothing.
+    var showsKept = false
     @State private var image: CGImage?
 
     var body: some View {
@@ -372,6 +454,7 @@ struct CalibrationTile: View {
             .overlay(alignment: .topLeading) {
                 HStack(spacing: 3) {
                     ForEach(problems, id: \.self) { CalibrationChip(text: $0.label) }
+                    if showsKept && problems.isEmpty { CalibrationChip(text: "Kept now", color: .green) }
                 }
                 .padding(4)
             }
@@ -399,13 +482,14 @@ struct CalibrationTile: View {
 
 struct CalibrationChip: View {
     let text: String
+    var color = Color.orange
 
     var body: some View {
         Text(text)
             .font(.caption2.weight(.semibold))
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
-            .background(.orange.opacity(0.85), in: Capsule())
+            .background(color.opacity(0.85), in: Capsule())
             .foregroundStyle(.black)
     }
 }
@@ -457,5 +541,15 @@ struct CalibrationPhotoView: View {
         let s = photo.score
         let faces = s.faces == 0 ? "no face" : s.faces == 1 ? "1 face" : "\(s.faces) faces"
         return "\(scoreText(s)) · \(faces) · \(Int((s.blown * 100).rounded()))% white · \(Int((s.crushed * 100).rounded()))% black"
+    }
+}
+
+/// A label with its icon after the text, for "Keep more →".
+struct TrailingIcon: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 4) {
+            configuration.title
+            configuration.icon
+        }
     }
 }

@@ -32,7 +32,10 @@ public enum Stars {
     /// never left half-written. With the RAW it belongs to, it also records
     /// the RAW's embedded-XMP digest, without which Lightroom ignores the
     /// sidecar's stars (see RawXMP).
-    public static func write(_ stars: Int?, toXMP url: URL, raw: URL? = nil, now: Date = Date()) throws {
+    /// `extra` adds other fields (the auto-rating marker) and `removing`
+    /// takes fields out.
+    public static func write(_ stars: Int?, toXMP url: URL, raw: URL? = nil, now: Date = Date(),
+                             extra: [String: String] = [:], removing: [String] = []) throws {
         var metadata = CGImageMetadataCreateMutable()
         if let data = try? Data(contentsOf: url) {
             guard let existing = CGImageMetadataCreateFromXMPData(data as CFData),
@@ -41,7 +44,13 @@ public enum Stars {
             }
             metadata = copy
         }
-        var values = ["xmp:MetadataDate": metadataDate(now)]
+        if !extra.isEmpty || !removing.isEmpty {
+            CGImageMetadataRegisterNamespaceForPrefix(metadata, AutoRating.namespace as CFString, AutoRating.prefix as CFString, nil)
+        }
+        for path in removing {
+            CGImageMetadataRemoveTagWithPath(metadata, nil, path as CFString)
+        }
+        var values = extra.merging(["xmp:MetadataDate": metadataDate(now)]) { _, date in date }
         if let stars { values["xmp:Rating"] = String(clamp(stars)) }
         if let raw {
             values["photoshop:SidecarForExtension"] = raw.pathExtension
@@ -64,7 +73,7 @@ public enum Stars {
     }
 
     /// The RAW copy next to each sidecar, when the shot has one.
-    static func raws(of shot: Shot) -> [URL?] {
+    public static func raws(of shot: Shot) -> [URL?] {
         shot.primary.destinations.map { shot.kind == .raw ? $0 : nil }
     }
 
@@ -100,10 +109,14 @@ public enum Stars {
         }
     }
 
-    /// Sets the photographer's stars on a shot, in every destination.
+    /// Sets the photographer's stars on a shot, in every destination. From
+    /// then on the stars are theirs: the stars the checks gave are dropped
+    /// from the marker (its reason and score stay, for the record).
     public static func set(_ stars: Int, on shot: Shot) throws {
         guard shot.isRatable else { return }
-        for (url, raw) in zip(sidecars(of: shot), raws(of: shot)) { try write(stars, toXMP: url, raw: raw) }
+        for (url, raw) in zip(sidecars(of: shot), raws(of: shot)) {
+            try write(stars, toXMP: url, raw: raw, removing: [AutoRating.starsField])
+        }
     }
 
     /// `.xmp` sidecars hold stars, so they change after they're verified and
@@ -115,7 +128,7 @@ public enum Stars {
     /// Lightroom uses -1 for rejected; anything else is 0 to 5.
     static func clamp(_ stars: Int) -> Int { min(5, max(-1, stars)) }
 
-    private static func rating(in metadata: CGImageMetadata) -> Int? {
+    static func rating(in metadata: CGImageMetadata) -> Int? {
         guard let text = CGImageMetadataCopyStringValueWithPath(metadata, nil, "xmp:Rating" as CFString) as String?,
               let value = Double(text.trimmingCharacters(in: .whitespaces)) else { return nil }
         return clamp(Int(value.rounded()))
@@ -143,6 +156,15 @@ public struct LandedShot: Sendable {
     public let stars: Int?
     /// 0 for the first shot of the Copy to land, then 1, 2 ...
     public let position: Int
+    /// What the auto-rating checks found, when they've looked at it.
+    public let check: AutoCheck?
+
+    public init(shot: Shot, stars: Int?, position: Int, check: AutoCheck? = nil) {
+        self.shot = shot
+        self.stars = stars
+        self.position = position
+        self.check = check
+    }
 }
 
 /// The shots of one Copy as their files land, each handed to the grid as soon

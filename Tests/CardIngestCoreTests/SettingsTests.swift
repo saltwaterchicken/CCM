@@ -60,6 +60,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(settings.folderName, "{todayyear4}-Camp-{iseq}")
         XCTAssertEqual(settings.nextImportNumber, 1)
         XCTAssertFalse(settings.rating.autoRating, "The old placeholder enabled key doesn't switch it on")
+        XCTAssertTrue(settings.rating.available, "Offered unless the file says otherwise")
         XCTAssertEqual(settings.rating.maximumBlown, 0.9)
         XCTAssertEqual(settings.rating.minimumSharpnessFaces, RatingSettings().minimumSharpnessFaces)
         XCTAssertEqual(settings.renamePattern, IngestSettings().renamePattern)
@@ -154,5 +155,15 @@ final class SettingsTests: XCTestCase {
         XCTAssertFalse(types.includes(".DS_Store"))
         XCTAssertFalse(types.includes("NOEXTENSION"))
         XCTAssertFalse(types.includes("readme.txt"))
+    }
+
+    func testAutoRatingCanBeTurnedOffCompletelyInTheFile() throws {
+        let url = try writePlist("Off.plist", """
+            <key>rating</key><dict><key>available</key><false/><key>autoRating</key><true/></dict>
+        """)
+        let settings = try SettingsStore.load(from: url)
+        XCTAssertFalse(settings.rating.available)
+        XCTAssertFalse(settings.rating.checksOnLanding, "The checkbox left on does nothing")
+        XCTAssertTrue(RatingSettings(autoRating: true).checksOnLanding)
     }
 }

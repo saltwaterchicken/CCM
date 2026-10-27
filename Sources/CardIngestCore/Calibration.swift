@@ -6,6 +6,16 @@ public struct ScoredShot: Sendable, Identifiable {
     /// Its stars in the folder; unrated counts as 0, and rejected (-1) stays -1.
     public let stars: Int
     public let score: QualityScore
+    /// Flagged by the checks, then starred by the photographer: the mistakes
+    /// worth calibrating on while the card is fresh.
+    public let rescued: Bool
+
+    public init(shot: Shot, stars: Int, score: QualityScore, rescued: Bool = false) {
+        self.shot = shot
+        self.stars = stars
+        self.score = score
+        self.rescued = rescued
+    }
 
     public var id: String { shot.id }
     /// 1 star or more: what the photographer kept (their call, 2026-10-26).
@@ -23,6 +33,10 @@ public struct CalibrationReport: Equatable, Sendable {
     public let flaggedOuttakes: [String]
     /// Why each flagged photo was flagged.
     public let problems: [String: [QualityProblem]]
+    /// Photos the checks flagged that the photographer starred, and those of
+    /// them these limits would still flag.
+    public let rescued: [String]
+    public let rescuedStillFlagged: [String]
 
     public var keeperShare: Double { keepers > 0 ? Double(flaggedKeepers.count) / Double(keepers) : 0 }
     public var outtakeShare: Double { outtakes > 0 ? Double(flaggedOuttakes.count) / Double(outtakes) : 0 }
@@ -33,12 +47,16 @@ public struct CalibrationReport: Equatable, Sendable {
 public enum Calibration {
     /// The photos in a folder, with the stars in their sidecars (or inside a
     /// JPEG with no RAW), else in a Capture One session's settings. Clips are
-    /// left out.
-    public static func photos(in folder: URL, fileTypes: FileTypes) throws -> [LandedShot] {
-        try ImportedFolder.shots(in: folder, backupRoot: nil, fileTypes: fileTypes).filter(\.shot.isRatable).map { landed in
+    /// left out, and so are photos still at the stars the checks gave them,
+    /// which aren't the photographer's cull and would only agree with
+    /// themselves, unless `includingAppStars` (a card just reviewed, where
+    /// they stand for "looked at and left as it is").
+    public static func photos(in folder: URL, fileTypes: FileTypes, includingAppStars: Bool = false) throws -> [LandedShot] {
+        try ImportedFolder.shots(in: folder, backupRoot: nil, fileTypes: fileTypes)
+            .filter { $0.shot.isRatable && (includingAppStars || $0.check?.stars == nil) }.map { landed in
             guard landed.stars == nil, let file = landed.shot.primary.destinations.first,
                   let stars = captureOneStars(for: file) else { return landed }
-            return LandedShot(shot: landed.shot, stars: stars, position: landed.position)
+            return LandedShot(shot: landed.shot, stars: stars, position: landed.position, check: landed.check)
         }
     }
 
@@ -66,7 +84,9 @@ public enum Calibration {
             guard !isCancelled() else { return }
             let landed = photos[i]
             let score = landed.shot.primary.destinations.first.flatMap { try? QualityCheck.score($0) }
-            let done = tally.add(i, score.map { ScoredShot(shot: landed.shot, stars: landed.stars ?? 0, score: $0) },
+            let stars = landed.stars ?? 0
+            let rescued = landed.check.map { $0.stars == nil && !$0.problems.isEmpty && stars >= 1 } ?? false
+            let done = tally.add(i, score.map { ScoredShot(shot: landed.shot, stars: stars, score: $0, rescued: rescued) },
                                  name: landed.shot.primary.newName)
             progress(done)
         }
@@ -106,8 +126,10 @@ public enum Calibration {
             if photo.isKeeper { flaggedKeepers.append(photo.id) } else { flaggedOuttakes.append(photo.id) }
         }
         let keepers = scored.filter(\.isKeeper).count
+        let rescued = scored.filter(\.rescued).map(\.id)
         return CalibrationReport(keepers: keepers, outtakes: scored.count - keepers, flaggedKeepers: flaggedKeepers,
-                                 flaggedOuttakes: flaggedOuttakes, problems: problems)
+                                 flaggedOuttakes: flaggedOuttakes, problems: problems, rescued: rescued,
+                                 rescuedStillFlagged: rescued.filter { problems[$0] != nil })
     }
 
     /// Sharpness limits that would flag about `keeperShare` of the keepers

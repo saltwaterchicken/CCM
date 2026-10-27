@@ -5,9 +5,13 @@ public enum StarFilter: Hashable, Sendable {
     case all
     /// This many stars or more, e.g. 1: the keepers once the auto-checks flag the rest.
     case atLeast(Int)
-    /// 0 stars: the ones the app (later) or the photographer flagged.
+    /// 0 stars: the ones the app or the photographer flagged.
     case flagged
+    /// Only the ones the auto-rating checks left at 0, for a quality reason,
+    /// and nobody has rated since: to check the limits card by card.
+    case appFlagged
 
+    /// The star choices; `appFlagged` has a button of its own.
     public static let choices: [StarFilter] = [.all, .atLeast(1), .atLeast(2), .atLeast(3), .atLeast(4), .atLeast(5), .flagged]
 
     public var label: String {
@@ -15,15 +19,17 @@ public enum StarFilter: Hashable, Sendable {
         case .all: "All"
         case let .atLeast(n): n >= 5 ? "★5" : "★\(n)+"
         case .flagged: "0★"
+        case .appFlagged: "Flagged by app"
         }
     }
 
     /// Videos and unrated photos have no stars, so they only show with All.
-    func shows(_ shot: Shot, stars: Int?) -> Bool {
+    func shows(_ shot: Shot, stars: Int?, check: AutoCheck?) -> Bool {
         switch self {
         case .all: true
         case let .atLeast(n): shot.isRatable && (stars ?? -1) >= n
         case .flagged: shot.isRatable && stars == 0
+        case .appFlagged: shot.isRatable && stars == 0 && check?.isFlagged == true
         }
     }
 }
@@ -42,6 +48,8 @@ public struct CullGrid: Equatable, Sendable {
         didSet { keepSelectionVisible() }
     }
     public private(set) var stars: [String: Int] = [:]
+    /// What the auto-rating checks found, for the shots they've looked at.
+    public private(set) var checks: [String: AutoCheck] = [:]
     public private(set) var selected: Set<String> = []
     /// The shot the keys act from: the last one clicked or moved to.
     public private(set) var focus: String?
@@ -57,7 +65,28 @@ public struct CullGrid: Equatable, Sendable {
 
     /// The shots the filter shows, in landing order.
     public var visible: [Shot] {
-        shots.filter { filter.shows($0, stars: stars[$0.id]) }
+        shots.filter { filter.shows($0, stars: stars[$0.id], check: checks[$0.id]) }
+    }
+
+    /// How many the checks left at 0 that nobody has rated since.
+    public var flaggedByApp: Int {
+        shots.count { StarFilter.appFlagged.shows($0, stars: stars[$0.id], check: checks[$0.id]) }
+    }
+
+    /// Photos the checks haven't looked at and nobody has rated: what a Check would do.
+    public var unchecked: [Shot] {
+        shots.filter { $0.isRatable && stars[$0.id] == nil && checks[$0.id] == nil }
+    }
+
+    /// The checks' result for a shot, unless it was rated meanwhile (its
+    /// stars then stay). Returns whether it was applied.
+    @discardableResult
+    public mutating func apply(_ check: AutoCheck, to id: String) -> Bool {
+        guard shot(id) != nil, stars[id] == nil, checks[id] == nil else { return false }
+        checks[id] = check
+        if let given = check.stars { stars[id] = given }
+        keepSelectionVisible()
+        return true
     }
 
     /// What the Open button sends: the selected shots, or everything showing
@@ -74,6 +103,7 @@ public struct CullGrid: Equatable, Sendable {
     public mutating func add(_ landed: LandedShot) {
         let id = landed.shot.id
         if let stars = landed.stars { self.stars[id] = stars }
+        if let check = landed.check { checks[id] = check }
         if let existing = shots.firstIndex(where: { $0.id == id }) {
             shots[existing] = landed.shot
             return
@@ -129,7 +159,11 @@ public struct CullGrid: Equatable, Sendable {
         let stars = min(5, max(0, stars))
         let before = visible
         let targets = before.filter { selected.contains($0.id) && $0.isRatable }
-        for shot in targets { self.stars[shot.id] = stars }
+        for shot in targets {
+            self.stars[shot.id] = stars
+            // Theirs now, not the app's.
+            checks[shot.id] = checks[shot.id]?.handRated
+        }
         guard let focus, let current = before.firstIndex(where: { $0.id == focus }) else { return targets }
         let after = visible
         let shown = Set(after.map(\.id))
@@ -187,7 +221,7 @@ public enum ImportedFolder {
         // A sidecar with no picture of its own isn't a shot.
         let shots = ShotList(fileTypes: fileTypes, files: files).shots.filter { $0.kind != .sidecar && $0.kind != .other }
         return shots.enumerated().map { index, shot in
-            LandedShot(shot: shot, stars: Stars.found(for: shot), position: index)
+            LandedShot(shot: shot, stars: Stars.found(for: shot), position: index, check: AutoRating.check(of: shot))
         }
     }
 }

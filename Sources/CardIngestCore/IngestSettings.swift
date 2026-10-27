@@ -210,6 +210,11 @@ public struct MetadataTemplate: Codable, Equatable, Sendable {
 /// when its score is under a sharpness limit or its blown or black share is
 /// over an exposure limit.
 public struct RatingSettings: Codable, Equatable, Sendable {
+    /// Whether the app offers auto-rating at all. False hides it completely
+    /// (checkbox, checks, Flagged by app, Check and Calibrate), for a slow Mac
+    /// or a photographer who'd rather not; stars already written stay in the
+    /// sidecars as ordinary stars. Only changed by editing the settings file.
+    public var available: Bool
     /// The Job panel's "Rate sharpness and exposure" box. Saved as
     /// `autoRating`; files from before Milestone 6 had a placeholder
     /// `enabled` that is ignored, so nobody is switched on by surprise.
@@ -225,8 +230,9 @@ public struct RatingSettings: Codable, Equatable, Sendable {
     /// Eye-openness ratio below this counts as a blink (Milestone 7).
     public var eyeOpennessThreshold: Double
 
-    public init(autoRating: Bool = false, minimumSharpnessFaces: Double = 50, minimumSharpnessNoFaces: Double = 30,
+    public init(available: Bool = true, autoRating: Bool = false, minimumSharpnessFaces: Double = 50, minimumSharpnessNoFaces: Double = 30,
                 maximumBlown: Double = 0.8, maximumCrushed: Double = 0.95, eyeOpennessThreshold: Double = 0.2) {
+        self.available = available
         self.autoRating = autoRating
         self.minimumSharpnessFaces = minimumSharpnessFaces
         self.minimumSharpnessNoFaces = minimumSharpnessNoFaces
@@ -238,6 +244,7 @@ public struct RatingSettings: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = RatingSettings()
+        available = try c.decodeIfPresent(Bool.self, forKey: .available) ?? d.available
         autoRating = try c.decodeIfPresent(Bool.self, forKey: .autoRating) ?? d.autoRating
         minimumSharpnessFaces = try c.decodeIfPresent(Double.self, forKey: .minimumSharpnessFaces) ?? d.minimumSharpnessFaces
         minimumSharpnessNoFaces = try c.decodeIfPresent(Double.self, forKey: .minimumSharpnessNoFaces) ?? d.minimumSharpnessNoFaces
@@ -245,6 +252,9 @@ public struct RatingSettings: Codable, Equatable, Sendable {
         maximumCrushed = try c.decodeIfPresent(Double.self, forKey: .maximumCrushed) ?? d.maximumCrushed
         eyeOpennessThreshold = try c.decodeIfPresent(Double.self, forKey: .eyeOpennessThreshold) ?? d.eyeOpennessThreshold
     }
+
+    /// Photos are checked as they land: offered and switched on.
+    public var checksOnLanding: Bool { available && autoRating }
 
     /// Why a photo falls short, or nothing when it passes. A photo with a face
     /// is judged on its face only, so a soft background never counts against it.

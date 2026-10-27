@@ -30,8 +30,27 @@ final class GridModel {
     var destinationRoot = IngestSettings().destinationRootURL
     var backupRoot: URL?
     var fileTypes = FileTypes()
+    /// The auto-rating limits, and whether shots are checked as they land.
+    var rating = RatingSettings()
+    /// Set by Calibrate… in the grid: the calibration window scores this card.
+    var calibrationRequest: URL?
     private var session: UUID?
     private let writes = DispatchQueue(label: "Card Ingest stars", qos: .userInitiated)
+    /// Sharpness and exposure checks: behind the copy, on half the cores, so
+    /// copying, verifying, trash and eject never wait for them.
+    private let checks: OperationQueue = {
+        let queue = OperationQueue()
+        queue.name = "Card Ingest checks"
+        queue.qualityOfService = .utility
+        queue.maxConcurrentOperationCount = max(1, ProcessInfo.processInfo.activeProcessorCount / 2)
+        return queue
+    }()
+    /// Shots waiting to be checked or being checked, and how far the checks have got.
+    private var pending: Set<String> = []
+    private(set) var checksDone = 0
+    private(set) var checksTotal = 0
+    private var checkProblems: [String] = []
+    var isChecking: Bool { !pending.isEmpty }
 
     /// The screen's longest side in pixels: as big as the large view needs.
     static var screenPixels: Int {
@@ -49,6 +68,48 @@ final class GridModel {
     func add(_ landed: LandedShot, session: UUID, cardName: String, folder: URL?) {
         if session != self.session { begin(session, cardName: cardName, folder: folder) }
         grid.add(landed)
+        if rating.checksOnLanding, landed.check == nil, landed.stars == nil, landed.shot.isRatable { check([landed.shot]) }
+    }
+
+    /// Checks the photos nobody has rated and the checks haven't seen (the
+    /// Check button, for a loaded folder or with auto-rating off).
+    func checkUnchecked() {
+        check(grid.unchecked)
+    }
+
+    /// How many photos a Check would look at.
+    var uncheckedCount: Int { grid.unchecked.count { !pending.contains($0.id) } }
+
+    private func check(_ shots: [Shot]) {
+        let limits = rating
+        guard let session else { return }
+        for shot in shots where !pending.contains(shot.id) {
+            pending.insert(shot.id)
+            checksTotal += 1
+            checks.addOperation {
+                let result = Result { try AutoRating.rate(shot, limits: limits) }
+                Task { @MainActor [weak self] in self?.checked(shot.id, result, session: session) }
+            }
+        }
+    }
+
+    private func checked(_ id: String, _ result: Result<AutoCheck?, Error>, session: UUID) {
+        guard session == self.session else { return }
+        pending.remove(id)
+        checksDone += 1
+        switch result {
+        case let .success(check?):
+            grid.apply(check, to: id)
+        case .success(nil):
+            break
+        case let .failure(error):
+            checkProblems.append(error.localizedDescription)
+            problem = "Couldn't check \(checkProblems.count) \(checkProblems.count == 1 ? "photo" : "photos"): \(checkProblems[0])"
+        }
+        if pending.isEmpty {
+            checksDone = 0
+            checksTotal = 0
+        }
     }
 
     /// An earlier import back in the grid, with its stars, to carry on culling.
@@ -65,6 +126,12 @@ final class GridModel {
 
     private func begin(_ session: UUID, cardName: String, folder: URL?) {
         self.session = session
+        // A check already running finishes, but its result is dropped from the new grid.
+        checks.cancelAllOperations()
+        pending = []
+        checksDone = 0
+        checksTotal = 0
+        checkProblems = []
         grid = CullGrid()
         cache = ThumbnailCache()
         big = Self.bigCache()
@@ -122,6 +189,14 @@ final class GridModel {
         destinationRoot = settings.destinationRootURL
         backupRoot = settings.backupRootURL
         fileTypes = settings.fileTypes
+        rating = settings.rating
+        if !rating.available, grid.filter == .appFlagged { grid.filter = .all }
+    }
+
+    /// What the checks found for a shot, as the grid shows it: nothing when
+    /// auto-rating is turned off in the settings file.
+    func check(of id: String) -> AutoCheck? {
+        rating.available ? grid.checks[id] : nil
     }
 
     /// Up (-1) or down (+1) a row.
@@ -216,6 +291,7 @@ final class GridModel {
 struct CullingView: View {
     var model: GridModel
     @FocusState private var focused: Bool
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -233,7 +309,7 @@ struct CullingView: View {
                     ScrollView {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 8)], spacing: 8) {
                             ForEach(model.grid.visible) { shot in
-                                TileView(shot: shot, stars: model.grid.stars[shot.id],
+                                TileView(shot: shot, stars: model.grid.stars[shot.id], check: model.check(of: shot.id),
                                          isSelected: model.grid.selected.contains(shot.id), cache: model.cache)
                                     .id(shot.id)
                                     .onTapGesture {
@@ -333,12 +409,45 @@ struct CullingView: View {
                     }
                     .pickerStyle(.segmented)
                     .fixedSize()
+                    if model.rating.available, !model.grid.checks.isEmpty || model.isChecking {
+                        Toggle(isOn: Binding(get: { model.filter == .appFlagged },
+                                             set: { model.filter = $0 ? .appFlagged : .all })) {
+                            Label("Flagged by app (\(model.grid.flaggedByApp))", systemImage: "exclamationmark.triangle")
+                        }
+                        .toggleStyle(.button)
+                        .help("Only the photos the sharpness and exposure checks left at 0, to check the limits. "
+                              + "Rating one takes it out.")
+                        if model.filter == .appFlagged {
+                            Button("Calibrate…") {
+                                model.calibrationRequest = model.folder
+                                openWindow(id: "calibration")
+                            }
+                            .help("Rate the ones you'd keep first; the calibration window then shows what limits would have kept them")
+                        }
+                    }
                     Spacer()
                     let count = model.grid.toOpen.count
                     Button("Open \(count) in \(model.applicationName)") { model.openInApplication() }
                         .disabled(count == 0)
                         .help("Opens the selected photos, or all the photos shown when none are selected. "
                               + "The app is set by openWith in the settings file.")
+                }
+            }
+            if !model.grid.shots.isEmpty, model.rating.available {
+                if model.isChecking {
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.small)
+                        Text("Checking sharpness and exposure: \(model.checksDone) of \(model.checksTotal)")
+                            .foregroundStyle(.secondary).monospacedDigit()
+                    }
+                } else if model.uncheckedCount > 0 {
+                    HStack {
+                        Button("Check \(model.uncheckedCount) \(model.uncheckedCount == 1 ? "Photo" : "Photos")") {
+                            model.checkUnchecked()
+                        }
+                        Text("Rates sharpness and exposure for the photos with no stars yet.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                 }
             }
             if let problem = model.problem {
@@ -367,6 +476,8 @@ struct CullingView: View {
 struct TileView: View {
     let shot: Shot
     let stars: Int?
+    /// What the sharpness and exposure checks found, if they've looked.
+    let check: AutoCheck?
     let isSelected: Bool
     let cache: ThumbnailCache
     @State private var thumbnail: Thumbnail?
@@ -410,6 +521,14 @@ struct TileView: View {
             .overlay(alignment: .topLeading) {
                 if let badge = shot.badge { tag(badge).padding(4) }
             }
+            .overlay(alignment: .topTrailing) {
+                if let check, check.isFlagged, stars == 0 {
+                    HStack(spacing: 3) {
+                        ForEach(check.problems, id: \.self) { CalibrationChip(text: $0.label) }
+                    }
+                    .padding(4)
+                }
+            }
             .overlay(alignment: .bottomTrailing) {
                 if let seconds = thumbnail?.duration {
                     tag(hoverShare.map { Self.length($0 * seconds) } ?? Self.length(seconds)).padding(4)
@@ -441,7 +560,9 @@ struct TileView: View {
                 .truncationMode(.middle)
                 .foregroundStyle(.secondary)
             if shot.isRatable {
-                StarsView(stars: stars)
+                StarsView(stars: stars, byApp: check?.stars != nil && check?.stars == stars)
+                    .help(check.map { "Checked: score \(Int($0.score.rounded()))"
+                        + ($0.stars != nil ? ", stars given by the app" : ", rated since") } ?? "")
             } else {
                 Text(" ").font(.caption)
             }
@@ -508,6 +629,9 @@ struct TileView: View {
 /// empty in grey.
 struct StarsView: View {
     let stars: Int?
+    /// Given by the sharpness and exposure checks, not by hand: drawn in blue
+    /// rather than yellow.
+    var byApp = false
 
     var body: some View {
         let filled = stars ?? 0
@@ -515,11 +639,14 @@ struct StarsView: View {
             ForEach(1...5, id: \.self) { n in
                 Image(systemName: n <= filled ? "star.fill" : "star")
                     .font(.caption)
-                    .foregroundStyle(n <= filled ? Color.yellow : (stars == 0 ? Color.orange.opacity(0.7) : Color.secondary.opacity(0.5)))
+                    .foregroundStyle(n <= filled ? (byApp ? Self.appBlue : Color.yellow)
+                                     : (stars == 0 ? Color.orange.opacity(0.7) : Color.secondary.opacity(0.5)))
             }
         }
-        .accessibilityLabel(stars.map { "\($0) stars" } ?? "Not rated")
+        .accessibilityLabel((stars.map { "\($0) stars" } ?? "Not rated") + (byApp ? ", given by the app" : ""))
     }
+
+    static let appBlue = Color(red: 0.45, green: 0.72, blue: 1)
 }
 
 /// One shot filling the window. Space switches between fitted and 100%
@@ -676,7 +803,13 @@ struct LargeView: View {
         HStack(spacing: 12) {
             if let shot {
                 Text(shot.baseName).font(.headline)
-                if shot.isRatable { StarsView(stars: model.grid.stars[shot.id]) }
+                if shot.isRatable {
+                    let check = model.check(of: shot.id)
+                    StarsView(stars: model.grid.stars[shot.id], byApp: check?.stars != nil && check?.stars == model.grid.stars[shot.id])
+                    if let check, check.isFlagged, model.grid.stars[shot.id] == 0 {
+                        ForEach(check.problems, id: \.self) { CalibrationChip(text: $0.label) }
+                    }
+                }
                 if let index = model.grid.visible.firstIndex(where: { $0.id == shot.id }) {
                     Text("\(index + 1) of \(model.grid.visible.count)").foregroundStyle(.secondary)
                 }

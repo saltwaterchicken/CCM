@@ -154,6 +154,40 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   plus a private "checked by Card Ingest" marker, scores and reason for outtakes; never a shot that
   already has stars or that's rated while it's checked. App stars look different from hand ones,
   reason chips, a Flagged filter, the Job panel checkbox.
+  **Built 2026-10-26, not yet tried on the Mac.** Job panel "Rate sharpness and exposure as each
+  photo lands" (`rating.autoRating`, off by default). Each photo that lands unrated is checked once
+  its last file is in, on half the cores at utility priority, reading the copy; copy, trash and
+  eject never wait. 1★ if it passes, 0 if not, written to its sidecar(s) in destination and backup
+  with a private marker (namespace `http://ns.cardingest.app/autorating/1.0/`: Checked, Stars,
+  Problems, Score, Faces, Blown, Crushed). Never a photo already rated (hand, camera or editor, 0
+  included), checked again, or rated while it was being checked; the grid drops a late result too.
+  Rating it here removes `cardingest:Stars`; another app changing the rating shows as a mismatch, so
+  either way it counts as the photographer's. App stars are drawn blue, hand stars yellow; flagged
+  tiles carry reason chips. "Check N Photos" in the grid for a loaded folder or with auto-rating
+  off. Calibration leaves out photos still at the app's own stars. Tried on 35 real NEF/CR3/ARW
+  copies: all checked, ~0.25 s each on one core, stars and marker read back, second run touches
+  nothing.
+  **Asked for 2026-10-26, built:** (1) the calibration sliders all work one way, left "Flag more",
+  right "Keep more" (the sharpness ones turned round, since a lower limit keeps more), titled Soft
+  faces / Soft, no face / Too bright / Too dark with a plain line each, the numbers small. (2)
+  Calibrating the card just imported, while it's fresh: Calibrate… beside "Flagged by app" (or "Use
+  <card>" in the window) scores that card counting the app's stars where they were left
+  (`includingAppStars`), and a "Rescued by you" list shows the flagged photos the photographer
+  starred, each "still flagged" or "Kept now". Check Again re-reads the card after more rating.
+  **Master switch (asked for 2026-10-26):** `rating.available` in the settings file (default
+  true). False removes auto-rating completely, for a slow Mac or a photographer who doesn't want it:
+  no Job panel row, no checks on landing even with `autoRating` on, no Flagged by app / Check
+  buttons, the calibration window says it's off; stars already written show as ordinary stars.
+  **Whole-card run (2026-10-26):** two complete 2024 cards copied from the archive to the Mac's own
+  disk, ratings taken out, auto-rated as after a Copy (landing sidecars, half the cores, release
+  build). ES056 (209 NEF): 67 photos/s, none flagged (24 keepers). CM064 (289 CR3): 94/s, 7
+  flagged: 3 frames completely out of focus, 2 dark stage faces, and 2 keepers that are soft
+  (one clearly). 0 failures; reloading shows the same 7 as "Flagged by app". Copies deleted after.
+  **Required (photographer, 2026-10-26): a one-click "Flagged by the app" view** in the grid's filter
+  bar, with its count, showing only the photos the checks left at 0 for a quality reason (marker in
+  the sidecar), not ones the photographer rated 0 by hand or hasn't rated. Each tile shows its reason
+  and score, so limits can be spot-checked card by card all summer; rating one by hand there takes
+  it out of the view. A link from there to Calibrate… if they look wrong.
 - [ ] Step 4: Confirm on the Mac with real cards and tune.
 
 **Milestone 5: Trash and eject.** Started early at the photographer's request, 2026-10-22, while
@@ -711,3 +745,14 @@ Suggestions so far, not yet decided. Edit freely.
     "Outtakes it would flag": they should look soft. Drag Faces up: both counts rise as you drag.
     Suggest: the keepers figure goes to about 1%. Save to Settings: "Saved in Settings.plist", and the
     Job panel row shows the new numbers. Nothing in the folder changes.
+19. Auto-rating (2026-10-26; real photos, Trash unticked). Tick "Rate sharpness and exposure as each
+    photo lands" in the Job panel. Run `scripts/make-fake-card.sh` on a folder of real RAWs that
+    includes some soft ones and press Copy: tiles appear, then "Checking sharpness and exposure: N of
+    M" and stars fill in, blue for the app's. Soft ones stay at 0 with an orange "Soft face" / "Soft"
+    chip. Click "Flagged by app (N)": only those show, with Calibrate… beside it. Press 1 on one: it
+    turns yellow and leaves the view. In Lightroom the RAWs show 1 star or none. Untick the box,
+    Load Folder… an older card: "Check N Photos" appears; click it and the same happens there, never
+    to photos that already had stars.
+    Then, on a card with flagged photos: in "Flagged by app" press 1 on two you'd keep, click
+    Calibrate… beside it: the window opens on that card and shows "Rescued by you (2)", both "still
+    flagged". Slide "Soft faces" right until they say "Kept now", watching "Your keepers flagged".
