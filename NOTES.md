@@ -134,11 +134,11 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   limits ~25–70), so nothing would be flagged, which is right; the lowest-scoring 16 were mostly from
   Trash (10 of 16, against 7% overall). Capture One keeps one `Basic_Rating` per variant in its
   `.cos` files; the last one is what it shows (matched all 983 exported JPEGs).
-- [ ] Step 1: Scoring in Core (RAW preview at one working size, Vision faces else sharpest area,
+- [x] Step 1: Scoring in Core (RAW preview at one working size, Vision faces else sharpest area,
   Laplacian variance, blown/crushed share), tests on synthetic sharp/blurred images with and without
   faces, then a run over a hand-culled folder per camera, with timings, as a go/no-go. Sony's built-in preview is only 1616×1080 (Nikon
   and Canon embed full size, Fuji 4000×3000), so small faces may need decoding from the RAW.
-- [ ] Step 2: Calibration window: score a hand-rated folder once, sliders for the face, no-face and
+- [x] Step 2: Calibration window: score a hand-rated folder once, sliders for the face, no-face and
   two exposure limits with live agreement and the misses as thumbnails, Save to the settings file.
   **Built and confirmed on the Mac 2026-10-26.** Job panel "Auto-rating" row shows the limits and a
   Calibrate… button that opens the window. Choose Folder… scores every photo once (reads only; stars
@@ -150,7 +150,7 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   Save to Settings / Undo Changes. Settings: `rating.autoRating` (off; the old placeholder
   `enabled` key is ignored), `minimumSharpnessFaces` 50, `minimumSharpnessNoFaces` 30,
   `maximumBlown` 0.8, `maximumCrushed` 0.95 (at 50/30, ≤1% of camp keepers flagged per photographer).
-- [ ] Step 3: Check each shot as it lands and on Load Folder (Check button): 1 star to keepers, 0
+- [ ] Step 3 (built, committed 2026-10-26; to confirm on the Mac, test step 19): Check each shot as it lands and on Load Folder (Check button): 1 star to keepers, 0
   plus a private "checked by Card Ingest" marker, scores and reason for outtakes; never a shot that
   already has stars or that's rated while it's checked. App stars look different from hand ones,
   reason chips, a Flagged filter, the Job panel checkbox.
