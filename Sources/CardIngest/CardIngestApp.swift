@@ -8,6 +8,7 @@ struct CardIngestApp: App {
     @State private var model: SettingsModel
     @State private var watcher: CardWatcher
     @State private var server = ServerStatus()
+    @State private var help = HelpModel()
 
     init() {
         // Needed so the window comes to the front when launched from Terminal.
@@ -27,7 +28,7 @@ struct CardIngestApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("Card Ingest") {
+        WindowGroup("Card Ingest", id: "main") {
             ContentView(model: model, watcher: watcher, server: server)
                 .frame(minWidth: 1000, minHeight: 620)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -39,7 +40,9 @@ struct CardIngestApp: App {
                     server.use(settings)
                 }
                 .onAppear { server.use(model.settings) }
+                .environment(help)
         }
+        .commands { HelpCommands(help: help) }
         Window("Calibrate Auto-Rating", id: "calibration") {
             CalibrationView(settings: model, grid: watcher.grid)
                 .frame(minWidth: 1000, minHeight: 640)
@@ -47,6 +50,15 @@ struct CardIngestApp: App {
                 .groupBoxStyle(PanelStyle())
                 .preferredColorScheme(.dark)
         }
+        Window("Card Ingest Help", id: "help") {
+            HelpView(settings: model, watcher: watcher)
+                .frame(minWidth: 460, minHeight: 520)
+                .background(Theme.window)
+                .groupBoxStyle(PanelStyle())
+                .preferredColorScheme(.dark)
+                .environment(help)
+        }
+        .defaultSize(width: 520, height: 640)
     }
 }
 
@@ -149,12 +161,18 @@ struct ContentView: View {
     @Bindable var model: SettingsModel
     var watcher: CardWatcher
     var server: ServerStatus
+    @Environment(HelpModel.self) private var help
 
     var body: some View {
         // Cards and settings on the left, the photos just copied on the right, like Photo Mechanic.
         HStack(alignment: .top, spacing: 16) {
-            ScrollView {
-                controls
+            ScrollViewReader { proxy in
+                ScrollView {
+                    controls
+                }
+                .onChange(of: help.request) {
+                    if let target = help.showing { withAnimation { proxy.scrollTo(target, anchor: .center) } }
+                }
             }
             .frame(width: 480)
             CullingView(model: watcher.grid)
@@ -168,6 +186,7 @@ struct ContentView: View {
     private var controls: some View {
         VStack(alignment: .leading, spacing: 16) {
             CardsView(watcher: watcher)
+                .helpSpot(.cards)
 
             GroupBox("Job") {
                 JobPanel(model: model)
@@ -179,7 +198,9 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .top) {
                         ServerLight(status: server)
+                            .helpSpot(.server)
                         SyncButton(model: watcher.grid)
+                            .helpSpot(.syncWithServer)
                     }
                     SyncStatusView(model: watcher.grid)
                     if !watcher.backups.isEmpty { BackupsView(backups: watcher.backups) }
@@ -204,6 +225,7 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(4)
             }
+            .helpSpot(.settingsFile)
         }
     }
 
@@ -241,6 +263,7 @@ struct JobPanel: View {
                             .foregroundStyle(.red)
                     }
                 }
+                .helpSpot(.folderName)
             }
             GridRow {
                 Text("Next import number")
@@ -254,6 +277,7 @@ struct JobPanel: View {
                     Text("{iseq}; goes up by one after each card copies and verifies")
                         .foregroundStyle(.secondary)
                 }
+                .helpSpot(.importNumber)
             }
             GridRow {
                 Text("Destination")
@@ -268,6 +292,7 @@ struct JobPanel: View {
                         }
                     }
                 }
+                .helpSpot(.destination)
             }
             GridRow {
                 Text("Backup")
@@ -285,6 +310,7 @@ struct JobPanel: View {
                         }
                     }
                 }
+                .helpSpot(.backup)
             }
             GridRow {
                 Text("Copies go to")
@@ -318,6 +344,7 @@ struct JobPanel: View {
                         set: { on in model.change { $0.ejectWhenDone = on } }))
                 }
                 .toggleStyle(.checkbox)
+                .helpSpot(.whenDone)
             }
             if model.settings.rating.available {
                 GridRow {
@@ -342,7 +369,8 @@ struct JobPanel: View {
                         }
                         .padding(.leading, 20)
                     }
-            }
+                    .helpSpot(.autoRating)
+                }
             }
             if let problem = model.settings.folderProblem {
                 GridRow {

@@ -34,6 +34,9 @@ public struct IngestSettings: Codable, Equatable, Sendable {
     public var fileTypes: FileTypes
     public var metadata: MetadataTemplate
     public var rating: RatingSettings
+    /// The WhatsApp number Live Tech Support writes to, with its country code
+    /// (e.g. +1 555 123 4567). Empty until it's set in the settings file.
+    public var supportWhatsApp: String
 
     public init(
         schemaVersion: Int = 2,
@@ -50,7 +53,8 @@ public struct IngestSettings: Codable, Equatable, Sendable {
         openWith: String = "Adobe Lightroom Classic",
         fileTypes: FileTypes = FileTypes(),
         metadata: MetadataTemplate = MetadataTemplate(),
-        rating: RatingSettings = RatingSettings()
+        rating: RatingSettings = RatingSettings(),
+        supportWhatsApp: String = ""
     ) {
         self.schemaVersion = schemaVersion
         self.folderName = folderName
@@ -67,6 +71,7 @@ public struct IngestSettings: Codable, Equatable, Sendable {
         self.fileTypes = fileTypes
         self.metadata = metadata
         self.rating = rating
+        self.supportWhatsApp = supportWhatsApp
     }
 
     public init(from decoder: Decoder) throws {
@@ -92,6 +97,7 @@ public struct IngestSettings: Codable, Equatable, Sendable {
         fileTypes = try c.decodeIfPresent(FileTypes.self, forKey: .fileTypes) ?? d.fileTypes
         metadata = try c.decodeIfPresent(MetadataTemplate.self, forKey: .metadata) ?? d.metadata
         rating = try c.decodeIfPresent(RatingSettings.self, forKey: .rating) ?? d.rating
+        supportWhatsApp = try c.decodeIfPresent(String.self, forKey: .supportWhatsApp) ?? d.supportWhatsApp
     }
 
     static let milestone1RenamePattern = "{date:YYYY-MM-DD}_{job}_{camera}_{seq:4}"

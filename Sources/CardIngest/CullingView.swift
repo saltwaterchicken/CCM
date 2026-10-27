@@ -463,6 +463,7 @@ struct CullingView: View {
                 }
                 Button("Load Folder…", action: chooseFolder)
                     .help("Shows an earlier card's folder here with its stars, to carry on culling without the card.")
+                    .helpSpot(.loadFolder)
             }
             if !model.grid.shots.isEmpty {
                 HStack {
@@ -471,6 +472,7 @@ struct CullingView: View {
                     }
                     .pickerStyle(.segmented)
                     .fixedSize()
+                    .helpSpot(.starFilter)
                     if model.rating.available, !model.grid.checks.isEmpty || model.isChecking {
                         Toggle(isOn: Binding(get: { model.filter == .appFlagged },
                                              set: { model.filter = $0 ? .appFlagged : .all })) {
@@ -479,6 +481,7 @@ struct CullingView: View {
                         .toggleStyle(.button)
                         .help("Only the photos the sharpness and exposure checks left at 0, to check the limits. "
                               + "Rating one takes it out.")
+                        .helpSpot(.flaggedByApp)
                         if model.filter == .appFlagged {
                             Button("Calibrate…") {
                                 model.calibrationRequest = model.folder
@@ -493,6 +496,7 @@ struct CullingView: View {
                         .disabled(count == 0)
                         .help("Opens the selected photos, or all the photos shown when none are selected. "
                               + "The app is set by openWith in the settings file.")
+                        .helpSpot(.openIn)
                 }
             }
             if !model.grid.shots.isEmpty, model.rating.available {
@@ -507,6 +511,7 @@ struct CullingView: View {
                         Button("Check \(model.uncheckedCount) \(model.uncheckedCount == 1 ? "Photo" : "Photos")") {
                             model.checkUnchecked()
                         }
+                        .helpSpot(.checkPhotos)
                         Text("Rates sharpness and exposure for the photos with no stars yet.")
                             .font(.caption).foregroundStyle(.secondary)
                     }

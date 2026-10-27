@@ -705,7 +705,7 @@ folder is on a mounted network share, Wi-Fi is off (CoreWLAN) and an Ethernet ca
 looked at off the main thread. Also catches a stand-in: the share not mounted but a plain folder
 of its name in /Volumes on the Mac's drive, which would fill the Mac. Warning only.
 
-## Searchable help (asked 2026-10-27, not started)
+## Searchable help (asked 2026-10-27, built 2026-10-27, not yet tried on the Mac)
 
 A search field at the top of the window: as the photographer types ("trash", "stars not in
 Lightroom", "server red", "blue stars"), matching answers drop down, FAQ style, each with a "Show
@@ -735,6 +735,23 @@ sends the photographer's message to the developer's WhatsApp. Two ways:
   account, a dedicated business number, approved message templates, per-conversation fees) and a
   small always-on server holding its key (a key can't ship inside the app) to pass messages both
   ways. A project of its own.
+
+**Built 2026-10-27** (`Help.swift`, `Support.swift` in Core; `HelpView.swift`): Help › Card Ingest
+Help (⌘?) opens a help window that floats over the main one: a search field, then Live Tech
+Support, then 23 answers written from these notes. Typing ranks them as you go (every word counts,
+half words too; "trashed", "deleted" and "erase" all mean trash; NAS/Synology mean server; question
+words beat answer text) and opens the best match. Show Me brings the main window forward (out of
+the large view), scrolls to the part and outlines it, pulsing, for 4 s; a part not on screen just
+then says where it shows up. Help › Live Tech Support… opens the support sheet directly. The menu
+bar's own Help search stays. Main actions aren't in the menus yet (so the menu search doesn't find
+them). The questions are a first guess; the photographer's list from past summers will replace or
+add to them.
+Live Tech Support as decided: type what happened; "Sent with it" shows the app version and macOS,
+the settings file, each card and its step, the last error, and the latest receipt's summary (the
+newest receipt in the destination's card folders); Open in WhatsApp opens `wa.me/<number>` with it
+all written; Share Receipt… (the Mac's Share menu) or Show Receipt in Finder for the file itself.
+The number is `supportWhatsApp` in the settings file (empty by default; the sheet says to add it,
+with the country code). Not yet checked with WhatsApp for Mac.
 
 ## GUI wishlist
 
