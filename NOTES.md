@@ -748,7 +748,8 @@ that search finds them: File › Copy <card> (⌘↩) / Stop Copying (⌘.), Loa
 card folder in Finder, Load Project Settings…, Use Default Settings, Reload Settings, Show Settings
 File in Finder; a Photos menu with Open N in Lightroom, Show All Photos, Show Flagged by App, Check
 Unrated Photos, Calibrate Auto-Rating…, Calibrate on This Card…, Sync With Server, each enabled
-exactly when its button is. The questions are a first guess; the photographer's list from past summers will replace or
+exactly when its button is. Confirmed on the Mac 2026-10-27 that the menus follow the window: File › Copy
+changed to the card's name on its own (greyed out, as the card was empty, like the button). The questions are a first guess; the photographer's list from past summers will replace or
 add to them.
 Live Tech Support as decided: type what happened; "Sent with it" shows the app version and macOS,
 the settings file, each card and its step, the last error, and the latest receipt's summary (the
