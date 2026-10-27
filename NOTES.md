@@ -762,7 +762,7 @@ git-ignored because the repository is public. `supportWhatsApp` in a settings fi
 The file must be named exactly `support-whatsapp.txt`, with the number inside it (country code
 included); a file named after the number isn't read, and isn't git-ignored either.
 **Confirmed on the Mac 2026-10-27:** Open in WhatsApp opened WhatsApp with the message written to
-the built-in number. Share Receipt… to WhatsApp not tried yet. 
+the built-in number, and Share Receipt… sent the receipt CSV to WhatsApp. 
 ## GUI wishlist
 
 Suggestions so far, not yet decided. Edit freely.
