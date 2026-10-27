@@ -208,7 +208,7 @@ public struct MetadataTemplate: Codable, Equatable, Sendable {
 /// starting points, set from 34,000 camp photos (Milestone 6); each
 /// photographer tunes them in the calibration window. A photo falls short
 /// when its score is under a sharpness limit, its blown or black share is
-/// over an exposure limit, or its subject is darker than the brightness limit.
+/// over an exposure limit, or its subject is darker or brighter than the brightness limits.
 public struct RatingSettings: Codable, Equatable, Sendable {
     /// Whether the app offers auto-rating at all. False hides it completely
     /// (checkbox, checks, Flagged by app, Check and Calibrate), for a slow Mac
@@ -230,11 +230,13 @@ public struct RatingSettings: Codable, Equatable, Sendable {
     /// The dimmest subject that passes (`QualityScore.subjectBrightness`, 0
     /// to 255), for underexposed shots the black share misses. 0 is off.
     public var minimumBrightness: Double
+    /// The brightest subject that passes, the same measure; 255 is off.
+    public var maximumBrightness: Double
     /// Eye-openness ratio below this counts as a blink (Milestone 7).
     public var eyeOpennessThreshold: Double
 
     public init(available: Bool = true, autoRating: Bool = false, minimumSharpnessFaces: Double = 50, minimumSharpnessNoFaces: Double = 30,
-                maximumBlown: Double = 0.8, maximumCrushed: Double = 0.95, minimumBrightness: Double = 0,
+                maximumBlown: Double = 0.8, maximumCrushed: Double = 0.95, minimumBrightness: Double = 0, maximumBrightness: Double = 255,
                 eyeOpennessThreshold: Double = 0.2) {
         self.available = available
         self.autoRating = autoRating
@@ -243,6 +245,7 @@ public struct RatingSettings: Codable, Equatable, Sendable {
         self.maximumBlown = maximumBlown
         self.maximumCrushed = maximumCrushed
         self.minimumBrightness = minimumBrightness
+        self.maximumBrightness = maximumBrightness
         self.eyeOpennessThreshold = eyeOpennessThreshold
     }
 
@@ -256,6 +259,7 @@ public struct RatingSettings: Codable, Equatable, Sendable {
         maximumBlown = try c.decodeIfPresent(Double.self, forKey: .maximumBlown) ?? d.maximumBlown
         maximumCrushed = try c.decodeIfPresent(Double.self, forKey: .maximumCrushed) ?? d.maximumCrushed
         minimumBrightness = try c.decodeIfPresent(Double.self, forKey: .minimumBrightness) ?? d.minimumBrightness
+        maximumBrightness = try c.decodeIfPresent(Double.self, forKey: .maximumBrightness) ?? d.maximumBrightness
         eyeOpennessThreshold = try c.decodeIfPresent(Double.self, forKey: .eyeOpennessThreshold) ?? d.eyeOpennessThreshold
     }
 
@@ -273,13 +277,14 @@ public struct RatingSettings: Codable, Equatable, Sendable {
         }
         if score.blown > maximumBlown { found.append(.blown) }
         if score.crushed > maximumCrushed || score.subjectBrightness < minimumBrightness { found.append(.dark) }
+        if score.subjectBrightness > maximumBrightness { found.append(.bright) }
         return found
     }
 }
 
 /// Why a photo was flagged, for its tile.
 public enum QualityProblem: String, Codable, Sendable, CaseIterable {
-    case softFace, soft, blown, dark
+    case softFace, soft, blown, dark, bright
 
     public var label: String {
         switch self {
@@ -287,6 +292,7 @@ public enum QualityProblem: String, Codable, Sendable, CaseIterable {
         case .soft: "Soft"
         case .blown: "Blown out"
         case .dark: "Too dark"
+        case .bright: "Bright subject"
         }
     }
 }

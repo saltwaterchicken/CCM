@@ -332,7 +332,8 @@ struct JobPanel: View {
                             Text("1★ for keepers, 0 for soft or badly exposed. Limits: faces \(Int(r.minimumSharpnessFaces)) · "
                                  + "no face \(Int(r.minimumSharpnessNoFaces)) · white \(Int((r.maximumBlown * 100).rounded()))% · "
                                  + "black \(Int((r.maximumCrushed * 100).rounded()))%"
-                                 + (r.minimumBrightness >= 1 ? " · subject \(Int(r.minimumBrightness))" : ""))
+                                 + (r.minimumBrightness >= 1 ? " · subject \(Int(r.minimumBrightness))" : "")
+                                 + (r.maximumBrightness < 255 ? " · bright subject \(Int(r.maximumBrightness))" : ""))
                                 .foregroundStyle(.secondary)
                                 .monospacedDigit()
                                 .fixedSize(horizontal: false, vertical: true)

@@ -29,17 +29,73 @@ final class CalibrationModel {
     /// The photo open in the large view.
     var viewing: ScoredShot?
     private var flag: StopFlag?
+    /// Every label given so far, from any folder, and the file they're kept
+    /// in; nil when it couldn't be read, so it's never written over.
+    private(set) var labels = PhotoLabels()
+    private(set) var labelsURL: URL?
+    private(set) var labelError: String?
+    /// The labels the limits couldn't follow, after the last right-click.
+    private(set) var unmet: [UnmetLabel] = []
 
-    enum Showing: Hashable { case keepers, outtakes, rescued }
+    enum Showing: Hashable { case keepers, outtakes, rescued, missed, labelled }
 
     var report: CalibrationReport { Calibration.report(scored, limits: limits) }
 
-    /// The flagged photos the grid shows, softest first.
-    var flagged: [ScoredShot] {
+    /// The photos the grid shows, softest first.
+    var shown: [ScoredShot] {
         let report = report
-        let ids = Set(showing == .keepers ? report.flaggedKeepers : showing == .outtakes ? report.flaggedOuttakes : report.rescued)
-        return scored.filter { ids.contains($0.id) }
-            .sorted { ($0.score.faceScore ?? $0.score.areaSharpness) < ($1.score.faceScore ?? $1.score.areaSharpness) }
+        let photos: [ScoredShot]
+        switch showing {
+        case .keepers, .outtakes, .rescued:
+            let ids = Set(showing == .keepers ? report.flaggedKeepers : showing == .outtakes ? report.flaggedOuttakes : report.rescued)
+            photos = scored.filter { ids.contains($0.id) }
+        case .missed: photos = missed(report)
+        case .labelled: photos = labelledHere
+        }
+        return photos.sorted { ($0.score.faceScore ?? $0.score.areaSharpness) < ($1.score.faceScore ?? $1.score.areaSharpness) }
+    }
+
+    /// Outtakes the limits let through: where a dark or soft one to label is found.
+    func missed(_ report: CalibrationReport) -> [ScoredShot] {
+        scored.filter { !$0.isKeeper && report.problems[$0.id] == nil }
+    }
+
+    var labelledHere: [ScoredShot] { scored.filter { !labels(for: $0).isEmpty } }
+
+    func loadLabels(besideSettings settingsURL: URL) {
+        let url = PhotoLabels.fileURL(besideSettings: settingsURL)
+        do {
+            labels = try PhotoLabels.load(from: url)
+            labelsURL = url
+            labelError = nil
+        } catch {
+            labels = PhotoLabels()
+            labelsURL = nil
+            labelError = "Couldn't read \(url.path), so labels are off: \(error.localizedDescription)"
+        }
+    }
+
+    func labels(for photo: ScoredShot) -> [PhotoLabel] {
+        folder.map { labels.labels(folder: $0, name: photo.id) } ?? []
+    }
+
+    /// Gives or takes away a label, saves it, and moves the limits to follow.
+    func toggle(_ label: PhotoLabel, on photo: ScoredShot) {
+        guard let folder, let labelsURL else { return }
+        labels.toggle(label, for: photo, folder: folder)
+        do {
+            try labels.save(to: labelsURL)
+            labelError = nil
+        } catch {
+            labelError = "Couldn't save the labels: \(error.localizedDescription)"
+        }
+        learn()
+    }
+
+    func learn() {
+        let result = Calibration.learned(from: labels, folder: folder, scored: scored, limits: limits)
+        limits = result.limits
+        unmet = result.unmet
     }
 
     func choose() {
@@ -143,12 +199,15 @@ struct CalibrationView: View {
         .padding(16)
         .onAppear {
             model.limits = settings.settings.rating
+            model.loadLabels(besideSettings: settings.fileURL)
             scoreRequestedCard()
         }
+        .onChange(of: settings.fileURL) { model.loadLabels(besideSettings: settings.fileURL) }
         .onChange(of: grid.calibrationRequest) { scoreRequestedCard() }
         .onDisappear { model.stop() }
         .sheet(item: $model.viewing) { photo in
-            CalibrationPhotoView(photo: photo, problems: model.report.problems[photo.id] ?? []) { model.viewing = nil }
+            CalibrationPhotoView(photo: photo, problems: model.report.problems[photo.id] ?? [], labels: model.labels(for: photo),
+                                 toggle: { model.toggle($0, on: photo) }) { model.viewing = nil }
         }
     }
 
@@ -257,6 +316,7 @@ struct CalibrationView: View {
                             value: $model.limits.maximumCrushed)
                 brightnessSlider("Dark subject", help: "How dim the face (or the sharpest part, with no face) can be. A lit face on a black stage passes.",
                                  value: $model.limits.minimumBrightness)
+                brightSubjectSlider(value: $model.limits.maximumBrightness)
                 HStack {
                     Button("Suggest") { model.limits = Calibration.suggested(model.scored, from: model.limits) }
                         .help("Sets both sharpness limits so about 1 in 100 of this folder's keepers would be flagged")
@@ -267,10 +327,12 @@ struct CalibrationView: View {
                         model.limits.maximumBlown = d.maximumBlown
                         model.limits.maximumCrushed = d.maximumCrushed
                         model.limits.minimumBrightness = d.minimumBrightness
+                        model.limits.maximumBrightness = d.maximumBrightness
                     }
                     .help("The limits set from 34,000 camp photos")
                     Spacer()
                 }
+                labelsSummary
                 HStack {
                     Button("Save to Settings") {
                         let tried = model.limits
@@ -280,6 +342,7 @@ struct CalibrationView: View {
                             $0.rating.maximumBlown = tried.maximumBlown
                             $0.rating.maximumCrushed = tried.maximumCrushed
                             $0.rating.minimumBrightness = tried.minimumBrightness
+                            $0.rating.maximumBrightness = tried.maximumBrightness
                         }
                     }
                     .keyboardShortcut(.defaultAction)
@@ -303,7 +366,7 @@ struct CalibrationView: View {
         return saved.minimumSharpnessFaces != tried.minimumSharpnessFaces
             || saved.minimumSharpnessNoFaces != tried.minimumSharpnessNoFaces
             || saved.maximumBlown != tried.maximumBlown || saved.maximumCrushed != tried.maximumCrushed
-            || saved.minimumBrightness != tried.minimumBrightness
+            || saved.minimumBrightness != tried.minimumBrightness || saved.maximumBrightness != tried.maximumBrightness
     }
 
     /// The lowest score that passes, from about 1 to 1,000 on a log scale (as
@@ -331,6 +394,46 @@ struct CalibrationView: View {
             Slider(value: Binding(get: { 128 - value.wrappedValue }, set: { value.wrappedValue = 128 - $0 }),
                    in: 0...128, step: 1)
         }
+    }
+
+    /// The brightest subject that passes, 128 (mid grey) to 255 (off): right keeps more.
+    private func brightSubjectSlider(value: Binding<Double>) -> some View {
+        limitSlider("Bright subject", help: "How bright the face (or the sharpest part, with no face) can be.",
+                    shown: value.wrappedValue >= 255 ? "off" : "above \(Int(value.wrappedValue.rounded()))") {
+            Slider(value: value, in: 128...255, step: 1)
+        }
+    }
+
+    /// The labels given so far and any the limits couldn't follow.
+    private var labelsSummary: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            let count = model.labels.photos.count
+            Text(count == 0 ? "Right-click a photo to say what's wrong with it, or that it looks fine; the limits move to follow."
+                 : "\(count) photo\(count == 1 ? "" : "s") labelled, from \(model.labels.folderCount) folder\(model.labels.folderCount == 1 ? "" : "s"). "
+                    + "Right-click a photo to label it; the limits move the least they need to.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            ForEach(model.unmet, id: \.label) { unmet in
+                Label(unmetText(unmet), systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+            }
+            if count > 0 {
+                Button("Learn from Labels") { model.learn() }
+                    .help("Moves the limits to follow every label so far. After Starting Values, it's what the labels alone say.")
+            }
+            if let error = model.labelError {
+                Text(error).font(.caption).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func unmetText(_ unmet: UnmetLabel) -> String {
+        let photos = unmet.stillPassing == 1 ? "1 photo still passes" : "\(unmet.stillPassing) photos still pass"
+        var why: [String] = []
+        if unmet.keepersInTheWay > 0 {
+            why.append("catching \(unmet.stillPassing == 1 ? "it" : "them") would flag \(unmet.keepersInTheWay) of your keepers here")
+        }
+        if unmet.fineInTheWay { why.append("a photo you marked Looks Fine is in the way") }
+        return "\(unmet.label.title): \(photos)" + (why.isEmpty ? "." : "; " + why.joined(separator: ", and ") + ".")
     }
 
     private func limitSlider(_ title: String, help: String, shown: String, slider: () -> some View) -> some View {
@@ -414,23 +517,29 @@ struct CalibrationView: View {
                     if !report.rescued.isEmpty {
                         Text("Rescued by you (\(report.rescued.count))").tag(CalibrationModel.Showing.rescued)
                     }
+                    Text("Outtakes it missed (\(model.missed(report).count))").tag(CalibrationModel.Showing.missed)
+                    let labelled = model.labelledHere.count
+                    if labelled > 0 || model.showing == .labelled {
+                        Text("Labelled (\(labelled))").tag(CalibrationModel.Showing.labelled)
+                    }
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                .frame(maxWidth: 700)
-                let photos = model.flagged
+                .frame(maxWidth: 900)
+                let photos = model.shown
                 if photos.isEmpty {
-                    Text(model.showing == .keepers ? "None of your keepers would be flagged."
-                         : model.showing == .outtakes ? "None of your outtakes would be flagged." : "Nothing rescued.")
+                    Text(emptyText)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     ScrollView {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 10)], spacing: 10) {
                             ForEach(photos) { photo in
-                                CalibrationTile(photo: photo, problems: report.problems[photo.id] ?? [],
+                                let labels = model.labels(for: photo)
+                                CalibrationTile(photo: photo, problems: report.problems[photo.id] ?? [], labels: labels,
                                                 showsKept: model.showing == .rescued)
                                     .onTapGesture { model.viewing = photo }
+                                    .contextMenu { LabelMenuItems(photo: photo, labels: labels) { model.toggle($0, on: photo) } }
                             }
                         }
                     }
@@ -443,12 +552,38 @@ struct CalibrationView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+
+    private var emptyText: String {
+        switch model.showing {
+        case .keepers: "None of your keepers would be flagged."
+        case .outtakes: "None of your outtakes would be flagged."
+        case .rescued: "Nothing rescued."
+        case .missed: "Every outtake here would be flagged."
+        case .labelled: "No photo in this folder is labelled."
+        }
+    }
+}
+
+/// The right-click labels for a photo, ticked where given. Only the soft one
+/// that fits: a photo with a face is judged on its face.
+struct LabelMenuItems: View {
+    let photo: ScoredShot
+    let labels: [PhotoLabel]
+    let toggle: (PhotoLabel) -> Void
+
+    var body: some View {
+        ForEach(PhotoLabel.allCases.filter { $0.applies(toFace: photo.score.faceScore != nil) }, id: \.self) { label in
+            if label == .fine { Divider() }
+            Toggle(label.title, isOn: Binding(get: { labels.contains(label) }, set: { _ in toggle(label) }))
+        }
+    }
 }
 
 /// One flagged photo: its picture, stars, why it was flagged and its score.
 struct CalibrationTile: View {
     let photo: ScoredShot
     let problems: [QualityProblem]
+    var labels: [PhotoLabel] = []
     /// In the Rescued list, a passing photo says so instead of showing nothing.
     var showsKept = false
     @State private var image: CGImage?
@@ -472,6 +607,12 @@ struct CalibrationTile: View {
                 }
                 .padding(4)
             }
+            .overlay(alignment: .bottomLeading) {
+                HStack(spacing: 3) {
+                    ForEach(labels, id: \.self) { CalibrationChip(text: $0.title, color: .cyan) }
+                }
+                .padding(4)
+            }
             Text(photo.shot.baseName).font(.caption).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
             HStack {
                 Text(photo.stars > 0 ? String(repeating: "★", count: photo.stars) : photo.stars < 0 ? "Rejected" : "0★")
@@ -484,7 +625,7 @@ struct CalibrationTile: View {
         .background(Color(white: 0.11), in: RoundedRectangle(cornerRadius: 5))
         .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Theme.panelEdge, lineWidth: 1))
         .contentShape(Rectangle())
-        .help("Click to see it larger")
+        .help("Click to see it larger; right-click to label it")
         // Made only while the tile is on screen.
         .task(id: photo.id) {
             guard let url = photo.shot.primary.destinations.first else { return }
@@ -512,6 +653,8 @@ struct CalibrationChip: View {
 struct CalibrationPhotoView: View {
     let photo: ScoredShot
     let problems: [QualityProblem]
+    let labels: [PhotoLabel]
+    let toggle: (PhotoLabel) -> Void
     let close: () -> Void
     @State private var image: CGImage?
 
@@ -531,6 +674,8 @@ struct CalibrationPhotoView: View {
                 Text(photo.shot.baseName)
                 Text(Self.details(photo)).foregroundStyle(.secondary).monospacedDigit()
                 Spacer()
+                Menu("Label") { LabelMenuItems(photo: photo, labels: labels, toggle: toggle) }
+                    .fixedSize()
                 Button("Show in Finder") {
                     if let url = photo.shot.primary.destinations.first { NSWorkspace.shared.activateFileViewerSelecting([url]) }
                 }

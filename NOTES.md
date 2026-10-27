@@ -157,6 +157,18 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   on a black stage passes. Its own "Dark subject" slider (off to 128); the two share sliders now go
   0 to 100%. Recorded as `cardingest:Brightness` in the marker. To tune on a folder with dark
   outtakes; score-folder's CSV already has `face_brightness` and `area_brightness`.
+  **Labels that refine the limits (2026-10-27, asked by the photographer):** right-click a photo in
+  the calibration window (or Label in the large view): Image Too Dark / Subject Too Dark / Image
+  Too Light / Subject Too Light / Image Too Soft (no face) / Face Too Soft (with a face) / Looks
+  Fine. Kept with the photo's scores in `Calibration Labels.json` beside the settings file, so they
+  build up across cards over the summer. Each right-click moves only the limit it's about, the least
+  it takes to flag every photo with that label, but never past flagging 1% of this folder's
+  keepers, and a Looks Fine photo is always let through; anything it can't follow is listed
+  ("catching it would flag 14 of your keepers here"). Not saved until Save to Settings. Learn from
+  Labels redoes it; after Starting Values it's what the labels alone say (taking a label away
+  doesn't loosen a limit by itself). New: `maximumBrightness` (255 = off), "Bright subject" slider
+  and problem; an "Outtakes it missed" view to find the ones to label, and "Labelled".
+  Learns where each line is, per settings file, not new measures or per-camera limits.
 - [ ] Step 3 (built, committed 2026-10-26; to confirm on the Mac, test step 19): Check each shot as it lands and on Load Folder (Check button): 1 star to keepers, 0
   plus a private "checked by Card Ingest" marker, scores and reason for outtakes; never a shot that
   already has stars or that's rated while it's checked. App stars look different from hand ones,
