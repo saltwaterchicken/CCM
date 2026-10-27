@@ -218,6 +218,15 @@ public enum Help {
                    + "saved to the file in use, including its import number. Use Default goes back. Calibration labels are kept "
                    + "beside each settings file.",
                    keywords: ["project", "plist", "default", "reload", "file"], target: .settingsFile),
+        HelpAnswer("tutorial", "How do I go through the setup steps again?",
+                   "Choose Help › Setup Tutorial…. It walks through your initials, the destination, the server backup, the card "
+                   + "counter and what happens when a card is done, and saves each choice as you go. It opens by itself only the "
+                   + "first time Card Ingest runs on a Mac.",
+                   keywords: ["tutorial", "setup", "start", "first", "walkthrough", "guide", "welcome", "initials"]),
+        HelpAnswer("initials", "How do I change my initials in the names?",
+                   "Help › Setup Tutorial… changes them in both the folder name and the file names at once, with a preview. "
+                   + "Or edit Folder name in the Job panel; the file names follow the rename pattern in the settings file.",
+                   keywords: ["initials", "es", "name", "letters"], target: .folderName),
         HelpAnswer("support", "How do I reach tech support?",
                    "Choose Live Tech Support at the top of this window. Type what happened; the app adds its version, the card "
                    + "and the latest receipt's summary, and opens WhatsApp with it all written. One more tap sends it, and the reply "

@@ -768,6 +768,21 @@ The file must be named exactly `support-whatsapp.txt`, with the number inside it
 included); a file named after the number isn't read, and isn't git-ignored either.
 **Confirmed on the Mac 2026-10-27:** Open in WhatsApp opened WhatsApp with the message written to
 the built-in number, and Share Receipt… sent the receipt CSV to WhatsApp. 
+## Setup tutorial (asked 2026-10-27, built 2026-10-27, not yet tried on the Mac)
+
+Opens by itself the first time Card Ingest runs for someone on a Mac (`setupTutorialSeen` in the
+app's user defaults, set as soon as it opens, so closing it early counts), and from Help › Setup
+Tutorial… after that. A floating window (`TutorialView.swift`), so its Show Me buttons can point at
+the real Job panel underneath. Steps: Welcome (Skip for Now / Start), Your initials, Where cards are
+copied, The backup on the server, The card counter, When a card is done (Trash, eject,
+auto-rating), What happens with each card (six numbered steps), You're set. Each choice is saved
+straight to the settings file in use, as the Job panel does. Initials (`Initials.swift`): the
+letters just before `{iseq}` in the folder name are the initials; typing new ones replaces them
+where they stand alone outside the tokens, in both the folder name and the rename pattern, with a
+live preview of the next folder and a file name. A folder name with nothing before `{iseq}` says
+to edit it in the Job panel. To see it again as a first run: `defaults delete
+com.capturecampmemories.cardingest setupTutorialSeen`.
+
 ## GUI wishlist
 
 Suggestions so far, not yet decided. Edit freely.

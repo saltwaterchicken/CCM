@@ -312,6 +312,8 @@ struct HelpCommands: Commands {
                 help.supportRequested = true
                 openWindow(id: "help")
             }
+            Divider()
+            Button("Setup Tutorial…") { openWindow(id: "tutorial") }
         }
     }
 }

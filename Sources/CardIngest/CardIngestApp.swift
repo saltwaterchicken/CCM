@@ -63,6 +63,15 @@ struct CardIngestApp: App {
                 .environment(help)
         }
         .defaultSize(width: 520, height: 640)
+        Window("Set Up Card Ingest", id: "tutorial") {
+            TutorialView(settings: model, watcher: watcher)
+                .frame(minWidth: 560, minHeight: 520)
+                .background(Theme.window)
+                .groupBoxStyle(PanelStyle())
+                .preferredColorScheme(.dark)
+                .environment(help)
+        }
+        .defaultSize(width: 600, height: 600)
     }
 }
 
@@ -176,6 +185,7 @@ struct ContentView: View {
     var watcher: CardWatcher
     var server: ServerStatus
     @Environment(HelpModel.self) private var help
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         // Cards and settings on the left, the photos just copied on the right, like Photo Mechanic.
@@ -194,6 +204,10 @@ struct ContentView: View {
         .padding(16)
         .overlay {
             if watcher.grid.isViewing { LargeView(model: watcher.grid) }
+        }
+        .onAppear {
+            // The first time Card Ingest runs for someone on this Mac.
+            if !UserDefaults.standard.bool(forKey: TutorialView.seenKey) { openWindow(id: "tutorial") }
         }
     }
 
@@ -292,7 +306,7 @@ struct JobPanel: View {
                         .help(model.settings.destinationRootURL.path)
                     Spacer()
                     Button("Choose…") {
-                        if let url = chooseFolder("Choose where cards are copied to", startingAt: model.settings.destinationRootURL) {
+                        if let url = Self.chooseFolder("Choose where cards are copied to", startingAt: model.settings.destinationRootURL) {
                             model.change { $0.destinationRoot = Self.displayPath(url) }
                         }
                     }
@@ -310,7 +324,7 @@ struct JobPanel: View {
                         Button("Remove") { model.change { $0.backupRoot = "" } }
                     }
                     Button("Choose…") {
-                        if let url = chooseFolder("Choose a second place to copy cards to, ideally another drive", startingAt: model.settings.backupRootURL) {
+                        if let url = Self.chooseFolder("Choose a second place to copy cards to, ideally another drive", startingAt: model.settings.backupRootURL) {
                             model.change { $0.backupRoot = Self.displayPath(url) }
                         }
                     }
@@ -386,7 +400,8 @@ struct JobPanel: View {
         }
     }
 
-    private func chooseFolder(_ message: String, startingAt start: URL?) -> URL? {
+    /// Choose… for a folder; the setup tutorial uses it too.
+    static func chooseFolder(_ message: String, startingAt start: URL?) -> URL? {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
@@ -398,7 +413,7 @@ struct JobPanel: View {
     }
 
     /// Keeps paths in the settings file short and readable, e.g. `~/Pictures/...`.
-    private static func displayPath(_ url: URL) -> String {
+    static func displayPath(_ url: URL) -> String {
         (url.path as NSString).abbreviatingWithTildeInPath
     }
 }
