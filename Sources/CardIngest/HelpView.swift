@@ -59,7 +59,8 @@ extension View {
 
 /// Help > Card Ingest Help: type a few words, read the answer, and Show Me
 /// points at the part of the window it's about. Live Tech Support is the
-/// first row.
+/// first row, and the menu commands the words find come before the answers,
+/// to run from here (what macOS's own Help search did, without Apple's help).
 struct HelpView: View {
     var settings: SettingsModel
     var watcher: CardWatcher
@@ -71,6 +72,8 @@ struct HelpView: View {
 
     var body: some View {
         let results = Help.search(query)
+        let menuItems = MenuItems.read()
+        let commands = Help.search(query, in: menuItems.commands)
         VStack(alignment: .leading, spacing: 12) {
             TextField("Search help: trash, stars in Lightroom, server light…", text: $query)
                 .textFieldStyle(.roundedBorder)
@@ -84,6 +87,15 @@ struct HelpView: View {
             .buttonStyle(.borderless)
             .help("Writes to tech support in WhatsApp, with what the app knows about the problem")
             Divider()
+            if !commands.isEmpty {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("In the menus").font(.caption).foregroundStyle(.secondary)
+                    ForEach(commands.prefix(5)) { command in
+                        commandRow(command) { run(menuItems.items[command.id]) }
+                    }
+                }
+                Divider()
+            }
             if results.isEmpty {
                 Text("No answers for \"\(query)\". Try other words, or ask Live Tech Support.")
                     .foregroundStyle(.secondary)
@@ -143,6 +155,33 @@ struct HelpView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    private func commandRow(_ command: MenuCommand, run: @escaping () -> Void) -> some View {
+        Button(action: run) {
+            HStack {
+                Image(systemName: "filemenu.and.cursorarrow").frame(width: 18)
+                Text(command.title)
+                Text("\(command.menu) menu").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                Text(command.shortcut).foregroundStyle(.secondary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!command.enabled)
+        .help(command.enabled ? "Does \(command.menu) › \(command.title)" : "Not available right now, as in the menu")
+        .padding(.vertical, 3)
+    }
+
+    /// Runs a menu command with the main window in front, as if chosen from
+    /// the menu bar there.
+    private func run(_ item: NSMenuItem) {
+        if watcher.grid.isViewing { watcher.grid.closeView() }
+        NSApp.windows.first { $0.identifier?.rawValue.hasPrefix("main") == true }?.makeKeyAndOrderFront(nil)
+        guard let menu = item.menu else { return }
+        let index = menu.index(of: item)
+        if index >= 0 { menu.performActionForItem(at: index) }
     }
 
     /// Brings the main window forward, out of the large view, and points.
@@ -281,6 +320,40 @@ struct ShareReceiptButton: NSViewRepresentable {
 
         @objc func share(_ sender: NSButton) {
             NSSharingServicePicker(items: [url]).show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
+        }
+    }
+}
+
+/// The commands in the app's own menus (File, Photos, Help), read from the
+/// menu bar as it is now, so names like "Copy NIKON D850" and what's greyed
+/// out match the menus exactly.
+@MainActor
+struct MenuItems {
+    var commands: [MenuCommand] = []
+    var items: [NSMenuItem] = []
+
+    static let menus: Set<String> = ["File", "Photos", "Help"]
+
+    static func read() -> MenuItems {
+        var found = MenuItems()
+        for top in NSApp.mainMenu?.items ?? [] {
+            guard let menu = top.submenu, menus.contains(top.title) else { continue }
+            found.add(menu, in: top.title)
+        }
+        return found
+    }
+
+    private mutating func add(_ menu: NSMenu, in name: String) {
+        menu.update()
+        for item in menu.items where !item.isSeparatorItem && !item.isHidden && !item.title.isEmpty {
+            if let submenu = item.submenu { add(submenu, in: name); continue }
+            let flags = item.keyEquivalentModifierMask
+            commands.append(MenuCommand(id: items.count, menu: name, title: item.title,
+                                        shortcut: Help.shortcut(key: item.keyEquivalent, control: flags.contains(.control),
+                                                                option: flags.contains(.option), shift: flags.contains(.shift),
+                                                                command: flags.contains(.command)),
+                                        enabled: item.isEnabled))
+            items.append(item)
         }
     }
 }

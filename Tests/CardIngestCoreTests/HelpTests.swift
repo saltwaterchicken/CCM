@@ -26,6 +26,28 @@ final class HelpTests: XCTestCase {
         XCTAssertEqual(Help.words("Stars rating NAS Synology"), ["star", "star", "server", "server"])
     }
 
+    func testMenuCommandsAreFoundByTheWordsInThem() {
+        let commands = [MenuCommand(id: 0, menu: "File", title: "Copy NIKON D850", shortcut: "⌘↩"),
+                        MenuCommand(id: 1, menu: "File", title: "Load Folder…"),
+                        MenuCommand(id: 2, menu: "Photos", title: "Sync With Server", enabled: false),
+                        MenuCommand(id: 3, menu: "Photos", title: "Check 12 Unrated Photos"),
+                        MenuCommand(id: 4, menu: "Help", title: "Setup Tutorial…")]
+        XCTAssertEqual(Help.search("sync", in: commands).map(\.id), [2])
+        XCTAssertEqual(Help.search("synology", in: commands).map(\.id), [2], "Synonyms count")
+        XCTAssertEqual(Help.search("copy", in: commands).map(\.id), [0])
+        XCTAssertEqual(Help.search("tut", in: commands).map(\.id), [4], "Half a word is enough")
+        XCTAssertEqual(Help.search("photos", in: commands).map(\.id), [3, 2], "Name matches before menu matches")
+        XCTAssertEqual(Help.search("load server", in: commands), [], "Every word must be found")
+        XCTAssertEqual(Help.search("", in: commands), [])
+    }
+
+    func testShortcutsReadAsInTheMenu() {
+        XCTAssertEqual(Help.shortcut(key: "\r", command: true), "⌘↩")
+        XCTAssertEqual(Help.shortcut(key: "o", command: true), "⌘O")
+        XCTAssertEqual(Help.shortcut(key: "?", shift: true, command: true), "⇧⌘?")
+        XCTAssertEqual(Help.shortcut(key: ""), "")
+    }
+
     func testEveryAnswerHasItsOwnID() {
         XCTAssertEqual(Set(Help.answers.map(\.id)).count, Help.answers.count)
     }

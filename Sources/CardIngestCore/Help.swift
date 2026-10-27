@@ -28,6 +28,27 @@ public enum HelpTarget: String, CaseIterable, Sendable {
     }
 }
 
+/// A command in the app's own menus, as the help window lists it: found by
+/// typing, and run from there.
+public struct MenuCommand: Identifiable, Sendable, Equatable {
+    /// Where it is among the menus read, so the window can run that item.
+    public let id: Int
+    /// The menu it's in ("Photos").
+    public let menu: String
+    public let title: String
+    /// As the menu shows it ("⌘↩"); empty when it has none.
+    public let shortcut: String
+    public let enabled: Bool
+
+    public init(id: Int, menu: String, title: String, shortcut: String = "", enabled: Bool = true) {
+        self.id = id
+        self.menu = menu
+        self.title = title
+        self.shortcut = shortcut
+        self.enabled = enabled
+    }
+}
+
 /// One answer, written ahead of time from how the app works.
 public struct HelpAnswer: Identifiable, Sendable, Equatable {
     public let id: String
@@ -65,6 +86,33 @@ public enum Help {
             return matched > 0 ? (answer, matched, score, index) : nil
         }
         return ranked.sorted { ($0.matched, $0.score, -$0.index) > ($1.matched, $1.score, -$1.index) }.map(\.answer)
+    }
+
+    /// The menu commands that every typed word finds, in the command's name or
+    /// its menu's, with name matches first. Nothing typed finds none, so the
+    /// answers aren't pushed down by a list of every command.
+    public static func search(_ query: String, in commands: [MenuCommand]) -> [MenuCommand] {
+        let words = Self.words(query, droppingStopWords: true)
+        guard !words.isEmpty else { return [] }
+        let ranked = commands.enumerated().compactMap { index, command -> (command: MenuCommand, score: Int, index: Int)? in
+            let title = Set(Self.words(command.title)), menu = Set(Self.words(command.menu))
+            var score = 0
+            for word in words {
+                let found = { (set: Set<String>) in set.contains(word) || (word.count >= 3 && set.contains { $0.hasPrefix(word) }) }
+                if found(title) { score += 2 } else if found(menu) { score += 1 } else { return nil }
+            }
+            return (command, score, index)
+        }
+        return ranked.sorted { ($0.score, -$0.index) > ($1.score, -$1.index) }.map(\.command)
+    }
+
+    /// A menu item's shortcut as the menu shows it: ⌃⌥⇧⌘ then the key.
+    public static func shortcut(key: String, control: Bool = false, option: Bool = false, shift: Bool = false,
+                                command: Bool = false) -> String {
+        guard !key.isEmpty else { return "" }
+        let named: [String: String] = ["\r": "↩", "\u{1b}": "⎋", "\t": "⇥", " ": "Space", "\u{8}": "⌫", "\u{7f}": "⌫"]
+        return (control ? "⌃" : "") + (option ? "⌥" : "") + (shift ? "⇧" : "") + (command ? "⌘" : "")
+            + (named[key] ?? key.uppercased())
     }
 
     /// Lowercased words, each cut to a plain stem and a shared name for its
