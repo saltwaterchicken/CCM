@@ -695,6 +695,23 @@ doing: put the main actions in the menus too, so the standard Help menu search f
 them for free. To decide: search box in the window's toolbar or the Help menu; which questions
 come up most (the photographer's list from past summers).
 
+**Live Tech Support (asked 2026-10-27):** the second row of the help drop-down, "Live Tech Support",
+sends the photographer's message to the developer's WhatsApp. Two ways:
+- **Simple (proposed first):** a small box in the app to type the problem; Send opens WhatsApp (app
+  or web) with it already written to the support number, plus what the app knows (app version,
+  the card and step it's on, the last error), shown before sending. One more tap in WhatsApp sends
+  it; replies come back in WhatsApp. No server, no account, free. The number goes in the settings
+  file (`supportWhatsApp`) so it can change without a new app.
+  **Decided 2026-10-27: the simple way, with the latest receipt.** A WhatsApp link can carry text
+  only, not a file, so: the message includes the latest receipt's summary (card, files, total size,
+  verified, import number, folder), and the receipt CSV itself goes by the Mac's Share menu to
+  WhatsApp (the photographer picks the support chat, already open from the link) or is shown in
+  Finder to drag into the chat. To check with WhatsApp for Mac when built.
+- **Fully inside the app, replies included:** needs Meta's WhatsApp Business Platform (a business
+  account, a dedicated business number, approved message templates, per-conversation fees) and a
+  small always-on server holding its key (a key can't ship inside the app) to pass messages both
+  ways. A project of its own.
+
 ## GUI wishlist
 
 Suggestions so far, not yet decided. Edit freely.
