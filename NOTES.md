@@ -84,6 +84,56 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   The checks read the copies, never the card, at lower priority than copy and verify, so the copy
   isn't slowed and trash/eject never wait for them; on a fast CFexpress card they may finish a little
   after the copy. All on-device with Apple frameworks (Vision, Accelerate/Core Image, ImageIO).
+- **First calibration run (2026-10-26)**, `swift run -c release score-folder FOLDER...` (reads only;
+  CSV of scores and stars). Five cards from one photographer ("AA", Photo Mechanic culls), on
+  `Elliotts 3/…/KE Importing Folder/2 On Server`: 4 Nikon D5600, 1 Canon R100; 5,517 RAWs, 845 keepers
+  (1★+). 130 photos/s on all cores from the external drive. Weighted lightly: one photographer, two
+  entry-level cameras, and most 0s are culled for moment/expression/duplicates, not focus, so the
+  measure is "keepers wrongly flagged" (aim ~1%) and "do the flagged ones look soft", never overall
+  agreement.
+  - **Faces: works, once adjusted for brightness** (sharpness × (128/face brightness)²; raw scores
+    flagged sharp faces in shade/firelight). At ~1% of keepers: 106 of 2,645 face outtakes flagged;
+    close-ups of a sample were nearly all genuinely soft or motion-blurred. The 5 keepers flagged
+    were soft too, kept for the moment (one is a frame next to a flagged outtake).
+  - **No faces: weaker.** ~2.6% of outtakes at ~1% of keepers; brightness adjustment didn't help.
+    Dusk shots (mostly the Canon card) dominate. Needs a closer look.
+  - **Exposure: no signal from clipping.** Keepers include silhouettes, firelight and stage light (up
+    to 34% blown, 68% black). Clipping alone can't be a reason to flag; extremes only, or off by
+    default. To discuss.
+  - Per card, with these limits: 14–45 flagged per card (168 of 5,517), 0–4 of them keepers.
+  - Limits differ by camera and light (median sharpness varies 3× between cards), so the
+    calibration window per photographer stays essential.
+- **Second run (2026-10-26), larger sample:** `Untitled/Not Backed Up/KE_MediaNAS_01_1/photo/
+  Photographers/Look at` (2024 summer, ~200,000 RAWs, photographers PL, CM, ES, one AE card; Canon
+  CR2/CR3, Nikon NEF; 1★ keeper / 0 outtake). Sampled ~10,000 per photographer spread across the
+  summer: 28,749 RAWs, 4,141 keepers. 23 photos/s, but **ignore that speed**: per the
+  photographer, this and the Sony runs were on an old archive drive. Only the first run (130/s on
+  all cores) was on a real-world fast drive.
+  - **Bug found and fixed:** in the first pass Vision's face search silently failed partway through
+    (try? turned it into "no faces"), so most photos counted as faceless. `score` now throws when
+    Vision fails. The re-run had no failures; the cause wasn't reproduced.
+  - **Close-ups fooled the per-pixel measure:** big faces look smooth pixel by pixel, so sharp
+    close-ups were flagged. **Fix: each face shrunk to 64 px across before measuring**
+    (`faceSharpnessScaled`), times the brightness adjustment. With it, at ~1% of keepers, every
+    flagged outtake in a 16-photo close-up sample was clearly soft or motion-blurred, and 9 of the
+    11 flagged keepers were soft too (kept for the moment). The 2 sharp ones were big faces under
+    red/pink stage light. It flags fewer outtakes than before (6% vs 9%), because the old measure
+    was also catching sharp close-ups.
+  - The face limit differs by photographer, so calibration per photographer stays.
+  - **Decided 2026-10-26 (photographer): exposure flags extremes only**, with its own sliders in
+    the calibration window. In the 28,749-photo sample keepers went up to 72% blown and 98% black, so
+    proposed defaults are **over 80% blown** (0 keepers, 10 outtakes) and **over 95% black**
+    (nights and silhouettes are kept; at 90% two keepers would go): blank frames, misfired flash,
+    pocket shots.
+- **Sony check (2026-10-26):** a Sony A1 studio headshot session (Capture One; `Camp K&E 2026/2026
+  Tech/2026_0922_McKesson`, 1,072 ARWs: 85 rated 1★/3★, ~900 at 0, 80 in Trash). Not camp, so only
+  the technical question. **Sony's built-in preview (1616 px) is good enough:** face scores from it
+  and from decoding the full RAW at 1600 px agree almost exactly (log correlation 0.994; the preview
+  reads ~14% higher, in-camera sharpening), and 44 of the lowest 51 are the same either way. The
+  preview takes a few ms; decoding a 48 MP RAW ~0.8 s. Every face is sharp (lowest score 326, camp
+  limits ~25–70), so nothing would be flagged, which is right; the lowest-scoring 16 were mostly from
+  Trash (10 of 16, against 7% overall). Capture One keeps one `Basic_Rating` per variant in its
+  `.cos` files; the last one is what it shows (matched all 983 exported JPEGs).
 - [ ] Step 1: Scoring in Core (RAW preview at one working size, Vision faces else sharpest area,
   Laplacian variance, blown/crushed share), tests on synthetic sharp/blurred images with and without
   faces, then a run over a hand-culled folder per camera, with timings, as a go/no-go. Sony's built-in preview is only 1616×1080 (Nikon

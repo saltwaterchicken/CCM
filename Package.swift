@@ -14,6 +14,8 @@ let package = Package(
         .target(name: "CardIngestCore"),
         // The SwiftUI app itself. Kept thin; it calls into CardIngestCore.
         .executableTarget(name: "CardIngest", dependencies: ["CardIngestCore"]),
+        // Scores folders of culled photos, for calibrating auto-rating. Only reads them.
+        .executableTarget(name: "score-folder", dependencies: ["CardIngestCore"]),
         .testTarget(name: "CardIngestCoreTests", dependencies: ["CardIngestCore"]),
     ]
 )
