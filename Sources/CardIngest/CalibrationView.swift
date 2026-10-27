@@ -255,6 +255,8 @@ struct CalibrationView: View {
                             value: $model.limits.maximumBlown)
                 shareSlider("Too dark", help: "How much of the picture can be pure black.",
                             value: $model.limits.maximumCrushed)
+                brightnessSlider("Dark subject", help: "How dim the face (or the sharpest part, with no face) can be. A lit face on a black stage passes.",
+                                 value: $model.limits.minimumBrightness)
                 HStack {
                     Button("Suggest") { model.limits = Calibration.suggested(model.scored, from: model.limits) }
                         .help("Sets both sharpness limits so about 1 in 100 of this folder's keepers would be flagged")
@@ -264,6 +266,7 @@ struct CalibrationView: View {
                         model.limits.minimumSharpnessNoFaces = d.minimumSharpnessNoFaces
                         model.limits.maximumBlown = d.maximumBlown
                         model.limits.maximumCrushed = d.maximumCrushed
+                        model.limits.minimumBrightness = d.minimumBrightness
                     }
                     .help("The limits set from 34,000 camp photos")
                     Spacer()
@@ -276,6 +279,7 @@ struct CalibrationView: View {
                             $0.rating.minimumSharpnessNoFaces = tried.minimumSharpnessNoFaces
                             $0.rating.maximumBlown = tried.maximumBlown
                             $0.rating.maximumCrushed = tried.maximumCrushed
+                            $0.rating.minimumBrightness = tried.minimumBrightness
                         }
                     }
                     .keyboardShortcut(.defaultAction)
@@ -299,6 +303,7 @@ struct CalibrationView: View {
         return saved.minimumSharpnessFaces != tried.minimumSharpnessFaces
             || saved.minimumSharpnessNoFaces != tried.minimumSharpnessNoFaces
             || saved.maximumBlown != tried.maximumBlown || saved.maximumCrushed != tried.maximumCrushed
+            || saved.minimumBrightness != tried.minimumBrightness
     }
 
     /// The lowest score that passes, from about 1 to 1,000 on a log scale (as
@@ -312,10 +317,19 @@ struct CalibrationView: View {
         }
     }
 
-    /// The most of the picture allowed, 50 to 100%: right allows more, so keeps more.
+    /// The most of the picture allowed, 0 to 100%: right allows more, so keeps more.
     private func shareSlider(_ title: String, help: String, value: Binding<Double>) -> some View {
         limitSlider(title, help: help, shown: "up to \(Int((value.wrappedValue * 100).rounded()))%") {
-            Slider(value: value, in: 0.5...1, step: 0.01)
+            Slider(value: value, in: 0...1, step: 0.01)
+        }
+    }
+
+    /// The dimmest subject that passes, 0 (off) to 128 (mid grey), turned
+    /// round like the sharpness sliders so that right keeps more.
+    private func brightnessSlider(_ title: String, help: String, value: Binding<Double>) -> some View {
+        limitSlider(title, help: help, shown: value.wrappedValue < 1 ? "off" : "below \(Int(value.wrappedValue.rounded()))") {
+            Slider(value: Binding(get: { 128 - value.wrappedValue }, set: { value.wrappedValue = 128 - $0 }),
+                   in: 0...128, step: 1)
         }
     }
 
@@ -540,7 +554,7 @@ struct CalibrationPhotoView: View {
     static func details(_ photo: ScoredShot) -> String {
         let s = photo.score
         let faces = s.faces == 0 ? "no face" : s.faces == 1 ? "1 face" : "\(s.faces) faces"
-        return "\(scoreText(s)) · \(faces) · \(Int((s.blown * 100).rounded()))% white · \(Int((s.crushed * 100).rounded()))% black"
+        return "\(scoreText(s)) · \(faces) · \(Int((s.blown * 100).rounded()))% white · \(Int((s.crushed * 100).rounded()))% black · subject \(Int(s.subjectBrightness.rounded()))"
     }
 }
 

@@ -43,6 +43,11 @@ extension QualityScore {
         guard let scaled = faceSharpnessScaled else { return nil }
         return scaled * pow(128 / max(faceBrightness ?? 128, 12), 2)
     }
+
+    /// How bright the subject is (0 to 255): the sharpest face, else the
+    /// sharpest area. A lit face on a black stage stays bright here; an
+    /// underexposed shot doesn't, however little of it is pure black.
+    public var subjectBrightness: Double { faceBrightness ?? areaBrightness }
 }
 
 public enum QualityCheck {

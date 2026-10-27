@@ -5,10 +5,11 @@ import XCTest
 @testable import CardIngestCore
 
 final class CalibrationTests: XCTestCase {
-    private func score(face: Double? = nil, area: Double = 500, blown: Double = 0, crushed: Double = 0) -> QualityScore {
+    private func score(face: Double? = nil, area: Double = 500, blown: Double = 0, crushed: Double = 0,
+                       faceBrightness: Double = 128, areaBrightness: Double = 128) -> QualityScore {
         QualityScore(faces: face == nil ? 0 : 1, faceSharpness: face, areaSharpness: area, blown: blown, crushed: crushed,
-                     faceQuality: nil, faceBrightness: face == nil ? nil : 128, faceContrast: nil,
-                     areaBrightness: 128, areaContrast: 40, faceSharpnessScaled: face, facePixels: face == nil ? nil : 100,
+                     faceQuality: nil, faceBrightness: face == nil ? nil : faceBrightness, faceContrast: nil,
+                     areaBrightness: areaBrightness, areaContrast: 40, faceSharpnessScaled: face, facePixels: face == nil ? nil : 100,
                      measuredAt: 1600)
     }
 
@@ -32,6 +33,16 @@ final class CalibrationTests: XCTestCase {
         XCTAssertEqual(limits.problems(score(area: 500, blown: 0.85)), [.blown])
         XCTAssertEqual(limits.problems(score(area: 500, crushed: 0.97)), [.dark])
         XCTAssertEqual(limits.problems(score(area: 10, crushed: 0.99)), [.soft, .dark])
+    }
+
+    func testADimSubjectIsTooDarkWhateverTheBackground() {
+        XCTAssertEqual(RatingSettings().problems(score(area: 500, areaBrightness: 5)), [], "Off unless it's set")
+        let limits = RatingSettings(minimumBrightness: 40)
+        XCTAssertEqual(limits.problems(score(area: 500, crushed: 0.3, areaBrightness: 25)), [.dark], "Underexposed, little pure black")
+        XCTAssertEqual(limits.problems(score(face: 120, crushed: 0.9, faceBrightness: 110, areaBrightness: 10)), [],
+                       "A lit face on a black stage")
+        XCTAssertEqual(limits.problems(score(face: 120, faceBrightness: 20)), [.dark])
+        XCTAssertEqual(limits.problems(score(area: 500, crushed: 0.97, areaBrightness: 20)), [.dark], "Listed once")
     }
 
     func testOldSettingsFilesDontSwitchAutoRatingOn() {

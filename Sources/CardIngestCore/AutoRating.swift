@@ -43,6 +43,7 @@ public enum AutoRating {
     static let facesField = "cardingest:Faces"
     static let blownField = "cardingest:Blown"
     static let crushedField = "cardingest:Crushed"
+    static let brightnessField = "cardingest:Brightness"
 
     /// The check recorded in a sidecar, or nil when the checks haven't
     /// looked at this photo.
@@ -89,6 +90,7 @@ public enum AutoRating {
             facesField: String(score.faces),
             blownField: String(format: "%.3f", score.blown),
             crushedField: String(format: "%.3f", score.crushed),
+            brightnessField: String(format: "%.0f", score.subjectBrightness),
         ]
         for (sidecar, raw) in zip(Stars.sidecars(of: shot), Stars.raws(of: shot)) {
             try Stars.write(stars, toXMP: sidecar, raw: raw, now: now, extra: marker)

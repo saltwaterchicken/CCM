@@ -150,6 +150,13 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   Save to Settings / Undo Changes. Settings: `rating.autoRating` (off; the old placeholder
   `enabled` key is ignored), `minimumSharpnessFaces` 50, `minimumSharpnessNoFaces` 30,
   `maximumBlown` 0.8, `maximumCrushed` 0.95 (at 50/30, ≤1% of camp keepers flagged per photographer).
+  **Dark subject (2026-10-27):** on a real card, very underexposed shots got through even with Too
+  dark at its 50% end: they're dim, not pure black, and keepers go up to 98% black, so the black
+  share can't catch them. Added `minimumBrightness` (0 = off, the default): the face's average
+  brightness, else the sharpest area's (0 to 255), flagged "Too dark" when below it, so a lit face
+  on a black stage passes. Its own "Dark subject" slider (off to 128); the two share sliders now go
+  0 to 100%. Recorded as `cardingest:Brightness` in the marker. To tune on a folder with dark
+  outtakes; score-folder's CSV already has `face_brightness` and `area_brightness`.
 - [ ] Step 3 (built, committed 2026-10-26; to confirm on the Mac, test step 19): Check each shot as it lands and on Load Folder (Check button): 1 star to keepers, 0
   plus a private "checked by Card Ingest" marker, scores and reason for outtakes; never a shot that
   already has stars or that's rated while it's checked. App stars look different from hand ones,

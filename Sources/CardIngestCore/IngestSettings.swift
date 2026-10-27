@@ -207,8 +207,8 @@ public struct MetadataTemplate: Codable, Equatable, Sendable {
 /// Auto-rating: checking each photo's sharpness and exposure. The limits are
 /// starting points, set from 34,000 camp photos (Milestone 6); each
 /// photographer tunes them in the calibration window. A photo falls short
-/// when its score is under a sharpness limit or its blown or black share is
-/// over an exposure limit.
+/// when its score is under a sharpness limit, its blown or black share is
+/// over an exposure limit, or its subject is darker than the brightness limit.
 public struct RatingSettings: Codable, Equatable, Sendable {
     /// Whether the app offers auto-rating at all. False hides it completely
     /// (checkbox, checks, Flagged by app, Check and Calibrate), for a slow Mac
@@ -227,17 +227,22 @@ public struct RatingSettings: Codable, Equatable, Sendable {
     /// black (0 to 1). Extremes only: camp keepers went up to 72% and 98%.
     public var maximumBlown: Double
     public var maximumCrushed: Double
+    /// The dimmest subject that passes (`QualityScore.subjectBrightness`, 0
+    /// to 255), for underexposed shots the black share misses. 0 is off.
+    public var minimumBrightness: Double
     /// Eye-openness ratio below this counts as a blink (Milestone 7).
     public var eyeOpennessThreshold: Double
 
     public init(available: Bool = true, autoRating: Bool = false, minimumSharpnessFaces: Double = 50, minimumSharpnessNoFaces: Double = 30,
-                maximumBlown: Double = 0.8, maximumCrushed: Double = 0.95, eyeOpennessThreshold: Double = 0.2) {
+                maximumBlown: Double = 0.8, maximumCrushed: Double = 0.95, minimumBrightness: Double = 0,
+                eyeOpennessThreshold: Double = 0.2) {
         self.available = available
         self.autoRating = autoRating
         self.minimumSharpnessFaces = minimumSharpnessFaces
         self.minimumSharpnessNoFaces = minimumSharpnessNoFaces
         self.maximumBlown = maximumBlown
         self.maximumCrushed = maximumCrushed
+        self.minimumBrightness = minimumBrightness
         self.eyeOpennessThreshold = eyeOpennessThreshold
     }
 
@@ -250,6 +255,7 @@ public struct RatingSettings: Codable, Equatable, Sendable {
         minimumSharpnessNoFaces = try c.decodeIfPresent(Double.self, forKey: .minimumSharpnessNoFaces) ?? d.minimumSharpnessNoFaces
         maximumBlown = try c.decodeIfPresent(Double.self, forKey: .maximumBlown) ?? d.maximumBlown
         maximumCrushed = try c.decodeIfPresent(Double.self, forKey: .maximumCrushed) ?? d.maximumCrushed
+        minimumBrightness = try c.decodeIfPresent(Double.self, forKey: .minimumBrightness) ?? d.minimumBrightness
         eyeOpennessThreshold = try c.decodeIfPresent(Double.self, forKey: .eyeOpennessThreshold) ?? d.eyeOpennessThreshold
     }
 
@@ -266,7 +272,7 @@ public struct RatingSettings: Codable, Equatable, Sendable {
             found.append(.soft)
         }
         if score.blown > maximumBlown { found.append(.blown) }
-        if score.crushed > maximumCrushed { found.append(.dark) }
+        if score.crushed > maximumCrushed || score.subjectBrightness < minimumBrightness { found.append(.dark) }
         return found
     }
 }
