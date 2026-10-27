@@ -25,8 +25,10 @@ public enum ServerBackup {
     }
 
     /// Sends one file into the server's card folder (made if it isn't there).
-    /// `checksum` is the card's xxHash64 for it, from the copy's report.
-    public static func send(_ local: URL, checksum: String, to folder: URL,
+    /// `checksum` is the card's xxHash64 for it, from the copy's report; nil
+    /// (Sync, long after the copy) checks the server's copy against the
+    /// local one as it was sent.
+    public static func send(_ local: URL, checksum: String?, to folder: URL,
                             isCancelled: () -> Bool = { false }) -> Result {
         let fm = FileManager.default
         let target = folder.appendingPathComponent(local.lastPathComponent)
@@ -36,12 +38,12 @@ public enum ServerBackup {
             return .failed("couldn't make \(folder.lastPathComponent) on the server: \(error.localizedDescription)")
         }
         if fm.fileExists(atPath: target.path) {
-            return matches(target, checksum: checksum) ? .alreadyThere : .different
+            return matches(target, checksum: checksum ?? localChecksum(local)) ? .alreadyThere : .different
         }
         // O_EXCL: created now or not at all, so nothing already there is ever written to.
         let descriptor = open(target.path, O_WRONLY | O_CREAT | O_EXCL, 0o644)
         guard descriptor >= 0 else {
-            if errno == EEXIST { return matches(target, checksum: checksum) ? .alreadyThere : .different }
+            if errno == EEXIST { return matches(target, checksum: checksum ?? localChecksum(local)) ? .alreadyThere : .different }
             return .failed(String(cString: strerror(errno)))
         }
         let writer = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
@@ -62,7 +64,7 @@ public enum ServerBackup {
             guard matches(target, checksum: sent) else { return .badCopy }
             // A sidecar may have been given stars since it was verified, and goes as it is now;
             // anything else must still be exactly what came off the card.
-            if sent != checksum && !Stars.isSidecar(local.lastPathComponent) {
+            if let checksum, sent != checksum, !Stars.isSidecar(local.lastPathComponent) {
                 return .failed("the copy on this Mac no longer matches the card, so the server's copy may be wrong")
             }
         } catch {
@@ -89,6 +91,10 @@ public enum ServerBackup {
         } catch {
             return error.localizedDescription
         }
+    }
+
+    private static func localChecksum(_ file: URL) -> String {
+        (try? CardCopier.hashFile(file, name: file.lastPathComponent, progress: { _ in })).map(XXHash64.hex) ?? ""
     }
 
     private static func matches(_ file: URL, checksum: String) -> Bool {

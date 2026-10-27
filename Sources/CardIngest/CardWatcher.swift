@@ -98,6 +98,7 @@ final class CardWatcher {
         self.onImported = onImported
         self.onTrashConfirmed = onTrashConfirmed
         grid.use(settings)
+        grid.backups = backups
         let center = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification, NSWorkspace.didRenameVolumeNotification] {
             observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in

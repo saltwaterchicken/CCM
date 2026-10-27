@@ -33,6 +33,67 @@ final class GridModel {
     var rating = RatingSettings()
     /// Set by Calibrate… in the grid: the calibration window scores this card.
     var calibrationRequest: URL?
+    /// The backup folder (the server), for Sync With Server.
+    var serverRoot: URL?
+    /// The cards' backups, so Sync waits for this card's to finish.
+    weak var backups: ServerBackups?
+    private(set) var sync = SyncState.idle
+
+    enum SyncState: Equatable {
+        case idle
+        case comparing
+        case confirm(ServerSync.Plan)
+        case syncing(done: Int, total: Int)
+        case done(ServerSync.Outcome, cantUpdate: [String])
+        case failed(String)
+    }
+
+    /// This card's folder on the server.
+    var serverFolder: URL? {
+        guard let folder, let serverRoot else { return nil }
+        return serverRoot.appendingPathComponent(folder.lastPathComponent, isDirectory: true)
+    }
+
+    /// This card's backup is still sending: Sync waits so the two never write the same file.
+    var backupRunning: Bool {
+        guard let name = folder?.lastPathComponent else { return false }
+        return backups?.entries.contains { $0.folderName == name && $0.status?.finished == false } ?? false
+    }
+
+    /// Compares this card with its folder on the server, then asks before writing anything.
+    func compareWithServer() {
+        guard let local = folder, let server = serverFolder, let root = serverRoot else { return }
+        sync = .comparing
+        Task {
+            let result = await Task.detached(priority: .userInitiated) { () -> Result<ServerSync.Plan, Error> in
+                switch BackupVolume.check(root) {
+                case .server, .localDrive: return Result { try ServerSync.plan(local: local, server: server) }
+                default: return .failure(SyncProblem.notConnected)
+                }
+            }.value
+            guard sync == .comparing, folder == local else { return }
+            switch result {
+            case let .success(plan): sync = .confirm(plan)
+            case let .failure(error): sync = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    func runSync(_ plan: ServerSync.Plan) {
+        sync = .syncing(done: 0, total: plan.adds.count)
+        Task {
+            let outcome = await Task.detached(priority: .utility) {
+                ServerSync.run(plan, progress: { done in
+                    Task { @MainActor [weak self] in
+                        if case .syncing = self?.sync { self?.sync = .syncing(done: done, total: plan.adds.count) }
+                    }
+                })
+            }.value
+            sync = .done(outcome, cantUpdate: plan.cantUpdate)
+        }
+    }
+
+    func dismissSync() { sync = .idle }
     private var session: UUID?
     private let writes = DispatchQueue(label: "Card Ingest stars", qos: .userInitiated)
     /// Sharpness and exposure checks: behind the copy, on half the cores, so
@@ -126,6 +187,7 @@ final class GridModel {
 
     private func begin(_ session: UUID, cardName: String, folder: URL?) {
         self.session = session
+        if case .syncing = sync {} else { sync = .idle }
         // A check already running finishes, but its result is dropped from the new grid.
         checks.cancelAllOperations()
         pending = []
@@ -189,6 +251,7 @@ final class GridModel {
         destinationRoot = settings.destinationRootURL
         fileTypes = settings.fileTypes
         rating = settings.rating
+        serverRoot = settings.backupRootURL
         if !rating.available, grid.filter == .appFlagged { grid.filter = .all }
     }
 

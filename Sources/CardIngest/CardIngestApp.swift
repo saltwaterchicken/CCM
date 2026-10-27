@@ -177,7 +177,11 @@ struct ContentView: View {
 
             GroupBox("Server") {
                 VStack(alignment: .leading, spacing: 10) {
-                    ServerLight(status: server)
+                    HStack(alignment: .top) {
+                        ServerLight(status: server)
+                        SyncButton(model: watcher.grid)
+                    }
+                    SyncStatusView(model: watcher.grid)
                     if !watcher.backups.isEmpty { BackupsView(backups: watcher.backups) }
                 }
                 .padding(4)

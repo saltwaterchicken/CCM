@@ -647,6 +647,18 @@ the photographer's Sync puts the new versions up (they're new files again). This
 a junior photographer can't delete everything by mistake; the app must work within it, never ask
 for more.
 
+**Sync With Server built 2026-10-27; worked on an external USB drive (photographer). Server still
+to try.** A button at the right of the Server panel's first line, the card's name under it
+(card folder shown and a backup folder set; waits while that card's backup is still sending).
+Compares the card folder's own files and any `•To Campanion…` folder (subfolders too; hidden
+files and Capture One's folders skipped) with its folder on the server, then shows a summary: adds
+by kind (originals the backup missed, sidecars, exports), already there, and "can't update" for
+files on the server that differ and are newer here (sidecars by content, big files by size), with
+"Nothing on the server is deleted or replaced". Sync creates each missing file once via the
+backup's write-once copier and checks it; progress and the result under the header. A server
+copy newer than this Mac's is left as it is; files gone from this Mac and other cards are never
+looked at; the server's own receipt isn't a conflict. Tested against a create-only folder.
+
 **Backup worker built 2026-10-27, not yet tried on the Mac.** The card is copied to the local
 destination only; trash and eject follow that alone. With a backup folder set and its volume there
 (`BackupVolume` server or drive), a `ServerBackupJob` per card sends each file as soon as the local
@@ -842,3 +854,11 @@ Suggestions so far, not yet decided. Edit freely.
     network cable part way through: "The server went away: N of M files reached it". Unmount the
     share and Copy another card: "Not backed up: the server wasn't connected", and the copy is
     unaffected.
+22. Sync With Server (2026-10-27). After step 21, rate a few photos and export a couple of JPEGs
+    from Lightroom into a `•To Campanion` folder inside the card folder. Click Sync With Server
+    (right side of the Server panel, across from the light):
+    the summary lists the sidecars and exported JPEGs to add, the files already there, and says
+    nothing is deleted or replaced. Sync: "Synced: N files added", and Finder shows them on the
+    server. Click it again: "The server already has everything". Change a star and Sync: that
+    sidecar is listed under "Can't update" and the server's copy is unchanged. For a card copied
+    with the server unmounted, Sync adds every file (catch-up).
