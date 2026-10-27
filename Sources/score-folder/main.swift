@@ -11,15 +11,20 @@ import Foundation
 import ImageIO
 
 let raws: Set<String> = ["nef", "cr3", "cr2", "arw", "raf", "dng", "orf", "rw2"]
-var photos: [(folder: String, url: URL)] = []
 let decode = CommandLine.arguments.contains("--decode")
-for path in CommandLine.arguments.dropFirst() where path != "--decode" {
-    let folder = URL(fileURLWithPath: path, isDirectory: true)
-    let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
-    for name in names.sorted() where !name.hasPrefix(".") && raws.contains((name as NSString).pathExtension.lowercased()) {
-        photos.append((folder.lastPathComponent, folder.appendingPathComponent(name)))
+func photosToScore() -> [(folder: String, url: URL)] {
+    var photos: [(folder: String, url: URL)] = []
+    for path in CommandLine.arguments.dropFirst() where path != "--decode" {
+        let folder = URL(fileURLWithPath: path, isDirectory: true)
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
+        for name in names.sorted() where !name.hasPrefix(".") && raws.contains((name as NSString).pathExtension.lowercased()) {
+            photos.append((folder.lastPathComponent, folder.appendingPathComponent(name)))
+        }
     }
+    return photos
 }
+// A let, not a var: the scoring below reads it from many threads at once.
+let photos = photosToScore()
 
 func stars(for raw: URL) -> Int? {
     let base = raw.deletingPathExtension()
@@ -40,7 +45,12 @@ func decoded(_ url: URL) -> CGImage? {
 
 func text(_ value: Double?) -> String { value.map { String(format: "%.4f", $0) } ?? "" }
 
-var lines = [String](repeating: "", count: photos.count)
+/// One CSV line per photo, filled in from many threads; only touched under `lock`.
+final class Lines: @unchecked Sendable {
+    var all: [String]
+    init(count: Int) { all = [String](repeating: "", count: count) }
+}
+let lines = Lines(count: photos.count)
 let lock = NSLock()
 let start = Date()
 DispatchQueue.concurrentPerform(iterations: photos.count) { i in
@@ -76,8 +86,8 @@ DispatchQueue.concurrentPerform(iterations: photos.count) { i in
     fields.append(measuredAt.map(String.init) ?? "")
     fields.append(String(format: "%.0f", ms))
     let line = fields.joined(separator: ",")
-    lock.withLock { lines[i] = line }
+    lock.withLock { lines.all[i] = line }
 }
 print("folder,file,stars,faces,face_sharpness,area_sharpness,blown,crushed,face_quality,face_brightness,face_contrast,area_brightness,area_contrast,face_scaled,face_pixels,measured_at,ms")
-lines.forEach { print($0) }
+lines.all.forEach { print($0) }
 FileHandle.standardError.write("\(photos.count) photos in \(String(format: "%.1f", Date().timeIntervalSince(start))) s\n".data(using: .utf8)!)
