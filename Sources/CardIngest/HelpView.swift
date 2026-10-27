@@ -167,7 +167,9 @@ struct SupportView: View {
 
     var body: some View {
         let message = Support.message(problem: problem, details: details, receipt: receipt)
-        let link = Support.whatsAppURL(number: settings.settings.supportWhatsApp, text: message)
+        let number = Support.number(setting: settings.settings.supportWhatsApp,
+                                    built: Bundle.main.object(forInfoDictionaryKey: "CardIngestSupportWhatsApp") as? String)
+        let link = Support.whatsAppURL(number: number, text: message)
         VStack(alignment: .leading, spacing: 12) {
             Text("Live Tech Support").font(.title2).bold()
             Text("What happened? What were you trying to do?").foregroundStyle(.secondary)
@@ -199,7 +201,8 @@ struct SupportView: View {
                 }
             }
             if link == nil {
-                Label("No support number yet. Add supportWhatsApp (with the country code, e.g. +1 555 123 4567) to the settings file.",
+                Label("This copy of Card Ingest was built without a support number. Put it in scripts/support-whatsapp.txt "
+                      + "and run make-app.sh again (or add supportWhatsApp to the settings file).",
                       systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
             }

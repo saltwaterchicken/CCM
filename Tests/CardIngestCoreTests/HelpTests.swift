@@ -74,4 +74,10 @@ final class SupportTests: XCTestCase {
         XCTAssertNil(Support.whatsAppURL(number: "", text: "hi"), "No number set")
         XCTAssertNil(Support.whatsAppURL(number: "555-1234", text: "hi"), "Needs the country code")
     }
+
+    func testTheBuiltInNumberUnlessTheSettingsFileHasOne() {
+        XCTAssertEqual(Support.number(setting: "", built: "+1 555 123 4567"), "+1 555 123 4567")
+        XCTAssertEqual(Support.number(setting: "+44 20 7946 0000", built: "+1 555 123 4567"), "+44 20 7946 0000")
+        XCTAssertEqual(Support.number(setting: "", built: nil), "")
+    }
 }

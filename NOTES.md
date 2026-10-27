@@ -743,15 +743,21 @@ half words too; "trashed", "deleted" and "erase" all mean trash; NAS/Synology me
 words beat answer text) and opens the best match. Show Me brings the main window forward (out of
 the large view), scrolls to the part and outlines it, pulsing, for 4 s; a part not on screen just
 then says where it shows up. Help › Live Tech Support… opens the support sheet directly. The menu
-bar's own Help search stays. Main actions aren't in the menus yet (so the menu search doesn't find
-them). The questions are a first guess; the photographer's list from past summers will replace or
+bar's own Help search stays. Since then (2026-10-27) the main actions are in the menus too, so
+that search finds them: File › Copy <card> (⌘↩) / Stop Copying (⌘.), Load Folder… (⌘O), Show the
+card folder in Finder, Load Project Settings…, Use Default Settings, Reload Settings, Show Settings
+File in Finder; a Photos menu with Open N in Lightroom, Show All Photos, Show Flagged by App, Check
+Unrated Photos, Calibrate Auto-Rating…, Calibrate on This Card…, Sync With Server, each enabled
+exactly when its button is. The questions are a first guess; the photographer's list from past summers will replace or
 add to them.
 Live Tech Support as decided: type what happened; "Sent with it" shows the app version and macOS,
 the settings file, each card and its step, the last error, and the latest receipt's summary (the
 newest receipt in the destination's card folders); Open in WhatsApp opens `wa.me/<number>` with it
 all written; Share Receipt… (the Mac's Share menu) or Show Receipt in Finder for the file itself.
-The number is `supportWhatsApp` in the settings file (empty by default; the sheet says to add it,
-with the country code). Not yet checked with WhatsApp for Mac.
+The number is built into the app by `make-app.sh` (photographer's point, 2026-10-27: they
+shouldn't have to set it), from `scripts/support-whatsapp.txt` (one line, with the country code)
+or `CARD_INGEST_SUPPORT_WHATSAPP`, into Info.plist as `CardIngestSupportWhatsApp`. The file is
+git-ignored because the repository is public. `supportWhatsApp` in a settings file overrides it. Not yet checked with WhatsApp for Mac.
 
 ## GUI wishlist
 

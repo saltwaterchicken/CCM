@@ -42,7 +42,10 @@ struct CardIngestApp: App {
                 .onAppear { server.use(model.settings) }
                 .environment(help)
         }
-        .commands { HelpCommands(help: help) }
+        .commands {
+            CardCommands(settings: model, watcher: watcher)
+            HelpCommands(help: help)
+        }
         Window("Calibrate Auto-Rating", id: "calibration") {
             CalibrationView(settings: model, grid: watcher.grid)
                 .frame(minWidth: 1000, minHeight: 640)
@@ -113,6 +116,16 @@ final class SettingsModel {
     func useFile(_ url: URL) {
         fileURL = url
         reload()
+    }
+
+    /// Load Project Settings…, from the Settings File panel or the File menu.
+    func chooseProjectFile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.propertyList]
+        panel.message = "Choose a project settings file"
+        if panel.runModal() == .OK, let url = panel.url {
+            useFile(url)
+        }
     }
 
     func useDefaultFile() {
@@ -217,7 +230,7 @@ struct ContentView: View {
                         Button("Show in Finder") {
                             NSWorkspace.shared.activateFileViewerSelecting([model.fileURL])
                         }
-                        Button("Load Project Settings…", action: chooseFile)
+                        Button("Load Project Settings…") { model.chooseProjectFile() }
                         Button("Use Default") { model.useDefaultFile() }
                         Button("Reload") { model.reload() }
                     }
@@ -226,15 +239,6 @@ struct ContentView: View {
                 .padding(4)
             }
             .helpSpot(.settingsFile)
-        }
-    }
-
-    private func chooseFile() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.propertyList]
-        panel.message = "Choose a project settings file"
-        if panel.runModal() == .OK, let url = panel.url {
-            model.useFile(url)
         }
     }
 }

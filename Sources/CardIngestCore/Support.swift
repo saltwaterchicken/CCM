@@ -70,6 +70,12 @@ public enum Support {
         return parts.filter { !$0.isEmpty }.joined(separator: "\n\n")
     }
 
+    /// The number to write to: the settings file's, when it holds one, else
+    /// the one `make-app.sh` built into the app.
+    public static func number(setting: String, built: String?) -> String {
+        setting.filter(\.isNumber).count >= 8 ? setting : built ?? ""
+    }
+
     /// A link that opens WhatsApp with the message written to `number`. Nil
     /// when the number has too few digits to be one (it needs its country code).
     public static func whatsAppURL(number: String, text: String) -> URL? {

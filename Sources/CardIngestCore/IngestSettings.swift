@@ -34,8 +34,8 @@ public struct IngestSettings: Codable, Equatable, Sendable {
     public var fileTypes: FileTypes
     public var metadata: MetadataTemplate
     public var rating: RatingSettings
-    /// The WhatsApp number Live Tech Support writes to, with its country code
-    /// (e.g. +1 555 123 4567). Empty until it's set in the settings file.
+    /// A WhatsApp number for Live Tech Support in place of the one built into
+    /// the app, with its country code (e.g. +1 555 123 4567). Empty uses the app's.
     public var supportWhatsApp: String
 
     public init(

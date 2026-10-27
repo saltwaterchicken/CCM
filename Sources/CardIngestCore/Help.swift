@@ -104,7 +104,8 @@ public enum Help {
 
     public static let answers: [HelpAnswer] = [
         HelpAnswer("copy", "How do I copy a card?",
-                   "Put the card in. It shows at the top left with how many camera files it has. Press Copy. Every file is copied, "
+                   "Put the card in. It shows at the top left with how many camera files it has. Press Copy (or File › Copy, ⌘↩). "
+                   + "Every file is copied, "
                    + "then read back and checked against the card before anything else happens. Thumbnails fill the grid as each "
                    + "photo lands, so you can start rating straight away.",
                    keywords: ["import", "start", "ingest"], target: .cards),
@@ -161,7 +162,8 @@ public enum Help {
                    + "server says \"Not backed up\", so you can catch up later with Sync With Server.",
                    keywords: ["red", "green", "offline", "wi", "cable", "mounted", "connect"], target: .server),
         HelpAnswer("sync", "How do I send stars and exports to the server?",
-                   "With the card in the grid, press Sync With Server. It shows what it will add first: sidecars with your stars, "
+                   "With the card in the grid, press Sync With Server (or Photos › Sync With Server). It shows what it will add "
+                   + "first: sidecars with your stars, "
                    + "JPEGs in a •To Campanion folder inside the card folder, and any originals the backup missed. Nothing on the "
                    + "server is deleted or replaced. A file already on the server that's different here is listed under "
                    + "\"Can't update\"; ask the admin to remove it there, then Sync again.",
@@ -197,12 +199,13 @@ public enum Help {
                    + "Looks Fine, and the limits move to follow; the labels add up over the summer. Save to Settings keeps them.",
                    keywords: ["calibrate", "limit", "slider", "label", "dark", "soft", "bright", "wrong", "learn"], target: .autoRating),
         HelpAnswer("load", "How do I get back to an earlier card?",
-                   "Load Folder… above the grid opens a card folder from an earlier import with its stars, without the card: after "
+                   "Load Folder… above the grid (or File › Load Folder…, ⌘O) opens a card folder from an earlier import with its "
+                   + "stars, without the card: after "
                    + "a restart or on another day. If the backup has the same folder, stars you give are saved there too.",
                    keywords: ["earlier", "yesterday", "reopen", "restart", "previous", "old"], target: .loadFolder),
         HelpAnswer("failed", "The copy failed or I pressed Stop",
                    "Nothing on the card is changed after a failed or stopped copy, and copies that weren't verified are removed. "
-                   + "Press Copy again: it picks up in the same folder, and the import number isn't used up until it finishes. "
+                   + "File › Stop Copying (⌘.) stops one. Press Copy again: it picks up in the same folder, and the import number isn't used up until it finishes. "
                    + "Photos already rated keep their stars.",
                    keywords: ["error", "stop", "interrupted", "crash", "resume", "space"], target: .cards),
         HelpAnswer("receipt", "What is the receipt?",

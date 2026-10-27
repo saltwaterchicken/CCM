@@ -173,6 +173,20 @@ final class GridModel {
     }
 
     /// An earlier import back in the grid, with its stars, to carry on culling.
+    /// Load Folder…, from the grid or the File menu: true when one was chosen.
+    @discardableResult
+    func chooseFolderToLoad() -> Bool {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.prompt = "Load"
+        panel.message = "Choose a card folder from an earlier import"
+        panel.directoryURL = folder?.deletingLastPathComponent() ?? destinationRoot
+        guard panel.runModal() == .OK, let url = panel.url else { return false }
+        load(url)
+        return true
+    }
+
     func load(_ folder: URL) {
         do {
             // Stars stay on this Mac: the server's copies are written once, by the backup and Sync.
@@ -524,16 +538,7 @@ struct CullingView: View {
     }
 
     private func chooseFolder() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.prompt = "Load"
-        panel.message = "Choose a card folder from an earlier import"
-        panel.directoryURL = model.folder?.deletingLastPathComponent() ?? model.destinationRoot
-        if panel.runModal() == .OK, let url = panel.url {
-            model.load(url)
-            focused = true
-        }
+        if model.chooseFolderToLoad() { focused = true }
     }
 }
 
