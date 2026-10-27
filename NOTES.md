@@ -748,7 +748,12 @@ that search finds them: File › Copy <card> (⌘↩) / Stop Copying (⌘.), Loa
 card folder in Finder, Load Project Settings…, Use Default Settings, Reload Settings, Show Settings
 File in Finder; a Photos menu with Open N in Lightroom, Show All Photos, Show Flagged by App, Check
 Unrated Photos, Calibrate Auto-Rating…, Calibrate on This Card…, Sync With Server, each enabled
-exactly when its button is. Confirmed on the Mac 2026-10-27 that the menus follow the window: File › Copy
+exactly when its button is. **macOS's own Help search field taken out (2026-10-27, photographer):** it searched Apple's help for
+the whole Mac as well ("photos" brought up the Photos app), which an app can't narrow, so the dark
+help window is the one search. Done by making the app's help menu one that's never shown
+(`AppDelegate` in `HelpView.swift`, set again if the menus are rebuilt). The menu items can no
+longer be searched from the Help menu; the help answers name them instead. To confirm on the Mac.
+Confirmed on the Mac 2026-10-27 that the menus follow the window: File › Copy
 changed to the card's name on its own (greyed out, as the card was empty, like the button). The questions are a first guess; the photographer's list from past summers will replace or
 add to them.
 Live Tech Support as decided: type what happened; "Sent with it" shows the app version and macOS,

@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 
 @main
 struct CardIngestApp: App {
+    @NSApplicationDelegateAdaptor private var delegate: AppDelegate
     @State private var model: SettingsModel
     @State private var watcher: CardWatcher
     @State private var server = ServerStatus()

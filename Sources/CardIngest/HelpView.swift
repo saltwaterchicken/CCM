@@ -285,8 +285,21 @@ struct ShareReceiptButton: NSViewRepresentable {
     }
 }
 
-/// The Help menu: this app's help, and Live Tech Support. macOS keeps its own
-/// menu search field at the top.
+/// Takes macOS's own search field out of the Help menu: it searches Apple's
+/// help for the whole Mac too ("photos" finds the Photos app), which can't be
+/// narrowed, so this app's help window is the one search. macOS puts the field
+/// in whichever menu is the app's help menu, so that's set to one never shown,
+/// and set again if the menus are rebuilt.
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    private let neverShown = NSMenu(title: "Help")
+
+    func applicationDidUpdate(_ notification: Notification) {
+        if NSApp.helpMenu !== neverShown { NSApp.helpMenu = neverShown }
+    }
+}
+
+/// The Help menu: this app's help, and Live Tech Support.
 struct HelpCommands: Commands {
     var help: HelpModel
     @Environment(\.openWindow) private var openWindow

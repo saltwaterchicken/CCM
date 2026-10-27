@@ -1,9 +1,8 @@
 import CardIngestCore
 import SwiftUI
 
-/// The window's main actions in the menu bar too, so the Help menu's search
-/// finds them (it opens the menu and points at the item). Each is enabled
-/// exactly when its button in the window is.
+/// The window's main actions in the menu bar too, with their shortcuts. Each
+/// is enabled exactly when its button in the window is.
 struct CardCommands: Commands {
     var settings: SettingsModel
     var watcher: CardWatcher
