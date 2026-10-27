@@ -768,7 +768,7 @@ The file must be named exactly `support-whatsapp.txt`, with the number inside it
 included); a file named after the number isn't read, and isn't git-ignored either.
 **Confirmed on the Mac 2026-10-27:** Open in WhatsApp opened WhatsApp with the message written to
 the built-in number, and Share Receipt… sent the receipt CSV to WhatsApp. 
-## Setup tutorial (asked 2026-10-27, built 2026-10-27, not yet tried on the Mac)
+## Setup tutorial (asked 2026-10-27, built 2026-10-27, confirmed on the Mac 2026-10-27)
 
 Opens by itself the first time Card Ingest runs for someone on a Mac (`setupTutorialSeen` in the
 app's user defaults, set as soon as it opens, so closing it early counts), and from Help › Setup
