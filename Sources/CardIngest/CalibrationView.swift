@@ -36,6 +36,8 @@ final class CalibrationModel {
     private(set) var labelError: String?
     /// The labels the limits couldn't follow, after the last right-click.
     private(set) var unmet: [UnmetLabel] = []
+    /// What the last right-click or Learn from Labels moved, or that it moved nothing.
+    private(set) var learnedNote: String?
 
     enum Showing: Hashable { case keepers, outtakes, rescued, missed, labelled }
 
@@ -94,8 +96,25 @@ final class CalibrationModel {
 
     func learn() {
         let result = Calibration.learned(from: labels, folder: folder, scored: scored, limits: limits)
+        let moved = Self.moves(from: limits, to: result.limits)
+        learnedNote = moved.isEmpty ? "No change: the limits already follow your labels." : "Moved " + moved.joined(separator: ", ") + "."
         limits = result.limits
         unmet = result.unmet
+    }
+
+    /// Each limit that differs, as its slider shows it: "Dark subject off → 31".
+    static func moves(from old: RatingSettings, to new: RatingSettings) -> [String] {
+        let percent = { (v: Double) in "\(Int((v * 100).rounded()))%" }
+        let whole = { (v: Double) in "\(Int(v.rounded()))" }
+        let limits: [(String, Double, Double, (Double) -> String)] = [
+            ("Soft faces", old.minimumSharpnessFaces, new.minimumSharpnessFaces, whole),
+            ("Soft, no face", old.minimumSharpnessNoFaces, new.minimumSharpnessNoFaces, whole),
+            ("Too bright", old.maximumBlown, new.maximumBlown, percent),
+            ("Too dark", old.maximumCrushed, new.maximumCrushed, percent),
+            ("Dark subject", old.minimumBrightness, new.minimumBrightness, { $0 < 1 ? "off" : whole($0) }),
+            ("Bright subject", old.maximumBrightness, new.maximumBrightness, { $0 >= 255 ? "off" : whole($0) }),
+        ]
+        return limits.filter { $0.1 != $0.2 }.map { "\($0.0) \($0.3($0.1)) → \($0.3($0.2))" }
     }
 
     func choose() {
@@ -412,6 +431,9 @@ struct CalibrationView: View {
                  : "\(count) photo\(count == 1 ? "" : "s") labelled, from \(model.labels.folderCount) folder\(model.labels.folderCount == 1 ? "" : "s"). "
                     + "Right-click a photo to label it; the limits move the least they need to.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            if let note = model.learnedNote {
+                Text(note).font(.caption).fixedSize(horizontal: false, vertical: true)
+            }
             ForEach(model.unmet, id: \.label) { unmet in
                 Label(unmetText(unmet), systemImage: "exclamationmark.triangle.fill")
                     .font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
