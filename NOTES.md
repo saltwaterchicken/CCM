@@ -752,7 +752,9 @@ exactly when its button is. **macOS's own Help search field taken out (2026-10-2
 the whole Mac as well ("photos" brought up the Photos app), which an app can't narrow, so the dark
 help window is the one search. Done by making the app's help menu one that's never shown
 (`AppDelegate` in `HelpView.swift`, set again if the menus are rebuilt). The menu items can no
-longer be searched from the Help menu; the help answers name them instead. To confirm on the Mac.
+longer be searched from the Help menu; the help answers name them instead. Confirmed gone on the
+Mac 2026-10-27. The photographer misses it a little but wants it left out for now; to bring it
+back, delete the `AppDelegate` (and its `@NSApplicationDelegateAdaptor` line in `CardIngestApp.swift`).
 Confirmed on the Mac 2026-10-27 that the menus follow the window: File › Copy
 changed to the card's name on its own (greyed out, as the card was empty, like the button). The questions are a first guess; the photographer's list from past summers will replace or
 add to them.
