@@ -974,7 +974,7 @@ Suggestions so far, not yet decided. Edit freely.
     sidecar is listed under "Can't update" and the server's copy is unchanged. For a card copied
     with the server unmounted, Sync adds every file (catch-up).
 
-## License keys (asked 2026-10-27, built 2026-10-27, not yet tried on the Mac)
+## License keys (asked 2026-10-27, built 2026-10-27, confirmed on the Mac 2026-10-27: a key from the tool unlocked it)
 
 Offline keys that run out, as in the photographer's brief: Ed25519 via Apple's CryptoKit, no
 server or network. `tools/licensing/license.swift` (developer's Mac only, not in the package) makes
