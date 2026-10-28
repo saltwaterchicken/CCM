@@ -992,7 +992,7 @@ Macs; the repo is to be made private. The License window opens by itself without
 and from Help › License…; About Card Ingest shows who it's licensed to; a banner from 14 days
 before the end. Help answer "license" added.
 
-## About box (asked 2026-10-27, built 2026-10-27, not yet tried on the Mac)
+## About box (asked 2026-10-27, built 2026-10-27, confirmed on the Mac 2026-10-27, with the logo)
 
 Card Ingest › About Card Ingest (`About.swift`): the app's icon, "Version 1.0 beta (<build>)", © 2026
 Capture Camp Media, then Capture Camp Media, www.capturecampmedia.com and
