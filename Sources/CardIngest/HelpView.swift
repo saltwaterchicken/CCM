@@ -273,7 +273,7 @@ struct SupportView: View {
 
     /// The app's version and Mac, each card and the step it's on, and the last error.
     private var details: [String] {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "development build"
+        let version = About.version
         var lines = ["Card Ingest \(version), macOS \(ProcessInfo.processInfo.operatingSystemVersionString)",
                      "Settings: \(settings.fileURL.lastPathComponent)"]
         for card in watcher.cards {
@@ -391,7 +391,7 @@ struct HelpCommands: Commands {
             Button("License…") { openWindow(id: "license") }
         }
         CommandGroup(replacing: .appInfo) {
-            Button("About Card Ingest") { license.showAbout() }
+            Button("About Card Ingest") { About.show(license: license) }
         }
     }
 }

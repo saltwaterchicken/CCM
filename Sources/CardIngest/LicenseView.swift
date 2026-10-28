@@ -55,17 +55,6 @@ final class LicenseModel {
         guard case let .valid(license) = status else { return nil }
         return "Licensed to \(license.email) until \(License.format(license.expires))"
     }
-
-    /// The standard About box, with who it's licensed to.
-    func showAbout() {
-        let text = licensedTo ?? (status.problem ?? "Not licensed")
-        let credits = NSAttributedString(string: text, attributes: [
-            .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
-            .foregroundColor: NSColor.secondaryLabelColor,
-        ])
-        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
-        NSApp.activate()
-    }
 }
 
 /// Help › License…, and what opens by itself without a working key: paste

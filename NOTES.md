@@ -991,3 +991,13 @@ Folder, viewing and rating still work; nothing on disk changes); one key per ema
 Macs; the repo is to be made private. The License window opens by itself without a working key,
 and from Help › License…; About Card Ingest shows who it's licensed to; a banner from 14 days
 before the end. Help answer "license" added.
+
+## About box (asked 2026-10-27, built 2026-10-27, not yet tried on the Mac)
+
+Card Ingest › About Card Ingest (`About.swift`): the app's icon, "Version 1.0 beta (<build>)", © 2026
+Capture Camp Media, then Capture Camp Media, www.capturecampmedia.com and
+capturecampmedia@icloud.com (both clickable), and who it's licensed to. The version people see is
+the `VERSION` file at the top of the repo; the build is the commit (`git describe`, "-dirty" if
+built with uncommitted changes), also sent with Live Tech Support. The logo: put a square PNG at
+`scripts/logo.png` (1024 x 1024, clear background) and make-app.sh turns it into the app's icon,
+which the About box shows. Waiting on the logo file from the photographer.

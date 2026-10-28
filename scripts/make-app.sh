@@ -11,7 +11,7 @@
 # Live Tech Support writes to the WhatsApp number in scripts/support-whatsapp.txt
 # (one line, with the country code, e.g. +1 555 123 4567), or in the
 # CARD_INGEST_SUPPORT_WHATSAPP variable. It's built into the app so photographers
-# don't have to set it. The file is kept out of git, as this repository is public.
+# don't have to set it. The file is kept out of git all the same.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -28,7 +28,26 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/CardIngest"
 
-VERSION="$(git describe --tags --always 2>/dev/null || echo 1.0)"
+# The version people see is in the VERSION file ("1.0 beta"); the build is the
+# commit it was made from, so a problem report says exactly which code it was.
+VERSION="$(head -n 1 VERSION 2>/dev/null || echo 1.0)"
+BUILD="$(git describe --tags --always --dirty 2>/dev/null || echo "$VERSION")"
+
+# The logo, as the app's icon (Dock, Finder and the About box), when
+# scripts/logo.png is there: square, ideally 1024 x 1024 with a clear background.
+ICON_KEY=""
+if [ -f scripts/logo.png ]; then
+    ICONSET="$(mktemp -d)/AppIcon.iconset"
+    mkdir -p "$ICONSET"
+    for size in 16 32 128 256 512; do
+        sips -z $size $size scripts/logo.png --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
+        sips -z $((size * 2)) $((size * 2)) scripts/logo.png --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
+    done
+    iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
+    ICON_KEY="<key>CFBundleIconFile</key><string>AppIcon</string>"
+else
+    echo "Note: no logo (scripts/logo.png), so the app has the plain icon."
+fi
 SUPPORT="${CARD_INGEST_SUPPORT_WHATSAPP:-}"
 if [ -z "$SUPPORT" ] && [ -f scripts/support-whatsapp.txt ]; then
     SUPPORT="$(head -n 1 scripts/support-whatsapp.txt)"
@@ -49,7 +68,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleExecutable</key><string>CardIngest</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>${VERSION}</string>
-    <key>CFBundleVersion</key><string>${VERSION}</string>
+    <key>CFBundleVersion</key><string>${BUILD}</string>
+    <key>NSHumanReadableCopyright</key><string>© 2026 Capture Camp Media</string>
+    ${ICON_KEY}
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSApplicationCategoryType</key><string>public.app-category.photography</string>
     <key>NSHighResolutionCapable</key><true/>
