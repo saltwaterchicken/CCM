@@ -447,7 +447,7 @@ struct CullingView: View {
                     // How many tiles fit in a row (adaptive, 170 wide, 8 apart, 8 in from each side).
                     .onGeometryChange(for: Int.self) { geometry in
                         max(1, Int((geometry.size.width - 16 + 8) / (170 + 8)))
-                    } action: { model.columns = $0 }
+                    } action: { if model.columns != $0 { model.columns = $0 } }
                     .onChange(of: model.grid.focus) { _, id in
                         if let id { withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(id) } }
                     }
@@ -553,23 +553,31 @@ struct CullingView: View {
                         .helpSpot(.openIn)
                 }
             }
+            // One line kept the same height whether checking, offering a Check or
+            // neither: checks start and finish with each shot that lands, and a
+            // line coming and going would bounce the grid up and down.
             if !model.grid.shots.isEmpty, model.rating.available {
-                if model.isChecking {
-                    HStack(spacing: 6) {
-                        ProgressView().controlSize(.small)
-                        Text("Checking sharpness and exposure: \(model.checksDone) of \(model.checksTotal)")
-                            .foregroundStyle(.secondary).monospacedDigit()
-                    }
-                } else if model.uncheckedCount > 0 {
-                    HStack {
-                        Button("Check \(model.uncheckedCount) \(model.uncheckedCount == 1 ? "Photo" : "Photos")") {
-                            model.checkUnchecked()
+                Group {
+                    if model.isChecking {
+                        HStack(spacing: 6) {
+                            ProgressView().controlSize(.small)
+                            Text("Checking sharpness and exposure: \(model.checksDone) of \(model.checksTotal)")
+                                .foregroundStyle(.secondary).monospacedDigit()
                         }
-                        .helpSpot(.checkPhotos)
-                        Text("Rates sharpness and exposure for the photos with no stars yet.")
-                            .font(.caption).foregroundStyle(.secondary)
+                    } else if model.uncheckedCount > 0 {
+                        HStack {
+                            Button("Check \(model.uncheckedCount) \(model.uncheckedCount == 1 ? "Photo" : "Photos")") {
+                                model.checkUnchecked()
+                            }
+                            .helpSpot(.checkPhotos)
+                            Text("Rates sharpness and exposure for the photos with no stars yet.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Color.clear
                     }
                 }
+                .frame(height: 24, alignment: .leading)
             }
             if let problem = model.problem {
                 Label(problem, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
@@ -679,6 +687,10 @@ struct TileView: View {
                 Text(" ").font(.caption)
             }
         }
+        // Every tile the same height, stars or not: the grid lays out rows it
+        // hasn't shown yet from their first tile, and a tile of another height
+        // makes the rows below shift as they're scrolled to.
+        .frame(height: Self.height, alignment: .top)
         .padding(6)
         .background(isSelected ? Color.accentColor.opacity(0.22) : Color(white: 0.11),
                     in: RoundedRectangle(cornerRadius: 5))
@@ -727,6 +739,9 @@ struct TileView: View {
             .background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 3))
             .foregroundStyle(.white)
     }
+
+    /// The picture, the name and the stars, with the spacing between them.
+    static let height: CGFloat = 140 + 6 + 16 + 6 + 16
 
     /// 0:07, 1:05:09
     static func length(_ seconds: Double) -> String {
