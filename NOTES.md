@@ -755,7 +755,7 @@ help window is the one search. Done by making the app's help menu one that's nev
 longer be searched from the Help menu; the help answers name them instead. Confirmed gone on the
 Mac 2026-10-27. The photographer misses it a little but wants it left out for now; to bring it
 back, delete the `AppDelegate` (and its `@NSApplicationDelegateAdaptor` line in `CardIngestApp.swift`).
-**Menu commands in the help search (asked 2026-10-27, built 2026-10-27, not yet tried on the Mac):** in
+**Menu commands in the help search (asked 2026-10-27, built 2026-10-27, confirmed on the Mac 2026-10-27, with macOS's search field still gone):** in
 place of macOS's search field, typing in the dark help window also lists, under "In the menus", up to
 5 commands from the File, Photos and Help menus that every typed word finds (in the command's name or
 its menu's; synonyms count, so "synology" finds Sync With Server), with their shortcuts. They're read
