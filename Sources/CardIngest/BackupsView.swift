@@ -24,6 +24,8 @@ final class ServerBackups {
     }
 
     private(set) var entries: [Entry] = []
+    /// Tells the phone when each card's backup finishes.
+    var notifier = PhoneNotifier(NotificationSettings())
 
     /// Starts showing a card's backup. Its updates can arrive first, so
     /// whichever comes first makes the entry.
@@ -40,7 +42,12 @@ final class ServerBackups {
 
     func update(_ id: UUID, _ status: ServerBackupJob.Status) {
         if let index = entries.firstIndex(where: { $0.id == id }) {
+            let wasFinished = entries[index].status?.finished == true
             entries[index].status = status
+            if status.finished, !wasFinished {
+                notifier.send(.backupDone(folder: entries[index].folderName, sent: status.sent, alreadyThere: status.alreadyThere,
+                                          queued: status.queued, problems: status.problems.count, wentAway: status.wentAway))
+            }
         } else {
             entries.insert(Entry(id: id, cardName: "", folderName: "", localFolder: nil, status: status), at: 0)
         }

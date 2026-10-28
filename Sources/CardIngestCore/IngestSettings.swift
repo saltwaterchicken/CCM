@@ -37,6 +37,9 @@ public struct IngestSettings: Codable, Equatable, Sendable {
     /// A WhatsApp number for Live Tech Support in place of the one built into
     /// the app, with its country code (e.g. +1 555 123 4567). Empty uses the app's.
     public var supportWhatsApp: String
+    /// Alerts on the phone and Watch (ntfy) when a card copies, its backup
+    /// reaches the server, or Sync With Server finishes. Off until a topic is set.
+    public var notifications: NotificationSettings
 
     public init(
         schemaVersion: Int = 2,
@@ -54,7 +57,8 @@ public struct IngestSettings: Codable, Equatable, Sendable {
         fileTypes: FileTypes = FileTypes(),
         metadata: MetadataTemplate = MetadataTemplate(),
         rating: RatingSettings = RatingSettings(),
-        supportWhatsApp: String = ""
+        supportWhatsApp: String = "",
+        notifications: NotificationSettings = NotificationSettings()
     ) {
         self.schemaVersion = schemaVersion
         self.folderName = folderName
@@ -72,6 +76,7 @@ public struct IngestSettings: Codable, Equatable, Sendable {
         self.metadata = metadata
         self.rating = rating
         self.supportWhatsApp = supportWhatsApp
+        self.notifications = notifications
     }
 
     public init(from decoder: Decoder) throws {
@@ -98,6 +103,7 @@ public struct IngestSettings: Codable, Equatable, Sendable {
         metadata = try c.decodeIfPresent(MetadataTemplate.self, forKey: .metadata) ?? d.metadata
         rating = try c.decodeIfPresent(RatingSettings.self, forKey: .rating) ?? d.rating
         supportWhatsApp = try c.decodeIfPresent(String.self, forKey: .supportWhatsApp) ?? d.supportWhatsApp
+        notifications = try c.decodeIfPresent(NotificationSettings.self, forKey: .notifications) ?? d.notifications
     }
 
     static let milestone1RenamePattern = "{date:YYYY-MM-DD}_{job}_{camera}_{seq:4}"
