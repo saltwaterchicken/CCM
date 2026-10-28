@@ -973,3 +973,21 @@ Suggestions so far, not yet decided. Edit freely.
     server. Click it again: "The server already has everything". Change a star and Sync: that
     sidecar is listed under "Can't update" and the server's copy is unchanged. For a card copied
     with the server unmounted, Sync adds every file (catch-up).
+
+## License keys (asked 2026-10-27, built 2026-10-27, not yet tried on the Mac)
+
+Offline keys that run out, as in the photographer's brief: Ed25519 via Apple's CryptoKit, no
+server or network. `tools/licensing/license.swift` (developer's Mac only, not in the package) makes
+the keypair once and issues keys (`--email`, `--months 6` or `--expires YYYY-MM-DD`); see
+`tools/licensing/README.md`. The keypair was made on 2026-10-27; the private key is in
+`~/.cardingest/license_private.key` (to be backed up offline) and the public key is
+`License.publicKey`. Keys are `CI1-` + base64url(JSON payload) + `.` + base64url(signature) and work
+through the end of their expiry day. `License.check` (CardIngestCore) ignores spaces and line breaks,
+and catches a clock set more than 2 days earlier than the latest date the app has seen (kept in the
+app's preferences, never moved back). The app (`LicenseView.swift`) checks at launch and hourly;
+the key is in its preferences, not the settings file. Photographer's calls (2026-10-27): without a
+working key only new copies and Sync With Server are off (a running copy always finishes; Load
+Folder, viewing and rating still work; nothing on disk changes); one key per email, any number of
+Macs; the repo is to be made private. The License window opens by itself without a working key,
+and from Help › License…; About Card Ingest shows who it's licensed to; a banner from 14 days
+before the end. Help answer "license" added.

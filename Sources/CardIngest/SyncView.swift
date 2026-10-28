@@ -19,7 +19,7 @@ struct SyncButton: View {
         if let folder = model.folder, model.serverRoot != nil {
             VStack(alignment: .trailing, spacing: 2) {
                 Button("Sync With Server") { model.compareWithServer() }
-                    .disabled(model.backupRunning || model.sync != .idle)
+                    .disabled(!model.licensed || model.backupRunning || model.sync != .idle)
                     .help(model.backupRunning ? "Waiting for this card's backup to finish"
                           : "Sends this card's sidecars, exports and anything the backup missed to the server. "
                           + "Nothing there is deleted or replaced; you see what it will do first.")

@@ -151,6 +151,14 @@ public enum Help {
     ]
 
     public static let answers: [HelpAnswer] = [
+        HelpAnswer("license", "How do I enter or renew my license key?",
+                   "Help › License… shows who the app is licensed to and until when. To renew, paste the new key from the "
+                   + "email (it starts with CI1-) after Enter New Key…, and press Activate. A reminder shows at the top of the "
+                   + "window from 14 days before the end. Without a working key, copying cards and Sync With Server are off, but "
+                   + "photos already copied can still be opened and rated, and a copy already running always finishes. The key "
+                   + "is checked on this Mac alone: no internet is needed. If it says the clock is wrong, set the right date in "
+                   + "System Settings › General › Date & Time.",
+                   keywords: ["key", "activate", "renew", "expired", "unlock", "licence", "subscription"]),
         HelpAnswer("copy", "How do I copy a card?",
                    "Put the card in. It shows at the top left with how many camera files it has. Press Copy (or File › Copy, ⌘↩). "
                    + "Every file is copied, "

@@ -13,6 +13,8 @@ final class GridModel {
     private(set) var cardName = ""
     private(set) var folder: URL?
     private(set) var problem: String?
+    /// Set by CardWatcher: Sync With Server is off when the license has run out.
+    var licensed = true
     private(set) var cache = ThumbnailCache()
     /// Pictures for the large view, at the screen's size; the neighbours are loaded ahead.
     private(set) var big = GridModel.bigCache()
@@ -62,7 +64,7 @@ final class GridModel {
 
     /// Compares this card with its folder on the server, then asks before writing anything.
     func compareWithServer() {
-        guard let local = folder, let server = serverFolder, let root = serverRoot else { return }
+        guard licensed, let local = folder, let server = serverFolder, let root = serverRoot else { return }
         sync = .comparing
         Task {
             let result = await Task.detached(priority: .userInitiated) { () -> Result<ServerSync.Plan, Error> in

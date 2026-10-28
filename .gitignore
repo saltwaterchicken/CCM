@@ -6,3 +6,7 @@ DerivedData/
 xcuserdata/
 TestCards/
 scripts/support-whatsapp.txt
+
+# License signing keys never go in the repo (tools/licensing keeps them in ~/.cardingest).
+*.key
+license_private*

@@ -375,6 +375,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 /// The Help menu: this app's help, and Live Tech Support.
 struct HelpCommands: Commands {
     var help: HelpModel
+    var license: LicenseModel
     @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
@@ -387,6 +388,10 @@ struct HelpCommands: Commands {
             }
             Divider()
             Button("Setup Tutorial…") { openWindow(id: "tutorial") }
+            Button("License…") { openWindow(id: "license") }
+        }
+        CommandGroup(replacing: .appInfo) {
+            Button("About Card Ingest") { license.showAbout() }
         }
     }
 }

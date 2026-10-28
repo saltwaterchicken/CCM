@@ -21,7 +21,7 @@ struct CardCommands: Commands {
                 } else {
                     Button("Copy \(card.info.name)") { watcher.startCopy(card) }
                         .keyboardShortcut(index == 0 ? KeyboardShortcut(.return, modifiers: .command) : nil)
-                        .disabled(state?.isBusy == true || (card.files?.isEmpty ?? true))
+                        .disabled(!watcher.licensed || state?.isBusy == true || (card.files?.isEmpty ?? true))
                 }
             }
             Divider()
@@ -63,7 +63,7 @@ struct CardCommands: Commands {
             }
             Divider()
             Button("Sync With Server") { grid.compareWithServer() }
-                .disabled(grid.folder == nil || grid.serverRoot == nil || grid.backupRunning || grid.sync != .idle)
+                .disabled(!grid.licensed || grid.folder == nil || grid.serverRoot == nil || grid.backupRunning || grid.sync != .idle)
         }
     }
 }

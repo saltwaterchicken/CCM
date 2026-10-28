@@ -10,6 +10,7 @@ struct CardIngestApp: App {
     @State private var watcher: CardWatcher
     @State private var server = ServerStatus()
     @State private var help = HelpModel()
+    @State private var license = LicenseModel()
 
     init() {
         // Needed so the window comes to the front when launched from Terminal.
@@ -30,7 +31,7 @@ struct CardIngestApp: App {
 
     var body: some Scene {
         WindowGroup("Card Ingest", id: "main") {
-            ContentView(model: model, watcher: watcher, server: server)
+            ContentView(model: model, watcher: watcher, server: server, license: license)
                 .frame(minWidth: 1000, minHeight: 620)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Theme.window)
@@ -45,7 +46,7 @@ struct CardIngestApp: App {
         }
         .commands {
             CardCommands(settings: model, watcher: watcher)
-            HelpCommands(help: help)
+            HelpCommands(help: help, license: license)
         }
         Window("Calibrate Auto-Rating", id: "calibration") {
             CalibrationView(settings: model, grid: watcher.grid)
@@ -72,6 +73,13 @@ struct CardIngestApp: App {
                 .environment(help)
         }
         .defaultSize(width: 600, height: 600)
+        Window("Card Ingest License", id: "license") {
+            LicenseView(license: license)
+                .frame(minWidth: 480, minHeight: 300)
+                .background(Theme.window)
+                .preferredColorScheme(.dark)
+        }
+        .windowResizability(.contentSize)
     }
 }
 
@@ -184,6 +192,7 @@ struct ContentView: View {
     @Bindable var model: SettingsModel
     var watcher: CardWatcher
     var server: ServerStatus
+    var license: LicenseModel
     @Environment(HelpModel.self) private var help
     @Environment(\.openWindow) private var openWindow
 
@@ -202,12 +211,20 @@ struct ContentView: View {
             CullingView(model: watcher.grid)
         }
         .padding(16)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            LicenseBanner(license: license)
+        }
         .overlay {
             if watcher.grid.isViewing { LargeView(model: watcher.grid) }
         }
         .onAppear {
             // The first time Card Ingest runs for someone on this Mac.
             if !UserDefaults.standard.bool(forKey: TutorialView.seenKey) { openWindow(id: "tutorial") }
+        }
+        .onChange(of: license.status.isValid, initial: true) { _, valid in
+            watcher.licensed = valid
+            // At launch, or when the hourly check finds the key has run out.
+            if !valid { openWindow(id: "license") }
         }
     }
 
@@ -494,7 +511,7 @@ struct CardsView: View {
         } else {
             Button("Copy") { watcher.startCopy(card) }
                 .keyboardShortcut(.defaultAction)
-                .disabled(card.files?.isEmpty ?? true)
+                .disabled(!watcher.licensed || (card.files?.isEmpty ?? true))
         }
     }
 

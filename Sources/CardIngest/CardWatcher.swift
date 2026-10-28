@@ -84,6 +84,11 @@ final class CardWatcher {
     let grid = GridModel()
     /// Each card's backup to the server, running beside the local copy.
     let backups = ServerBackups()
+    /// Off when the license has run out: no new copies start (one already
+    /// running always finishes and verifies), and Sync With Server is off.
+    var licensed = true {
+        didSet { grid.licensed = licensed }
+    }
 
     private var settings: IngestSettings
     /// Called after a card copies and verifies, to move the import counter on.
@@ -183,7 +188,7 @@ final class CardWatcher {
     /// local copy, beside it: the local copy, trash and eject never wait for
     /// it (photographer's call, 2026-10-27: a card may be needed back at once).
     func startCopy(_ card: DetectedVolume) {
-        guard let files = card.files, copyStates[card.id]?.isBusy != true else { return }
+        guard licensed, let files = card.files, copyStates[card.id]?.isBusy != true else { return }
         let url = card.id
         let name = card.info.name
         let settings = settings
