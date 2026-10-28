@@ -61,6 +61,9 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   both folders to the Synology, and record in the checklist what Synology Photos shows. Then look
   inside the tagged files to see where each app wrote the metadata.
 - [ ] Step 2: Agree the spec from what the test shows, plus the photographer's template values.
+- [ ] Keywords (asked for 2026-10-28, built 2026-10-28, not yet tried on the Mac): job keywords on
+  every photo as it lands, and a keyword bar under the grid. See "Keywords" under Metadata; test
+  step 23.
 
 **Milestone 6: Auto-rating, sharpness and exposure.** Plan written 2026-10-24
 (https://claude.ai/artifact/7UMysgBFBPp1DokgpAdt81). Blinks follow as Milestone 7.
@@ -626,6 +629,33 @@ changed after verifying (proposed: receipt keeps the card's checksum and adds th
 files matched by name like `.xmp`); per-job fields in the Job panel or the settings file; the
 template values themselves.
 
+### Keywords (asked 2026-10-28, built 2026-10-28, not yet tried on the Mac)
+
+The photographer wanted to start testing keywording at camp. Built the way stars already work, so
+nothing new is decided about where metadata lives:
+- **Where:** the standard `dc:subject` list in the shot's `.xmp` sidecar, beside `xmp:Rating`
+  (`Keywords.swift`; written through `Stars.write(keywords:)`, so the RAW's digest goes in too and
+  Lightroom trusts the sidecar). Lightroom, Bridge and Photo Mechanic read it. No photo is ever
+  written to; nothing on the card is touched. A RAW+JPEG pair shares its RAW's sidecar.
+- **JPEG-only and HEIC:** a `.xmp` sidecar too, as their hand-given stars. Same known gap:
+  Lightroom ignores sidecars for them (Photo Mechanic and Bridge read them).
+- **Clips:** none yet. Keywords inside MP4/MOV for the Synology is the parked Milestone 4 test.
+- **Job keywords:** the settings file's `metadata.keywords` (an array; it already existed, unused),
+  now the Job panel's "Keywords" field, typed with commas between. Every photo gets them as it lands
+  (`LiveShots(keywords:)`), added to whatever its sidecar already has, the card's own `.xmp`
+  included. With none set, landing writes exactly what it did before.
+- **In the grid:** select photos and press K (or Photos › Add Keywords…, ⌘K), type keywords with
+  commas between, Return. The keys go back to the grid so rating carries on. The bar under the grid
+  shows the selection's keywords: × takes one off, a dim one is only on some of them (click to give
+  it to all), and up to 12 recent keywords (kept on this Mac, `recentKeywords` in the app's
+  defaults) add in one click. Tiles show a tag and a count; the large view lists them.
+  Same case-insensitive matching everywhere: `camp` and `Camp` are one keyword.
+- **Load Folder** reads them back from the sidecars.
+- **Server:** keywords ride up with the sidecars in Sync With Server. As with stars, a sidecar
+  already on the write-once server can't be updated, so keyword before the first Sync.
+- Not done: keyword hierarchies (Lightroom's `lr:hierarchicalSubject`), a keyword list or
+  autocomplete, filtering the grid by keyword, captions and the other template fields.
+
 ## Server backup (asked 2026-10-27, built and confirmed on the Mac 2026-10-27)
 
 The backup goes to the Synology over a network cable. Today the backup is written in lockstep with
@@ -987,6 +1017,15 @@ Suggestions so far, not yet decided. Edit freely.
     server. Click it again: "The server already has everything". Change a star and Sync: that
     sidecar is listed under "Can't update" and the server's copy is unchanged. For a card copied
     with the server unmounted, Sync adds every file (catch-up).
+23. Keywords (2026-10-28; real card with non-critical test photos, Trash unticked). In the Job panel
+    type `Camp, 2026, Summer` in Keywords. Press Copy: each photo tile gets a small tag with 3 on
+    it (clips don't). Click a photo and press K: the field under the grid takes the keys; type
+    `Lake, canoe` and Return. The tile now shows 5, the bar shows all five keywords, and pressing 3
+    still rates (the keys are back on the grid). Shift-click a few photos: keywords on only some of
+    them show dim; click one to give it to all; × takes one off all of them. Recent shows Lake and
+    canoe as one-click buttons. Double-click: the keywords are listed at the top. Import the folder
+    into Lightroom Classic (or open it in Photo Mechanic or Bridge): the RAWs show the keywords in
+    the Keywording panel. Load Folder… the same card again: the keywords are still there.
 
 ## License keys (asked 2026-10-27, built 2026-10-27, confirmed on the Mac 2026-10-27: a key from the tool unlocked it)
 

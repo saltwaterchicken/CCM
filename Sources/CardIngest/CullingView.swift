@@ -386,6 +386,47 @@ final class GridModel {
         }
     }
 
+    /// Keywords used lately, newest first, offered as one-click buttons under
+    /// the grid. Kept on this Mac only.
+    private(set) var recentKeywords: [String] = GridModel.savedRecentKeywords()
+    /// Bumped by Photos › Add Keywords… (⌘K): the keyword field takes the keys.
+    var keywordFieldRequest = 0
+    nonisolated private static let recentKeywordsKey = "recentKeywords"
+
+    nonisolated private static func savedRecentKeywords() -> [String] {
+        UserDefaults.standard.stringArray(forKey: recentKeywordsKey) ?? []
+    }
+
+    /// Adds keywords to the selected photos' sidecars, on the stars' queue so
+    /// changes to one sidecar are written in the order they were made.
+    func addKeywords(_ words: [String]) {
+        guard !words.isEmpty else { return }
+        recentKeywords = Array(Keywords.merged(words, adding: recentKeywords).prefix(12))
+        UserDefaults.standard.set(recentKeywords, forKey: Self.recentKeywordsKey)
+        let shots = grid.addKeywords(words)
+        writeKeywords(shots) { try Keywords.add(words, to: $0) }
+    }
+
+    /// Takes a keyword off the selected photos.
+    func removeKeyword(_ word: String) {
+        let shots = grid.removeKeyword(word)
+        writeKeywords(shots) { try Keywords.remove([word], from: $0) }
+    }
+
+    private func writeKeywords(_ shots: [Shot], _ write: @escaping @Sendable (Shot) throws -> Void) {
+        guard !shots.isEmpty else { return }
+        writes.async {
+            for shot in shots {
+                do {
+                    try write(shot)
+                } catch {
+                    let message = "Couldn't save the keywords for \(shot.baseName): \(error.localizedDescription)"
+                    Task { @MainActor [weak self] in self?.problem = message }
+                }
+            }
+        }
+    }
+
     func rate(_ stars: Int) {
         let shots = grid.rate(stars)
         guard !shots.isEmpty else { return }
@@ -407,6 +448,7 @@ final class GridModel {
 struct CullingView: View {
     var model: GridModel
     @FocusState private var focused: Bool
+    @FocusState private var keywordFocused: Bool
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -426,6 +468,7 @@ struct CullingView: View {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 8)], spacing: 8) {
                             ForEach(model.grid.visible) { shot in
                                 TileView(shot: shot, stars: model.grid.stars[shot.id], check: model.check(of: shot.id),
+                                         keywords: model.grid.keywords[shot.id] ?? [],
                                          isSelected: model.grid.selected.contains(shot.id), cache: model.cache)
                                     .id(shot.id)
                                     .onTapGesture {
@@ -489,7 +532,22 @@ struct CullingView: View {
                     model.selectAll()
                     return .handled
                 }
+                // K: type keywords for the selection, as in Photo Mechanic's quick keywording.
+                .onKeyPress(characters: CharacterSet(charactersIn: "kK")) { press in
+                    guard !press.modifiers.contains(.command), !model.grid.selectedPhotos.isEmpty else { return .ignored }
+                    keywordFocused = true
+                    return .handled
+                }
             }
+            if !model.grid.shots.isEmpty {
+                KeywordBar(model: model, field: $keywordFocused) {
+                    keywordFocused = false
+                    focused = true
+                }
+            }
+        }
+        .onChange(of: model.keywordFieldRequest) {
+            if !model.grid.selectedPhotos.isEmpty { keywordFocused = true }
         }
         .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -509,7 +567,7 @@ struct CullingView: View {
                          + (model.folder.map { " in \($0.lastPathComponent)" } ?? ""))
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Text("0–5 rate · arrows move · double-click or Space to look closer · ⌘A all")
+                    Text("0–5 rate · K keywords · arrows move · double-click or Space to look closer · ⌘A all")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 } else {
@@ -590,6 +648,94 @@ struct CullingView: View {
     }
 }
 
+/// Under the grid: the selected photos' keywords, a field to add more, and
+/// the ones used lately. Return adds what's typed and gives the keys back to
+/// the grid, so culling carries on; Esc gives them back without adding.
+struct KeywordBar: View {
+    var model: GridModel
+    var field: FocusState<Bool>.Binding
+    /// Back to the grid.
+    var done: () -> Void
+    @State private var text = ""
+
+    var body: some View {
+        let photos = model.grid.selectedPhotos
+        let onSelection = model.grid.selectionKeywords
+        let recent = model.recentKeywords.filter { word in
+            !onSelection.contains { $0.onAll && $0.keyword.caseInsensitiveCompare(word) == .orderedSame }
+        }
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text("Keywords")
+                    .font(.caption.weight(.semibold))
+                    .textCase(.uppercase)
+                    .foregroundStyle(.secondary)
+                TextField(photos.isEmpty ? "Select photos, then press K to type keywords"
+                          : "Add to \(photos.count) \(photos.count == 1 ? "photo" : "photos"), commas between, then Return",
+                          text: $text)
+                    .textFieldStyle(.roundedBorder)
+                    .focused(field)
+                    .disabled(photos.isEmpty)
+                    .onSubmit(add)
+                    .onKeyPress(.escape) {
+                        text = ""
+                        done()
+                        return .handled
+                    }
+            }
+            // One row of fixed height whatever is selected, so the grid above never moves.
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 4) {
+                    if photos.isEmpty {
+                        Text(model.grid.selected.isEmpty ? "Nothing selected" : "Clips don't take keywords yet")
+                            .font(.caption).foregroundStyle(.tertiary)
+                    }
+                    ForEach(onSelection, id: \.self) { item in chip(item) }
+                    if !photos.isEmpty, !recent.isEmpty {
+                        Text(onSelection.isEmpty ? "Recent:" : "· Recent:").font(.caption).foregroundStyle(.tertiary)
+                        ForEach(recent, id: \.self) { word in
+                            Button("+ \(word)") { model.addKeywords([word]) }
+                                .buttonStyle(.borderless)
+                                .font(.caption)
+                                .help("Adds \(word) to the selected photos")
+                        }
+                    }
+                }
+            }
+            .frame(height: 20)
+        }
+    }
+
+    /// A keyword on the selection: bright when every selected photo has it,
+    /// dim when only some do (click it to give it to all), × to take it off.
+    private func chip(_ item: SelectionKeyword) -> some View {
+        HStack(spacing: 3) {
+            Text(item.keyword)
+                .onTapGesture { if !item.onAll { model.addKeywords([item.keyword]) } }
+            Button {
+                model.removeKeyword(item.keyword)
+            } label: {
+                Image(systemName: "xmark").font(.caption2.weight(.bold))
+            }
+            .buttonStyle(.borderless)
+            .help("Takes \(item.keyword) off the selected photos")
+        }
+        .font(.caption)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .background(Color.accentColor.opacity(item.onAll ? 0.35 : 0.12), in: Capsule())
+        .foregroundStyle(item.onAll ? .primary : .secondary)
+        .help(item.onAll ? "On every selected photo" : "On some of the selected photos; click to add it to all")
+    }
+
+    private func add() {
+        let words = Keywords.parse(text)
+        if !words.isEmpty { model.addKeywords(words) }
+        text = ""
+        done()
+    }
+}
+
 /// One shot: its thumbnail, a badge for RAW+JPEG, its name and stars. Clips
 /// show a play mark and their length instead of stars, and scrub under the
 /// pointer: left edge the start, right edge the end.
@@ -598,6 +744,8 @@ struct TileView: View {
     let stars: Int?
     /// What the sharpness and exposure checks found, if they've looked.
     let check: AutoCheck?
+    /// Shown as a tag and a count on the picture.
+    let keywords: [String]
     let isSelected: Bool
     let cache: ThumbnailCache
     @State private var thumbnail: Thumbnail?
@@ -657,6 +805,21 @@ struct TileView: View {
             .overlay(alignment: .bottomLeading) {
                 if let hoverShare {
                     Rectangle().fill(Color.accentColor).frame(width: width * hoverShare, height: 2)
+                }
+            }
+            .overlay(alignment: .bottomLeading) {
+                if !keywords.isEmpty {
+                    HStack(spacing: 2) {
+                        Image(systemName: "tag.fill")
+                        Text("\(keywords.count)")
+                    }
+                    .font(.caption2.weight(.semibold).monospacedDigit())
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 3))
+                    .foregroundStyle(.white)
+                    .padding(4)
+                    .help(keywords.joined(separator: ", "))
                 }
             }
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = max($0, 1) }
@@ -936,6 +1099,11 @@ struct LargeView: View {
                     if let check, check.isFlagged, model.grid.stars[shot.id] == 0 {
                         ForEach(check.problems, id: \.self) { CalibrationChip(text: $0.label) }
                     }
+                }
+                if let words = model.grid.keywords[shot.id] {
+                    Label(words.joined(separator: ", "), systemImage: "tag")
+                        .lineLimit(1)
+                        .foregroundStyle(.secondary)
                 }
                 if let index = model.grid.visible.firstIndex(where: { $0.id == shot.id }) {
                     Text("\(index + 1) of \(model.grid.visible.count)").foregroundStyle(.secondary)
