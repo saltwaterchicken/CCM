@@ -1000,4 +1000,5 @@ capturecampmedia@icloud.com (both clickable), and who it's licensed to. The vers
 the `VERSION` file at the top of the repo; the build is the commit (`git describe`, "-dirty" if
 built with uncommitted changes), also sent with Live Tech Support. The logo: put a square PNG at
 `scripts/logo.png` (1024 x 1024, clear background) and make-app.sh turns it into the app's icon,
-which the About box shows. Waiting on the logo file from the photographer.
+which the About box shows. Logo added 2026-10-27: Capture Camp Media's orange CC with "PHOTO / FILM /
+CONTENT" (1024 x 1024, clear background).
