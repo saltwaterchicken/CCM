@@ -528,7 +528,8 @@ struct CardsView: View {
             VStack(alignment: .leading, spacing: 6) {
                 summary(finished)
                 Label("Move the \(files.count) \(files.count == 1 ? "original" : "originals") on \(card.info.name) to the card's Trash? "
-                      + "Every one has a verified copy. They stay in the card's Trash until you format the card in the camera.",
+                      + "Every one has a verified copy. They stay in the card's Trash until you format the card in the camera."
+                      + ((finished.report?.damaged.isEmpty ?? true) ? "" : " The damaged ones stay on the card where they are."),
                       systemImage: "trash")
                 HStack {
                     Button("Move to Trash") { watcher.confirmTrash(card) }
@@ -551,6 +552,24 @@ struct CardsView: View {
         }
     }
 
+    /// Files that were already damaged on the card: copied exactly as they are,
+    /// and (when the card was cleared) left on it.
+    @ViewBuilder
+    private func damagedNote(_ files: [CopiedFile], keptOnCard: Bool) -> some View {
+        let count = files.count
+        let one = count == 1
+        let copied = "\(count) \(one ? "file looks" : "files look") damaged on the card itself, so \(one ? "it was" : "they were") "
+            + "copied exactly as \(one ? "it is" : "they are")"
+        let kept = keptOnCard ? " and left on the card. If \(one ? "it matters" : "they matter"), don't format the card yet." : "."
+        Label(copied + kept, systemImage: "exclamationmark.triangle.fill")
+            .foregroundStyle(.orange)
+        ForEach(files.prefix(5), id: \.newName) { file in
+            Text("\(file.newName) (\((file.originalPath as NSString).lastPathComponent) on the card): \(file.damage ?? "")")
+                .foregroundStyle(.secondary).textSelection(.enabled)
+        }
+        if count > 5 { Text("…and \(count - 5) more, listed in the receipt.").foregroundStyle(.secondary) }
+    }
+
     /// What was copied, skipped, moved to the card's Trash and ejected.
     @ViewBuilder
     private func summary(_ finished: Finished) -> some View {
@@ -566,6 +585,9 @@ struct CardsView: View {
                 }
                 if let number = report.importNumber {
                     Text("Import number \(String(format: "%03d", number))").foregroundStyle(.secondary)
+                }
+                if !report.damaged.isEmpty {
+                    damagedNote(report.damaged, keptOnCard: finished.trash != nil)
                 }
                 if let first = finished.sidecarProblems.first {
                     let count = finished.sidecarProblems.count

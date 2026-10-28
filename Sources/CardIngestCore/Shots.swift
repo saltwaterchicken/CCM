@@ -20,6 +20,9 @@ public struct Shot: Equatable, Sendable, Identifiable {
     /// Mac drives usually ignore case, so the id does too.
     public var id: String { baseName.lowercased() }
 
+    /// Its files that were already damaged on the card (see DamageCheck).
+    public var damaged: [CopiedFile] { files.filter { $0.damage != nil } }
+
     /// Videos get no star.
     public var isRatable: Bool { kind == .raw || kind == .photo }
 

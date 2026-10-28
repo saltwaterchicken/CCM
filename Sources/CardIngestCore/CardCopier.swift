@@ -18,6 +18,9 @@ public struct CopiedFile: Equatable, Sendable {
     /// True when it was already at the destination with the same checksum,
     /// for example after an earlier copy was interrupted.
     public var alreadyThere: Bool
+    /// Why it looks damaged, when it does (see DamageCheck). The copy is still
+    /// the card's file exactly: it was damaged on the card, before copying.
+    public var damage: String? = nil
 }
 
 public struct CopyReport: Sendable {
@@ -31,6 +34,8 @@ public struct CopyReport: Sendable {
     public var receipts: [URL]
 
     public var totalBytes: Int64 { files.reduce(0) { $0 + $1.size } }
+    /// Files that were already damaged on the card.
+    public var damaged: [CopiedFile] { files.filter { $0.damage != nil } }
 }
 
 public enum CopyError: Error, LocalizedError, Equatable {
@@ -72,6 +77,8 @@ public enum CardCopier {
     ///     verified and has its real name (never for a `.partial`), so the app
     ///     can show it before the whole card is done. Runs on the copying thread.
     ///   - isCancelled: checked between chunks; return true to stop.
+    ///   - fileTypes: which files are pictures and clips, to check each verified
+    ///     copy for damage it already had on the card.
     public static func copy(
         cardRoot: URL,
         cardName: String,
@@ -79,6 +86,7 @@ public enum CardCopier {
         to destinationFolders: [URL],
         importNumber: Int? = nil,
         now: Date = Date(),
+        fileTypes: FileTypes = FileTypes(),
         progress: @Sendable (Int64, Int64) -> Void = { _, _ in },
         fileVerified: @Sendable (CopiedFile) -> Void = { _ in },
         isCancelled: @Sendable () -> Bool = { false }
@@ -188,9 +196,11 @@ public enum CardCopier {
                         throw CopyError.writeFailed(file: file.relativePath, reason: error.localizedDescription)
                     }
                 }
+                // The copy is the card's file exactly, so damage found in it was there on the card.
                 let copied = CopiedFile(newName: planned.newName, originalPath: file.relativePath, size: file.size,
                                         originalModified: file.modified ?? modified, checksum: XXHash64.hex(checksum),
-                                        destinations: targets, alreadyThere: alreadyThere)
+                                        destinations: targets, alreadyThere: alreadyThere,
+                                        damage: targets.first.flatMap { DamageCheck.problem(at: $0, fileTypes: fileTypes) })
                 results.append(copied)
                 fileVerified(copied)
             } catch {
@@ -263,8 +273,9 @@ public enum Receipt {
         let iso = ISO8601DateFormatter()
         var lines = [header]
         for file in report.files {
+            let verified = file.alreadyThere ? "yes (already there)" : "yes"
             lines.append([csv(file.newName), csv(file.originalPath), String(file.size), file.checksum,
-                          file.alreadyThere ? "yes (already there)" : "yes",
+                          csv(file.damage.map { "\(verified), but damaged on the card: \($0)" } ?? verified),
                           iso.string(from: report.finishedAt),
                           file.originalModified.map { iso.string(from: $0) } ?? ""].joined(separator: ","))
         }
@@ -272,6 +283,7 @@ public enum Receipt {
         lines.append("Card,\(csv(report.cardName))")
         lines.append("Files,\(report.files.count)")
         lines.append("Total bytes,\(report.totalBytes)")
+        if !report.damaged.isEmpty { lines.append("Damaged on the card,\(report.damaged.count)") }
         if let number = report.importNumber { lines.append("Import number,\(number)") }
         lines.append("Started,\(iso.string(from: report.startedAt))")
         lines.append("Finished,\(iso.string(from: report.finishedAt))")

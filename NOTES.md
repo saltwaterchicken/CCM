@@ -801,6 +801,36 @@ live preview of the next folder and a file name. A folder name with nothing befo
 to edit it in the Job panel. To see it again as a first run: `defaults delete
 com.capturecampmemories.cardingest setupTutorialSeen`.
 
+## Damaged files (asked 2026-10-28, built 2026-10-28, not yet tried on the Mac)
+
+The photographer had a photo come in corrupted, and the file on the card was the same, so it was
+damaged at capture (likely a flat battery mid-write). The app can't cause or worsen this: it only
+reads the card, every copy is read back from the drive and checked by xxHash64 against what was read
+from the card, and RAWs and JPEGs are never rewritten (metadata goes in sidecars). So a damaged copy
+is the card's file byte for byte.
+
+`DamageCheck.swift` now looks at each verified copy (never the card) for the signs of a file the
+camera didn't finish writing. Structure only, no decoding, a few small reads per file:
+- Empty, or all one blank byte (0x00 or 0xFF), or ending in 256 KB or more of one blank byte.
+- JPEG: must end with its FF D9 marker (padding after it is fine). When something else follows the
+  picture (some phones add a clip), it looks for FF D9 after the picture data starts instead.
+- TIFF-based RAWs (CR2, NEF, ARW, DNG, ORF, RW2, PEF): every strip, tile and preview the IFD0 chain
+  and its SubIFDs list must lie inside the file.
+- Fujifilm RAF: the header's preview, metadata and RAW data must lie inside the file.
+- MOV/MP4/CR3/HEIC: the top-level boxes must fit the file; a clip must have its `moov` index (the
+  camera writes it when recording stops).
+- A layout it doesn't recognise is never called damaged. A file scrambled but still the right shape
+  (for example the camera wrote bad data) gets past it; catching that would mean decoding every
+  picture, not done.
+
+What happens to a damaged file: copied as usual (`CopiedFile.damage` says why), red "Damaged" chip on
+its tile and in the large view (hover for the file and reason), an orange note in the card summary,
+"yes, but damaged on the card: ..." in the receipt's Verified column plus a "Damaged on the card,N"
+summary line. **It stays on the card when the card is cleared** (this Copy or a later one), so it can
+still be looked at, or a recovery app tried, before formatting; the summary says "don't format the
+card yet". Auto-rating skips it (its preview can look fine when the picture isn't). Load Folder runs
+the same check, so an older import shows its damaged files too. Help has an answer ("damaged").
+
 ## GUI wishlist
 
 Suggestions so far, not yet decided. Edit freely.
@@ -982,6 +1012,13 @@ Suggestions so far, not yet decided. Edit freely.
     server. Click it again: "The server already has everything". Change a star and Sync: that
     sidecar is listed under "Can't update" and the server's copy is unchanged. For a card copied
     with the server unmounted, Sync adds every file (catch-up).
+
+23. Damaged files (2026-10-28). Load Folder… the card folder that has the corrupted photo from
+    2026-10-28: its tile has a red "Damaged" chip; hover it for the reason. The other photos have
+    none. If the original is still on the card (or back out of the card's Trash), put that card in
+    and Copy: the summary says the file looks damaged on the card and was left there, the receipt
+    says "damaged on the card" on its row, and in Finder the file is still on the card while the
+    rest went to the card's Trash.
 
 ## License keys (asked 2026-10-27, built 2026-10-27, confirmed on the Mac 2026-10-27: a key from the tool unlocked it)
 

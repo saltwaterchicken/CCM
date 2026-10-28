@@ -73,9 +73,10 @@ public struct CullGrid: Equatable, Sendable {
         shots.count { StarFilter.appFlagged.shows($0, stars: stars[$0.id], check: checks[$0.id]) }
     }
 
-    /// Photos the checks haven't looked at and nobody has rated: what a Check would do.
+    /// Photos the checks haven't looked at and nobody has rated: what a Check
+    /// would do. Damaged ones aren't checked.
     public var unchecked: [Shot] {
-        shots.filter { $0.isRatable && stars[$0.id] == nil && checks[$0.id] == nil }
+        shots.filter { $0.isRatable && $0.damaged.isEmpty && stars[$0.id] == nil && checks[$0.id] == nil }
     }
 
     /// The checks' result for a shot, unless it was rated meanwhile (its
@@ -216,7 +217,8 @@ public enum ImportedFolder {
             var destinations = [main]
             if let copy = backup?.appendingPathComponent(name), fm.fileExists(atPath: copy.path) { destinations.append(copy) }
             return CopiedFile(newName: name, originalPath: name, size: size, originalModified: nil, checksum: "",
-                              destinations: destinations, alreadyThere: true)
+                              destinations: destinations, alreadyThere: true,
+                              damage: DamageCheck.problem(at: main, fileTypes: fileTypes))
         }
         // A sidecar with no picture of its own isn't a shot.
         let shots = ShotList(fileTypes: fileTypes, files: files).shots.filter { $0.kind != .sidecar && $0.kind != .other }

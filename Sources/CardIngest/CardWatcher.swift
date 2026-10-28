@@ -216,7 +216,7 @@ final class CardWatcher {
                 do {
                     report = try CardCopier.copy(
                         cardRoot: url, cardName: name, files: plan.files, to: Array(plan.folders.prefix(1)),
-                        importNumber: plan.importNumber,
+                        importNumber: plan.importNumber, fileTypes: settings.fileTypes,
                         progress: { done, total in
                             let fraction = total > 0 ? min(1, Double(done) / Double(total)) : 1
                             Task { @MainActor [weak self] in

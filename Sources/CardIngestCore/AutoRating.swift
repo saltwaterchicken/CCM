@@ -69,11 +69,12 @@ public enum AutoRating {
 
     /// Checks a photo and writes its first stars and the marker into its
     /// sidecars, returning what it found. Nil when it was left alone: a clip,
-    /// already checked, or already rated (by hand, in the camera or in an
+    /// damaged on the card, already checked, or already rated (by hand, in the camera or in an
     /// editor, 0 included) before or while it was being checked. Throws when
     /// it couldn't be read or checked, so it's never taken for a keeper.
     public static func rate(_ shot: Shot, limits: RatingSettings, now: Date = Date()) throws -> AutoCheck? {
-        guard shot.isRatable, check(of: shot) == nil, Stars.found(for: shot) == nil,
+        // A damaged photo isn't judged: its preview may look fine when the picture isn't.
+        guard shot.isRatable, shot.damaged.isEmpty, check(of: shot) == nil, Stars.found(for: shot) == nil,
               let url = shot.primary.destinations.first else { return nil }
         guard let score = try QualityCheck.score(url) else { throw AutoRatingError.unreadable(shot.primary.newName) }
         let problems = limits.problems(score)
