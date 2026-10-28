@@ -43,6 +43,12 @@ struct CardCommands: Commands {
             let count = grid.grid.toOpen.count
             Button("Open \(count) in \(grid.applicationName)") { grid.openInApplication() }
                 .disabled(!hasPhotos || count == 0)
+            Button("Add Keywords…") {
+                grid.closeView()
+                grid.keywordFieldRequest += 1
+            }
+            .keyboardShortcut("k", modifiers: .command)
+            .disabled(grid.grid.selectedPhotos.isEmpty)
             Divider()
             Button("Show All Photos") { grid.filter = .all }
                 .disabled(!hasPhotos)

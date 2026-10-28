@@ -363,6 +363,16 @@ struct JobPanel: View {
                     .textSelection(.enabled)
             }
             GridRow {
+                Text("Keywords").gridCellAnchor(.topTrailing)
+                VStack(alignment: .leading, spacing: 4) {
+                    JobKeywordsField(model: model)
+                    Text("Added to every photo's sidecar as it lands, commas between. Add more to a few in the grid (K).")
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .helpSpot(.keywords)
+            }
+            GridRow {
                 Text("When done").gridCellAnchor(.topTrailing)
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle("Move the card's photos and videos to the card's Trash once every copy is verified", isOn: Binding(
@@ -432,6 +442,27 @@ struct JobPanel: View {
     /// Keeps paths in the settings file short and readable, e.g. `~/Pictures/...`.
     static func displayPath(_ url: URL) -> String {
         (url.path as NSString).abbreviatingWithTildeInPath
+    }
+}
+
+/// The job's keywords, typed with commas between. Saved as they're typed,
+/// without tidying the text under the cursor (a comma just typed stays).
+struct JobKeywordsField: View {
+    @Bindable var model: SettingsModel
+    @State private var text = ""
+
+    var body: some View {
+        TextField("e.g. Camp, 2026, Summer", text: $text)
+            .textFieldStyle(.roundedBorder)
+            .onAppear { text = model.settings.metadata.keywords.joined(separator: ", ") }
+            .onChange(of: text) { _, typed in
+                let words = Keywords.parse(typed)
+                if words != model.settings.metadata.keywords { model.change { $0.metadata.keywords = words } }
+            }
+            // A project settings file loaded, or the file reloaded.
+            .onChange(of: model.settings.metadata.keywords) { _, words in
+                if Keywords.parse(text) != words { text = words.joined(separator: ", ") }
+            }
     }
 }
 

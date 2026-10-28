@@ -2,7 +2,7 @@ import Foundation
 
 /// A part of the main window a help answer can point at.
 public enum HelpTarget: String, CaseIterable, Sendable {
-    case cards, folderName, importNumber, destination, backup, whenDone, autoRating
+    case cards, folderName, importNumber, destination, backup, keywords, whenDone, autoRating
     case server, syncWithServer, settingsFile
     case loadFolder, starFilter, flaggedByApp, openIn, checkPhotos
 
@@ -14,6 +14,7 @@ public enum HelpTarget: String, CaseIterable, Sendable {
         case .importNumber: "Next import number in the Job panel"
         case .destination: "Destination in the Job panel"
         case .backup: "Backup in the Job panel"
+        case .keywords: "Keywords in the Job panel"
         case .whenDone: "When done in the Job panel"
         case .autoRating: "Auto-rating in the Job panel"
         case .server: "the light in the Server panel"
@@ -232,6 +233,14 @@ public enum Help {
                    + "around, ⌘A selects all. Double-click or press Space for a large view, Space again for 100% to check focus, "
                    + "Esc to go back.",
                    keywords: ["keys", "keyboard", "cull", "zoom", "100%"], target: .starFilter),
+        HelpAnswer("keywords", "How do I add keywords?",
+                   "Type the job's keywords in Keywords in the Job panel, with commas between (Camp, 2026, Summer): every photo "
+                   + "gets them as it lands. For a few photos, select them in the grid, press K (or ⌘K), type keywords with commas "
+                   + "between and press Return; the grid takes the keys back so you can carry on rating. The bar under the grid "
+                   + "shows the selection's keywords: × takes one off, a dim one is only on some (click it to add it to all), and "
+                   + "Recent adds one you used lately in one click. Keywords go in the same .xmp sidecar as the stars, which "
+                   + "Lightroom, Bridge and Photo Mechanic read; the photos themselves are never changed. Clips don't take keywords yet.",
+                   keywords: ["keyword", "tag", "tags", "metadata", "subject"], target: .keywords),
         HelpAnswer("lightroom", "My stars don't show in Lightroom",
                    "Stars for RAW photos are in the .xmp sidecar next to each file, which Lightroom reads when it imports. For photos "
                    + "already in Lightroom, select them and choose Metadata › Read Metadata from Files. JPEG-only and HEIC photos "
