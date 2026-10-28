@@ -634,7 +634,9 @@ struct TileView: View {
                 if let badge = shot.badge { tag(badge).padding(4) }
             }
             .overlay(alignment: .topTrailing) {
-                if let check, check.isFlagged, stars == 0 {
+                if !shot.damaged.isEmpty {
+                    DamagedChip(files: shot.damaged).padding(4)
+                } else if let check, check.isFlagged, stars == 0 {
                     HStack(spacing: 3) {
                         ForEach(check.problems, id: \.self) { CalibrationChip(text: $0.label) }
                     }
@@ -915,6 +917,7 @@ struct LargeView: View {
         HStack(spacing: 12) {
             if let shot {
                 Text(shot.baseName).font(.headline)
+                if !shot.damaged.isEmpty { DamagedChip(files: shot.damaged) }
                 if shot.isRatable {
                     let check = model.check(of: shot.id)
                     StarsView(stars: model.grid.stars[shot.id], byApp: check?.stars != nil && check?.stars == model.grid.stars[shot.id])
@@ -984,5 +987,16 @@ struct LargeView: View {
         let maxX = max(0, (image.width - view.width) / 2)
         let maxY = max(0, (image.height - view.height) / 2)
         return CGSize(width: min(max(offset.width, -maxX), maxX), height: min(max(offset.height, -maxY), maxY))
+    }
+}
+
+/// A red chip on a shot with a file that was already damaged on the card;
+/// hovering it says which file and why.
+struct DamagedChip: View {
+    let files: [CopiedFile]
+
+    var body: some View {
+        CalibrationChip(text: "Damaged", color: .red)
+            .help(files.map { "\($0.newName) was damaged on the card: \($0.damage ?? "")" }.joined(separator: "\n"))
     }
 }

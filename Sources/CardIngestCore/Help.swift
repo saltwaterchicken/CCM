@@ -180,6 +180,15 @@ public enum Help {
                    + "If a Finder window or another app is using the card, macOS won't let it go: the summary says so and the card "
                    + "stays. Close the other window and eject it in Finder. Nothing is ejected after a failed copy.",
                    keywords: ["stuck", "unmount"], target: .whenDone),
+        HelpAnswer("damaged", "A photo or clip came in damaged",
+                   "If the camera stopped while it was writing a file (a flat battery, or the card taken out too soon), the "
+                   + "file on the card is damaged too. The app copies it exactly as it is, checks the copy against the card as "
+                   + "always, and marks it Damaged in the grid, in the summary and in the receipt. It never changes or repairs it. "
+                   + "When the card is cleared, a damaged file stays on the card: if the picture matters, don't format the card "
+                   + "yet, and try opening the copy in another app or a card recovery app first. A file that's damaged but "
+                   + "still the right shape inside (a scrambled picture) can get past the check.",
+                   keywords: ["corrupt", "corrupted", "broken", "grey", "gray", "half", "truncated", "battery", "won't open"],
+                   target: .cards),
         HelpAnswer("already", "It says the card was already imported",
                    "The app reads the receipts in your destination's card folders. A file listed there with the same place on the "
                    + "card, size and date counts as imported, so putting a card back in copies only what's new, into a new folder "

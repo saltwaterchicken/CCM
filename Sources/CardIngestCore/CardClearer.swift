@@ -45,14 +45,17 @@ public enum CardClearer {
     /// The card files whose copies are safe: every file this copy verified,
     /// plus files an earlier import brought in whose copy is still in its card
     /// folder at the same size (an `.xmp` just has to be there, since stars
-    /// change it). A file whose copy was deleted stays on the card.
+    /// change it). A file whose copy was deleted stays on the card, and so does
+    /// one that was damaged on the card, so it can still be looked at (or a
+    /// recovery app tried) before the card is formatted.
     public static func safelyCopied(report: CopyReport?, check: CardCheck) -> [CardFile] {
-        let verified = Set(report?.files.map(\.originalPath) ?? [])
+        let verified = Set(report?.files.filter { $0.damage == nil }.map(\.originalPath) ?? [])
         let fm = FileManager.default
         let earlier = check.alreadyImported.filter { imported in
             let copy = imported.folder.appendingPathComponent(imported.newName)
             guard let size = (try? fm.attributesOfItem(atPath: copy.path)[.size]) as? Int64 else { return false }
-            return size == imported.file.size || Stars.isSidecar(imported.newName)
+            if Stars.isSidecar(imported.newName) { return true }
+            return size == imported.file.size && DamageCheck.problem(at: copy) == nil
         }.map(\.file)
         return check.newFiles.filter { verified.contains($0.relativePath) } + earlier
     }
