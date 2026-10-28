@@ -44,54 +44,88 @@ final class GridModel {
     enum SyncState: Equatable {
         case idle
         case comparing
-        case confirm(ServerSync.Plan)
+        /// One plan per card, and the cards left out as their backup is still sending.
+        case confirm([ServerSync.Plan], waiting: [String])
         case syncing(done: Int, total: Int)
-        case done(ServerSync.Outcome, cantUpdate: [String])
+        case done([CardSync])
         case failed(String)
     }
 
-    /// This card's folder on the server.
-    var serverFolder: URL? {
-        guard let folder, let serverRoot else { return nil }
-        return serverRoot.appendingPathComponent(folder.lastPathComponent, isDirectory: true)
+    /// What Sync With Server did for one card.
+    struct CardSync: Equatable {
+        let name: String
+        let outcome: ServerSync.Outcome
+        let cantUpdate: [String]
     }
 
-    /// This card's backup is still sending: Sync waits so the two never write the same file.
-    var backupRunning: Bool {
-        guard let name = folder?.lastPathComponent else { return false }
-        return backups?.entries.contains { $0.folderName == name && $0.status?.finished == false } ?? false
+    /// The cards Sync With Server covers, by their folders on this Mac: every
+    /// card in the Server panel's list, and the one in the grid (it may be an
+    /// older card, loaded with Load Folder).
+    var syncFolders: [URL] {
+        var folders = backups?.entries.compactMap(\.localFolder) ?? []
+        if let folder, !folders.contains(where: { $0.lastPathComponent == folder.lastPathComponent }) {
+            folders.insert(folder, at: 0)
+        }
+        return folders
     }
 
-    /// Compares this card with its folder on the server, then asks before writing anything.
+    /// The cards whose backup is still sending, which Sync leaves for now.
+    var backupsRunning: [String] {
+        let running = Set(backups?.entries.filter(\.running).map(\.folderName) ?? [])
+        return syncFolders.map(\.lastPathComponent).filter(running.contains)
+    }
+
+    /// The cards Sync would send now.
+    var syncReady: [URL] {
+        let running = Set(backupsRunning)
+        return syncFolders.filter { !running.contains($0.lastPathComponent) }
+    }
+
+    /// Compares every card with its folder on the server, then asks before writing anything.
     func compareWithServer() {
-        guard licensed, let local = folder, let server = serverFolder, let root = serverRoot else { return }
+        let folders = syncReady
+        guard licensed, !folders.isEmpty, let root = serverRoot else { return }
+        let waiting = backupsRunning
         sync = .comparing
         Task {
-            let result = await Task.detached(priority: .userInitiated) { () -> Result<ServerSync.Plan, Error> in
+            let result = await Task.detached(priority: .userInitiated) { () -> Result<[ServerSync.Plan], Error> in
                 switch BackupVolume.check(root) {
-                case .server, .localDrive: return Result { try ServerSync.plan(local: local, server: server) }
+                case .server, .localDrive:
+                    return Result {
+                        try folders.map { try ServerSync.plan(local: $0, server: root.appendingPathComponent($0.lastPathComponent, isDirectory: true)) }
+                    }
                 default: return .failure(SyncProblem.notConnected)
                 }
             }.value
-            guard sync == .comparing, folder == local else { return }
+            guard sync == .comparing else { return }
             switch result {
-            case let .success(plan): sync = .confirm(plan)
+            case let .success(plans): sync = .confirm(plans, waiting: waiting)
             case let .failure(error): sync = .failed(error.localizedDescription)
             }
         }
     }
 
-    func runSync(_ plan: ServerSync.Plan) {
-        sync = .syncing(done: 0, total: plan.adds.count)
+    /// Sends each card in turn, and says what happened to each.
+    func runSync(_ plans: [ServerSync.Plan]) {
+        let total = plans.reduce(0) { $0 + $1.adds.count }
+        sync = .syncing(done: 0, total: total)
         Task {
-            let outcome = await Task.detached(priority: .utility) {
-                ServerSync.run(plan, progress: { done in
-                    Task { @MainActor [weak self] in
-                        if case .syncing = self?.sync { self?.sync = .syncing(done: done, total: plan.adds.count) }
-                    }
-                })
-            }.value
-            sync = .done(outcome, cantUpdate: plan.cantUpdate)
+            var results: [CardSync] = []
+            var before = 0
+            for plan in plans {
+                let offset = before
+                let outcome = await Task.detached(priority: .utility) {
+                    ServerSync.run(plan, progress: { done in
+                        Task { @MainActor [weak self] in
+                            if case .syncing = self?.sync { self?.sync = .syncing(done: offset + done, total: total) }
+                        }
+                    })
+                }.value
+                before += plan.adds.count
+                results.append(CardSync(name: plan.localFolder.lastPathComponent, outcome: outcome, cantUpdate: plan.cantUpdate))
+            }
+            backups?.synced(results)
+            sync = .done(results)
         }
     }
 
@@ -203,7 +237,11 @@ final class GridModel {
 
     private func begin(_ session: UUID, cardName: String, folder: URL?) {
         self.session = session
-        if case .syncing = sync {} else { sync = .idle }
+        // Sync covers every card, not just the grid's, so only a finished result is cleared.
+        switch sync {
+        case .done, .failed: sync = .idle
+        default: break
+        }
         // A check already running finishes, but its result is dropped from the new grid.
         checks.cancelAllOperations()
         pending = []

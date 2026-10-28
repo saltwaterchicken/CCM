@@ -273,7 +273,8 @@ final class CardWatcher {
         }
         let id = UUID()
         Task { @MainActor in
-            backups.begin(id: id, cardName: cardName, folderName: folder.lastPathComponent, notStarted: notStarted)
+            backups.begin(id: id, cardName: cardName, folderName: folder.lastPathComponent, localFolder: plan.folders[0],
+                          notStarted: notStarted)
         }
         guard notStarted == nil else { return nil }
         return ServerBackupJob(folder: folder, root: root) { status in

@@ -705,6 +705,15 @@ folder is on a mounted network share, Wi-Fi is off (CoreWLAN) and an Ethernet ca
 looked at off the main thread. Also catches a stand-in: the share not mounted but a plain folder
 of its name in /Volumes on the Mac's drive, which would fill the Mac. Warning only.
 
+**Sync covers every card (found 2026-10-27, built 2026-10-27, not yet tried on the Mac):** the
+photographer copied a second card while the first was backing up, then pressed Sync With Server:
+everything looked synced, but only the card in the grid was, as Sync covered just that one while the
+Server panel listed both. Now Sync covers every card in the Server panel's list plus the card in the
+grid (an older card still needs Load Folder), names them under the button ("Sync 2 Cards With
+Server"), leaves a card whose backup is still sending ("(after its backup)"), confirms card by card,
+and shows each card's result under its name in the list. A new card landing no longer cancels a
+Sync waiting to be confirmed.
+
 ## Searchable help (asked 2026-10-27, built 2026-10-27, not yet tried on the Mac)
 
 A search field at the top of the window: as the photographer types ("trash", "stars not in

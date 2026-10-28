@@ -9,28 +9,36 @@ enum SyncProblem: Error, LocalizedError {
     }
 }
 
-/// The Sync With Server button for the card in the grid, at the right of the
-/// Server panel's first line, with the card's name under it; and the summary
-/// to confirm. What it's doing shows below the light (SyncStatusView).
+/// The Sync With Server button, at the right of the Server panel's first
+/// line, with the cards it covers under it: every card in the panel's list,
+/// and the one in the grid. Then the summary to confirm. What it's doing shows
+/// below the light (SyncStatusView).
 struct SyncButton: View {
     var model: GridModel
 
     var body: some View {
-        if let folder = model.folder, model.serverRoot != nil {
+        let ready = model.syncReady.map(\.lastPathComponent)
+        let waiting = model.backupsRunning
+        if model.serverRoot != nil, !ready.isEmpty || !waiting.isEmpty {
             VStack(alignment: .trailing, spacing: 2) {
-                Button("Sync With Server") { model.compareWithServer() }
-                    .disabled(!model.licensed || model.backupRunning || model.sync != .idle)
-                    .help(model.backupRunning ? "Waiting for this card's backup to finish"
-                          : "Sends this card's sidecars, exports and anything the backup missed to the server. "
+                Button(ready.count > 1 ? "Sync \(ready.count) Cards With Server" : "Sync With Server") { model.compareWithServer() }
+                    .disabled(!model.licensed || ready.isEmpty || model.sync != .idle)
+                    .help(ready.isEmpty ? "Waiting for the backup to finish"
+                          : "Sends each card's sidecars, exports and anything the backup missed to the server. "
                           + "Nothing there is deleted or replaced; you see what it will do first.")
-                Text(folder.lastPathComponent + (model.backupRunning ? " (after its backup)" : ""))
-                    .font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                Text(names(ready, waiting: waiting))
+                    .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.trailing)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .sheet(isPresented: Binding(get: { if case .confirm = model.sync { true } else { false } },
                                         set: { if !$0, case .confirm = model.sync { model.dismissSync() } })) {
-                if case let .confirm(plan) = model.sync { SyncConfirmView(model: model, plan: plan) }
+                if case let .confirm(plans, waiting) = model.sync { SyncConfirmView(model: model, plans: plans, waiting: waiting) }
             }
         }
+    }
+
+    private func names(_ ready: [String], waiting: [String]) -> String {
+        (ready + waiting.map { "\($0) (after its backup)" }).joined(separator: "\n")
     }
 }
 
@@ -52,24 +60,22 @@ struct SyncStatusView: View {
                 ProgressView(value: Double(done), total: Double(max(total, 1))).frame(width: 160)
                 Text("Syncing with the server: \(done) of \(total)").foregroundStyle(.secondary).monospacedDigit()
             }
-        case let .done(outcome, cantUpdate):
-            VStack(alignment: .leading, spacing: 4) {
+        case let .done(results):
+            VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    if outcome.problems.isEmpty && cantUpdate.isEmpty {
-                        Label(outcome.added == 0 ? "The server already has everything." : "Synced: \(outcome.added) files added to the server and checked.",
-                              systemImage: "checkmark.seal.fill").foregroundStyle(.green)
-                    } else {
-                        Label("Synced \(outcome.added) files. \(outcome.problems.count + cantUpdate.count) need the admin.",
-                              systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                    }
+                    Text(results.count == 1 ? "Sync finished" : "Sync finished for \(results.count) cards:").font(.callout.weight(.semibold))
                     Spacer()
                     Button("OK") { model.dismissSync() }
                 }
-                if !outcome.problems.isEmpty || !cantUpdate.isEmpty {
-                    DisclosureGroup("Which files") {
-                        FileList(lines: outcome.problems + cantUpdate.map { "\($0): already on the server and changed here since" })
+                // Cards in the list below show their own result there.
+                let listed = Set(model.backups?.entries.map(\.folderName) ?? [])
+                ForEach(results, id: \.name) { result in
+                    if !listed.contains(result.name) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(result.name).font(.callout.weight(.semibold))
+                            SyncResultLine(result: result)
+                        }
                     }
-                    .font(.caption)
                 }
             }
         case let .failed(message):
@@ -82,20 +88,78 @@ struct SyncStatusView: View {
     }
 }
 
-/// The summary to confirm before Sync writes anything.
-struct SyncConfirmView: View {
-    var model: GridModel
-    let plan: ServerSync.Plan
+/// One card's Sync result, under its name.
+struct SyncResultLine: View {
+    let result: GridModel.CardSync
 
     var body: some View {
+        let outcome = result.outcome
+        VStack(alignment: .leading, spacing: 4) {
+            if outcome.problems.isEmpty && result.cantUpdate.isEmpty {
+                Label(outcome.added == 0 ? "Synced: the server already had everything."
+                      : "Synced: \(outcome.added) files added to the server and checked.",
+                      systemImage: "checkmark.seal.fill").foregroundStyle(.green)
+            } else {
+                Label("Synced \(outcome.added) files. \(outcome.problems.count + result.cantUpdate.count) need the admin.",
+                      systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                DisclosureGroup("Which files") {
+                    FileList(lines: outcome.problems + result.cantUpdate.map { "\($0): already on the server and changed here since" })
+                }
+                .font(.caption)
+            }
+        }
+    }
+}
+
+/// The summary to confirm before Sync writes anything: card by card.
+struct SyncConfirmView: View {
+    var model: GridModel
+    let plans: [ServerSync.Plan]
+    let waiting: [String]
+
+    var body: some View {
+        let adds = plans.reduce(0) { $0 + $1.adds.count }
         VStack(alignment: .leading, spacing: 12) {
-            Text("Sync \(plan.localFolder.lastPathComponent) with the server").font(.title3.bold())
-            Text(plan.serverFolder.path).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+            Text(plans.count == 1 ? "Sync \(plans[0].localFolder.lastPathComponent) with the server"
+                 : "Sync \(plans.count) cards with the server").font(.title3.bold())
+            if let root = plans.first?.serverFolder.deletingLastPathComponent() {
+                Text(root.path).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+            }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(plans, id: \.localFolder) { card($0) }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: 360)
+            if !waiting.isEmpty {
+                Label("Not included yet, as its backup is still sending: \(waiting.joined(separator: ", ")). Sync again once it's done.",
+                      systemImage: "clock").foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            Text("Nothing on the server is deleted or replaced.").font(.callout.weight(.semibold))
+            HStack {
+                Spacer()
+                Button(adds == 0 ? "Close" : "Cancel") { model.dismissSync() }
+                    .keyboardShortcut(.cancelAction)
+                if adds > 0 {
+                    Button("Sync \(adds) Files") { model.runSync(plans) }
+                        .keyboardShortcut(.defaultAction)
+                }
+            }
+        }
+        .padding(20)
+        .frame(width: 540)
+        .background(Theme.window)
+    }
+
+    private func card(_ plan: ServerSync.Plan) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(plan.localFolder.lastPathComponent).font(.headline)
             if plan.isEmpty {
                 Label("The server already has everything from this card.", systemImage: "checkmark.seal.fill")
                     .foregroundStyle(.green)
             } else {
-                Text("Adds \(plan.adds.count) \(plan.adds.count == 1 ? "file" : "files") to the server:")
+                Text("Adds \(plan.adds.count) \(plan.adds.count == 1 ? "file" : "files"):")
                 VStack(alignment: .leading, spacing: 2) {
                     if plan.addedOriginals > 0 { Text("• \(plan.addedOriginals) photos, clips and receipts the backup didn't send") }
                     if plan.addedSidecars > 0 { Text("• \(plan.addedSidecars) sidecars with stars and keywords") }
@@ -107,29 +171,14 @@ struct SyncConfirmView: View {
                 Text("Already on the server: \(plan.unchanged).").foregroundStyle(.secondary)
             }
             if !plan.cantUpdate.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    Label("Can't update \(plan.cantUpdate.count) \(plan.cantUpdate.count == 1 ? "file" : "files"): already on the server "
-                          + "and changed here since. To send them again, ask the admin to delete the server's copies, then Sync.",
-                          systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                        .fixedSize(horizontal: false, vertical: true)
-                    FileList(lines: plan.cantUpdate)
-                }
-            }
-            Text("Nothing on the server is deleted or replaced.").font(.callout.weight(.semibold))
-            HStack {
-                Spacer()
-                Button(plan.isEmpty ? "Close" : "Cancel") { model.dismissSync() }
-                    .keyboardShortcut(.cancelAction)
-                if !plan.isEmpty {
-                    Button("Sync \(plan.adds.count) Files") { model.runSync(plan) }
-                        .keyboardShortcut(.defaultAction)
-                }
+                Label("Can't update \(plan.cantUpdate.count) \(plan.cantUpdate.count == 1 ? "file" : "files"): already on the server "
+                      + "and changed here since. To send them again, ask the admin to delete the server's copies, then Sync.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                FileList(lines: plan.cantUpdate)
             }
         }
-        .padding(20)
-        .frame(width: 520)
-        .background(Theme.window)
     }
 }
 

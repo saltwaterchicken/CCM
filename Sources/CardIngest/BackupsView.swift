@@ -10,22 +10,30 @@ final class ServerBackups {
         let id: UUID
         let cardName: String
         let folderName: String
+        /// The card's folder on this Mac, which Sync With Server sends from.
+        let localFolder: URL?
         /// Nil until the job starts; stays nil when the server wasn't there.
         var status: ServerBackupJob.Status?
         /// Why it didn't start.
         var notStarted: String?
+        /// What the last Sync With Server did for this card.
+        var synced: GridModel.CardSync?
+
+        /// Still sending: Sync leaves it until it's done, so the two never write the same file.
+        var running: Bool { status?.finished == false }
     }
 
     private(set) var entries: [Entry] = []
 
     /// Starts showing a card's backup. Its updates can arrive first, so
     /// whichever comes first makes the entry.
-    func begin(id: UUID, cardName: String, folderName: String, notStarted: String?) {
+    func begin(id: UUID, cardName: String, folderName: String, localFolder: URL, notStarted: String?) {
         if let index = entries.firstIndex(where: { $0.id == id }) {
-            entries[index] = Entry(id: id, cardName: cardName, folderName: folderName,
+            entries[index] = Entry(id: id, cardName: cardName, folderName: folderName, localFolder: localFolder,
                                    status: entries[index].status, notStarted: notStarted)
         } else {
-            entries.insert(Entry(id: id, cardName: cardName, folderName: folderName, notStarted: notStarted), at: 0)
+            entries.insert(Entry(id: id, cardName: cardName, folderName: folderName, localFolder: localFolder,
+                                 notStarted: notStarted), at: 0)
             entries = Array(entries.prefix(5))
         }
     }
@@ -34,7 +42,16 @@ final class ServerBackups {
         if let index = entries.firstIndex(where: { $0.id == id }) {
             entries[index].status = status
         } else {
-            entries.insert(Entry(id: id, cardName: "", folderName: "", status: status), at: 0)
+            entries.insert(Entry(id: id, cardName: "", folderName: "", localFolder: nil, status: status), at: 0)
+        }
+    }
+
+    /// Records what Sync With Server did for each card it covered.
+    func synced(_ results: [GridModel.CardSync]) {
+        for result in results {
+            for index in entries.indices where entries[index].folderName == result.name {
+                entries[index].synced = result
+            }
         }
     }
 
@@ -49,8 +66,10 @@ struct BackupsView: View {
             ForEach(backups.entries) { entry in
                 VStack(alignment: .leading, spacing: 3) {
                     Text(entry.folderName).font(.callout.weight(.semibold))
-                    if let reason = entry.notStarted {
-                        Label("Not backed up: \(reason) Sync With Server can send it later.", systemImage: "icloud.slash")
+                    if let synced = entry.synced {
+                        SyncResultLine(result: synced)
+                    } else if let reason = entry.notStarted {
+                        Label("Not backed up: \(reason) Sync With Server will send it.", systemImage: "icloud.slash")
                             .foregroundStyle(.orange)
                     } else if let status = entry.status {
                         if !status.finished {
@@ -62,7 +81,7 @@ struct BackupsView: View {
                         }
                         if status.finished, !status.problems.isEmpty {
                             Label(status.wentAway
-                                  ? "The server went away: \(status.sent + status.alreadyThere) of \(status.queued) files reached it. Sync With Server can send the rest."
+                                  ? "The server went away: \(status.sent + status.alreadyThere) of \(status.queued) files reached it. Sync With Server will send the rest."
                                   : "\(status.problems.count) of \(status.queued) files didn't reach the server safely.",
                                   systemImage: "exclamationmark.triangle.fill")
                                 .foregroundStyle(.orange)

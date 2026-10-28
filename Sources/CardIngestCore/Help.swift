@@ -17,7 +17,7 @@ public enum HelpTarget: String, CaseIterable, Sendable {
         case .whenDone: "When done in the Job panel"
         case .autoRating: "Auto-rating in the Job panel"
         case .server: "the light in the Server panel"
-        case .syncWithServer: "Sync With Server in the Server panel (it shows once a card is in the grid and a backup folder is set)"
+        case .syncWithServer: "Sync With Server in the Server panel (it shows once a card is copied or loaded and a backup folder is set)"
         case .settingsFile: "the Settings File panel"
         case .loadFolder: "Load Folder… above the grid"
         case .starFilter: "the star filter above the grid (it shows once there are photos)"
@@ -218,12 +218,15 @@ public enum Help {
                    + "server says \"Not backed up\", so you can catch up later with Sync With Server.",
                    keywords: ["red", "green", "offline", "wi", "cable", "mounted", "connect"], target: .server),
         HelpAnswer("sync", "How do I send stars and exports to the server?",
-                   "With the card in the grid, press Sync With Server (or Photos › Sync With Server). It shows what it will add "
-                   + "first: sidecars with your stars, "
+                   "Press Sync With Server in the Server panel (or Photos › Sync With Server). It covers every card listed "
+                   + "there, plus the card in the grid (to sync an older card, Load Folder it first); the names under the button "
+                   + "say which. A card still backing up is left until its backup finishes. It shows, card by card, what it "
+                   + "will add first: sidecars with your stars, "
                    + "JPEGs in a •To Campanion folder inside the card folder, and any originals the backup missed. Nothing on the "
                    + "server is deleted or replaced. A file already on the server that's different here is listed under "
                    + "\"Can't update\"; ask the admin to remove it there, then Sync again.",
-                   keywords: ["upload", "campanion", "export", "sidecar", "catch up", "can't update"], target: .syncWithServer),
+                   keywords: ["upload", "campanion", "export", "sidecar", "catch up", "can't update", "both", "cards", "all"],
+                   target: .syncWithServer),
         HelpAnswer("rate", "How do I rate photos?",
                    "Click a photo in the grid, then press 0 to 5. With one photo selected it moves on to the next. Arrows move "
                    + "around, ⌘A selects all. Double-click or press Space for a large view, Space again for 100% to check focus, "

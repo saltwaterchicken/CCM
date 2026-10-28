@@ -63,7 +63,7 @@ struct CardCommands: Commands {
             }
             Divider()
             Button("Sync With Server") { grid.compareWithServer() }
-                .disabled(!grid.licensed || grid.folder == nil || grid.serverRoot == nil || grid.backupRunning || grid.sync != .idle)
+                .disabled(!grid.licensed || grid.serverRoot == nil || grid.syncReady.isEmpty || grid.sync != .idle)
         }
     }
 }
