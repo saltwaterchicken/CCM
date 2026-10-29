@@ -542,8 +542,8 @@ How it works:
     All four showed 1 star in Lightroom Classic after a Copy from a card (2026-10-22).
 - **If the copy fails part way:** stars already given stay in the sidecars next to the verified
   copies; the card is untouched, as now. The tiles stay so the photographer can keep culling.
-- **The grid holds still (reported 2026-10-28 as "jumping thumbnails", fix not yet tried on the
-  Mac):** the "Checking sharpness and exposure" line under the filter came and went as each landed
+- **The grid holds still (reported 2026-10-28 as "jumping thumbnails", fix confirmed on the
+  Mac with a real card 2026-10-28):** the "Checking sharpness and exposure" line under the filter came and went as each landed
   shot was checked, pushing the whole grid down and back up; it is now one line of fixed height
   that is blank when there's nothing to show. Tiles are all one fixed height, with or without
   stars, so rows the lazy grid hasn't measured yet don't shift when scrolled to.
