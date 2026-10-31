@@ -219,6 +219,20 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
      only. Not for a reason: it was built quickly for the calibration window.
   (A third note there, the tutorial saying "NAS, Server, or Backup Drive" instead of Synology, was
   settled 2026-10-30 as "Server".)
+**Next up (photographer, 2026-10-31; nothing built yet):**
+  1. Keywords on video clips, as photos have them.
+  2. Drag a folder from Finder onto the app's Dock icon to load it, the same as Load Folder…
+     for a previous import.
+  3. Rename the "Open 27 in Adobe Lightroom Classic" button and menu item to a title that doesn't
+     change with the count, so it can have a keyboard shortcut; the photographer suggests
+     "Adjust in Lightroom Classic". Now built from the count and `openWith`
+     (`AppCommands.swift`, `CullingView.swift`), so settle what it says when `openWith` is
+     another app, such as Bridge.
+**Decided 2026-10-31:** the damaged-file check (branch `claude/project-thread-ark1o9`) is not
+  wanted: pixel artifacting is obvious by eye, so no flag, tag, star or chip. The branch stays
+  unmerged. A failed copy or checksum was confirmed as already handled: red message, phone alert,
+  and Copy picks up in the same folder. Adding "Press Copy to try again" to the message was left
+  for now.
 - [ ] Step 3 (built, committed 2026-10-26; to confirm on the Mac, test step 19): Check each shot as it lands and on Load Folder (Check button): 1 star to keepers, 0
   plus a private "checked by Card Ingest" marker, scores and reason for outtakes; never a shot that
   already has stars or that's rated while it's checked. App stars look different from hand ones,
