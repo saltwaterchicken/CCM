@@ -221,7 +221,8 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   settled 2026-10-30 as "Server".)
 **Next up (photographer, 2026-10-31; nothing built yet):**
   1. Keywords on video clips, as photos have them. Turned out to be stars: clips took keywords
-     already, but had no stars and 0 to 5 did nothing. Built 2026-10-31 (see "Stars on clips").
+     already, but had no stars and 0 to 5 did nothing. Built and confirmed 2026-10-31 (see "Stars on
+     clips"); the Synology test is next.
   2. **Built 2026-10-31, to try on the Mac (test step 24):** drag a folder from Finder onto the
      app's Dock icon to load it, the same as Load Folder… for a previous import. The app says it
      opens folders (`CFBundleDocumentTypes`, `public.folder`, rank None so it never becomes the
@@ -711,7 +712,7 @@ nothing new is decided about where metadata lives:
   job's keywords as they land, more from the grid, read back by Load Folder, sent up by Sync With
   Server like any sidecar. The clip itself is never written to (`Shot.takesKeywords`). Lightroom
   Classic keeps a clip's metadata in such a sidecar; whether it reads ours is to be checked.
-- **Stars on clips (asked 2026-10-31, built 2026-10-31, not yet tried on the Mac):** the photographer
+- **Stars on clips (asked 2026-10-31, built 2026-10-31, confirmed on the Mac 2026-10-31):** the photographer
   found clips had no stars under the tile and 0 to 5 did nothing. Clips are now rated like photos:
   grey or orange stars on the tile and in the large view, 0 to 5 in both, moving on to the next
   shot, clip or photo, and shown by the star filters. Stars go in the clip's own sidecar beside its
@@ -719,6 +720,10 @@ nothing new is decided about where metadata lives:
   Nothing lands with a star, and the checks never look at a clip, so a clip is never "Flagged by
   app" nor in calibration. In code, `Shot.isPhoto` (checks, 100%) and `Shot.takesStars` (photos and
   clips) replace `isRatable`. Whether Lightroom reads a clip's sidecar is still to check.
+  **Next test (photographer, from 2026-11-01):** whether the Synology shows the clips' stars after
+  Sync With Server. Expected not: Synology Photos ignored `.xmp` sidecars for the RAWs (2026-10-30)
+  and only read what's inside a file. If it's needed there, stars inside the MP4/MOV is the parked
+  Milestone 4 question (writing into the copy changes its checksum against the card).
 - **What the Synology shows (photographer, 2026-10-30):** keywords on the JPEGs exported from
   Lightroom (written inside the JPEG), not on the RAWs: Synology Photos doesn't read `.xmp`
   sidecars. Clip sidecars won't show there either; keywords inside MP4/MOV for the Synology is
