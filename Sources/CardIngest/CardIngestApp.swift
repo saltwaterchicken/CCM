@@ -41,9 +41,14 @@ struct CardIngestApp: App {
                     watcher.update(settings: settings)
                     server.use(settings)
                 }
-                .onAppear { server.use(model.settings) }
+                .onAppear {
+                    server.use(model.settings)
+                    delegate.loadFolder = { watcher.grid.load($0) }
+                }
                 .environment(help)
         }
+        // A folder dropped on the Dock icon goes to the delegate, not a second window.
+        .handlesExternalEvents(matching: [])
         .commands {
             CardCommands(settings: model, watcher: watcher)
             HelpCommands(help: help, license: license, watcher: watcher)

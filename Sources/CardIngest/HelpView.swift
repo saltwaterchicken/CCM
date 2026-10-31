@@ -370,6 +370,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidUpdate(_ notification: Notification) {
         if NSApp.helpMenu !== neverShown { NSApp.helpMenu = neverShown }
     }
+
+    /// Loads a folder, as Load Folder… does; set once the main window is up.
+    var loadFolder: ((URL) -> Void)? {
+        didSet { if let url = droppedFolder { droppedFolder = nil; open(url) } }
+    }
+    /// A folder dropped before the main window was up, as when the drop launched the app.
+    private var droppedFolder: URL?
+
+    /// A folder dropped on the Dock icon (or opened with the app) is loaded like an
+    /// earlier import. Files are ignored; with several folders the first one is loaded.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard let url = urls.first(where: { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true })
+        else { return }
+        open(url)
+    }
+
+    private func open(_ url: URL) {
+        guard let loadFolder else { droppedFolder = url; return }
+        loadFolder(url)
+        NSApp.activate()
+    }
 }
 
 /// The Help menu: this app's help, Live Tech Support, and a test alert for the phone.

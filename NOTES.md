@@ -221,8 +221,14 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   settled 2026-10-30 as "Server".)
 **Next up (photographer, 2026-10-31; nothing built yet):**
   1. Keywords on video clips, as photos have them.
-  2. Drag a folder from Finder onto the app's Dock icon to load it, the same as Load Folder…
-     for a previous import.
+  2. **Built 2026-10-31, to try on the Mac (test step 24):** drag a folder from Finder onto the
+     app's Dock icon to load it, the same as Load Folder… for a previous import. The app says it
+     opens folders (`CFBundleDocumentTypes`, `public.folder`, rank None so it never becomes the
+     Mac's folder opener) in `make-app.sh`; `AppDelegate.application(_:open:)` loads the first
+     folder dropped (files are ignored), held until the main window is up when the drop launched
+     the app; `.handlesExternalEvents(matching: [])` keeps SwiftUI from opening a second window.
+     Only from the built app, not `swift run`. Tried here with `open -a` on a folder: the app
+     launched; the grid itself wasn't checked.
   3. **Done 2026-10-31, to try on the Mac:** the Photos menu item is now always "Adjust Raw
      Images" (`AppCommands.swift`), so the photographer can give it a shortcut in System Settings
      › Keyboard › Keyboard Shortcuts › App Shortcuts, which matches by exact title. The app adds
@@ -1123,6 +1129,13 @@ Suggestions so far, not yet decided. Edit freely.
     canoe as one-click buttons. Double-click: the keywords are listed at the top. Import the folder
     into Lightroom Classic (or open it in Photo Mechanic or Bridge): the RAWs show the keywords in
     the Keywording panel. Load Folder… the same card again: the keywords are still there.
+24. Folder on the Dock icon and Adjust Raw Images (2026-10-31). Run `scripts/make-app.sh` and keep
+    CCM Card Ingest in the Dock. With the app closed, drag an earlier card folder from Finder onto
+    the Dock icon: the icon highlights, the app opens and the grid shows that folder, as Load
+    Folder… would. With it open, drag another card folder on: it replaces the grid, in the same
+    window (no second window). A file dragged on does nothing. Then Photos menu: the item reads
+    "Adjust Raw Images" whatever is selected; give it a shortcut in System Settings › Keyboard ›
+    Keyboard Shortcuts › App Shortcuts and check the shortcut sends the selection to Lightroom.
 
 ## License keys (asked 2026-10-27, built 2026-10-27, confirmed on the Mac 2026-10-27: a key from the tool unlocked it)
 
