@@ -223,10 +223,12 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   1. Keywords on video clips, as photos have them.
   2. Drag a folder from Finder onto the app's Dock icon to load it, the same as Load Folder…
      for a previous import.
-  3. Rename the "Open 27 in Adobe Lightroom Classic" button and menu item to a title that doesn't
-     change with the count, so it can have a keyboard shortcut. Decided 2026-10-31: **"Adjust Raw
-     Images"**, whatever app `openWith` names. Now built from the count and `openWith`
-     (`AppCommands.swift`, `CullingView.swift`); the shortcut is still to choose.
+  3. **Done 2026-10-31, to try on the Mac:** the Photos menu item is now always "Adjust Raw
+     Images" (`AppCommands.swift`), so the photographer can give it a shortcut in System Settings
+     › Keyboard › Keyboard Shortcuts › App Shortcuts, which matches by exact title. The app adds
+     no shortcut of its own. The button above the grid keeps "Open 27 in Adobe Lightroom Classic".
+     "Raw" here means any photo another app will work on further, JPEGs included: what's sent is
+     unchanged.
 **Decided 2026-10-31:** the damaged-file check (branch `claude/project-thread-ark1o9`) is not
   wanted: pixel artifacting is obvious by eye, so no flag, tag, star or chip. The branch stays
   unmerged. A failed copy or checksum was confirmed as already handled: red message, phone alert,

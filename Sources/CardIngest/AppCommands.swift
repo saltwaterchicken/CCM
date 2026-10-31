@@ -41,7 +41,7 @@ struct CardCommands: Commands {
             let grid = watcher.grid
             let hasPhotos = !grid.grid.shots.isEmpty
             let count = grid.grid.toOpen.count
-            Button("Open \(count) in \(grid.applicationName)") { grid.openInApplication() }
+            Button("Adjust Raw Images") { grid.openInApplication() }
                 .disabled(!hasPhotos || count == 0)
             Button(grid.keywordBarShown ? "Hide Keywords" : "Show Keywords") {
                 grid.closeView()

@@ -255,8 +255,8 @@ public enum Help {
                    "Stars for RAW photos are in the .xmp sidecar next to each file, which Lightroom reads when it imports. For photos "
                    + "already in Lightroom, select them and choose Metadata › Read Metadata from Files. JPEG-only and HEIC photos "
                    + "are a known gap: Lightroom ignores sidecars for them (Photo Mechanic and Bridge read them). Open in Lightroom "
-                   + "above the grid sends the photos shown.",
-                   keywords: ["missing", "xmp", "sidecar", "read metadata", "jpeg"], target: .openIn),
+                   + "above the grid, or Photos › Adjust Raw Images, sends the photos shown.",
+                   keywords: ["missing", "xmp", "sidecar", "read metadata", "jpeg", "adjust"], target: .openIn),
         HelpAnswer("blue-stars", "Why are some stars blue?",
                    "Blue stars were given by the app's sharpness and exposure check; yellow ones by you. 1 blue star is a keeper, 0 "
                    + "means it was flagged, with the reason on the tile. Rating a photo yourself replaces the app's stars, and the "
