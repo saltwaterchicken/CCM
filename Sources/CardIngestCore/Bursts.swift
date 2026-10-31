@@ -1,7 +1,8 @@
 import Foundation
 
-/// Bursts: frames from one camera taken in quick succession, each within a
-/// second of the one before, three or more in a row. The sharpest of each gets
+/// Bursts: frames taken in quick succession, each within a second of the one
+/// before, three or more in a row. A card is one photographer's camera, so
+/// cameras aren't told apart. The sharpest of each gets
 /// a green "Subject Sharpest" chip in the grid. Only points it out: no stars
 /// are given or taken.
 public enum Bursts {
@@ -13,38 +14,32 @@ public enum Bursts {
     public struct Frame: Equatable, Sendable {
         public let id: String
         public let taken: Date
-        public let camera: String?
         /// How sharp the subject is: nil when it hasn't been checked.
         public let subject: Double?
         public let subjectIsFace: Bool
 
-        public init(id: String, taken: Date, camera: String?, subject: Double?, subjectIsFace: Bool) {
+        public init(id: String, taken: Date, subject: Double?, subjectIsFace: Bool) {
             self.id = id
             self.taken = taken
-            self.camera = camera
             self.subject = subject
             self.subjectIsFace = subjectIsFace
         }
     }
 
-    /// The frames that make up each burst, in the order they were taken. Each
-    /// camera's frames are taken on their own, so a second camera firing at
-    /// the same moment doesn't break a burst up.
+    /// The frames that make up each burst, in the order they were taken.
     public static func groups(_ frames: [Frame]) -> [[Frame]] {
         var groups: [[Frame]] = []
-        for cameraFrames in Dictionary(grouping: frames, by: \.camera).values {
-            var run: [Frame] = []
-            for frame in cameraFrames.sorted(by: { ($0.taken, $0.id) < ($1.taken, $1.id) }) {
-                if let last = run.last, frame.taken.timeIntervalSince(last.taken) <= gap {
-                    run.append(frame)
-                } else {
-                    if run.count >= minimumFrames { groups.append(run) }
-                    run = [frame]
-                }
+        var run: [Frame] = []
+        for frame in frames.sorted(by: { ($0.taken, $0.id) < ($1.taken, $1.id) }) {
+            if let last = run.last, frame.taken.timeIntervalSince(last.taken) <= gap {
+                run.append(frame)
+            } else {
+                if run.count >= minimumFrames { groups.append(run) }
+                run = [frame]
             }
-            if run.count >= minimumFrames { groups.append(run) }
         }
-        return groups.sorted { ($0[0].taken, $0[0].id) < ($1[0].taken, $1[0].id) }
+        if run.count >= minimumFrames { groups.append(run) }
+        return groups
     }
 
     /// The sharpest frame of each burst. With a face in any of its frames, the

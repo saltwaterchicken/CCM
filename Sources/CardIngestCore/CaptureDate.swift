@@ -31,10 +31,9 @@ public enum CaptureDate {
     }
 
     /// When a photo was taken to the hundredth of a second, where the camera
-    /// records it (EXIF SubSecTimeOriginal), and which camera took it (model,
-    /// and serial number when it's there), to tell the frames of a burst. Nil
-    /// when the photo doesn't say when it was taken.
-    public static func moment(_ url: URL, timeZone: TimeZone = .current) -> (taken: Date, camera: String?)? {
+    /// records it (EXIF SubSecTimeOriginal), to tell the frames of a burst.
+    /// Nil when the photo doesn't say when it was taken.
+    public static func moment(_ url: URL, timeZone: TimeZone = .current) -> Date? {
         let options = [kCGImageSourceShouldCache: false] as CFDictionary
         guard let source = CGImageSourceCreateWithURL(url as CFURL, options),
               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, options) as? [CFString: Any],
@@ -45,11 +44,7 @@ public enum CaptureDate {
            !digits.isEmpty, digits.allSatisfy(\.isNumber), let fraction = Double("0." + digits) {
             date += fraction
         }
-        let tiff = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any] ?? [:]
-        let model = (tiff[kCGImagePropertyTIFFModel] as? String)?.trimmingCharacters(in: .whitespaces)
-        let serial = (exif[kCGImagePropertyExifBodySerialNumber] as? String)?.trimmingCharacters(in: .whitespaces)
-        let camera = [model, serial].compactMap { $0?.isEmpty == false ? $0 : nil }.joined(separator: " ")
-        return (date, camera.isEmpty ? nil : camera)
+        return date
     }
 
     static func fromVideo(_ url: URL) -> Date? {

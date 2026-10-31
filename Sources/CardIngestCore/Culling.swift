@@ -99,7 +99,7 @@ public struct CullGrid: Equatable, Sendable {
     /// Works out each burst's sharpest frame afresh, from the checked shots.
     private mutating func findBursts() {
         burstSharpest = Bursts.sharpest(checks.compactMap { id, check in
-            check.taken.map { Bursts.Frame(id: id, taken: $0, camera: check.camera, subject: check.subject,
+            check.taken.map { Bursts.Frame(id: id, taken: $0, subject: check.subject,
                                            subjectIsFace: check.subjectIsFace) }
         })
     }

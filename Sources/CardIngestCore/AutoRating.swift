@@ -15,20 +15,19 @@ public struct AutoCheck: Equatable, Sendable {
     /// largest face (`subjectIsFace`), else the sharpest area.
     public var subject: Double?
     public var subjectIsFace = false
-    /// When it was taken, to the hundredth of a second where the camera says,
-    /// and which camera: what tells the frames of a burst.
+    /// When it was taken, to the hundredth of a second where the camera says:
+    /// what tells the frames of a burst. Nil for photos checked before
+    /// 2026-10-30, which bursts leave out.
     public var taken: Date?
-    public var camera: String?
 
     public init(stars: Int?, problems: [QualityProblem], score: Double, subject: Double? = nil,
-                subjectIsFace: Bool = false, taken: Date? = nil, camera: String? = nil) {
+                subjectIsFace: Bool = false, taken: Date? = nil) {
         self.stars = stars
         self.problems = problems
         self.score = score
         self.subject = subject
         self.subjectIsFace = subjectIsFace
         self.taken = taken
-        self.camera = camera
     }
 
     /// Left at 0 by the checks, and not rated since.
@@ -63,7 +62,6 @@ public enum AutoRating {
     static let brightnessField = "cardingest:Brightness"
     static let subjectField = "cardingest:Subject"
     static let takenField = "cardingest:Taken"
-    static let cameraField = "cardingest:Camera"
     /// The capture time as kept in the marker, to the hundredth of a second.
     static func takenFormatter() -> ISO8601DateFormatter {
         let f = ISO8601DateFormatter()
@@ -86,21 +84,15 @@ public enum AutoRating {
         let stars = given != nil && given == Stars.rating(in: metadata) ? given : nil
         let score = value(scoreField).flatMap { Double($0) } ?? 0
         let faces = value(facesField).flatMap { Int($0) } ?? 0
-        // Checked before bursts were looked at: the score stands in for the subject.
         return AutoCheck(stars: stars, problems: problems, score: score,
-                         subject: value(subjectField).flatMap { Double($0) } ?? score, subjectIsFace: faces > 0,
-                         taken: value(takenField).flatMap { takenFormatter().date(from: $0) }, camera: value(cameraField))
+                         subject: value(subjectField).flatMap { Double($0) }, subjectIsFace: faces > 0,
+                         taken: value(takenField).flatMap { takenFormatter().date(from: $0) })
     }
 
     /// The check recorded for a shot, from its sidecar in the destination or backup.
     public static func check(of shot: Shot) -> AutoCheck? {
-        guard shot.isRatable, var found = Stars.sidecars(of: shot).lazy.compactMap({ check(in: $0) }).first else { return nil }
-        // Checked before the capture time was kept: read from the photo itself.
-        if found.taken == nil, let url = shot.primary.destinations.first, let moment = CaptureDate.moment(url) {
-            found.taken = moment.taken
-            found.camera = moment.camera
-        }
-        return found
+        guard shot.isRatable else { return nil }
+        return Stars.sidecars(of: shot).lazy.compactMap { check(in: $0) }.first
     }
 
     /// Checks a photo and writes its first stars and the marker into its
@@ -117,7 +109,7 @@ public enum AutoRating {
         // To one decimal, as it's kept in the sidecar.
         let measured = ((score.faceScore ?? score.areaSharpness) * 10).rounded() / 10
         let subject = (score.subjectSharpness * 10).rounded() / 10
-        let moment = CaptureDate.moment(url)
+        let taken = CaptureDate.moment(url)
         // Rated while it was being checked: theirs wins.
         guard Stars.found(for: shot) == nil else { return nil }
         var marker = [
@@ -131,15 +123,12 @@ public enum AutoRating {
             brightnessField: String(format: "%.0f", score.subjectBrightness),
             subjectField: String(format: "%.1f", subject),
         ]
-        if let moment {
-            marker[takenField] = takenFormatter().string(from: moment.taken)
-            if let camera = moment.camera { marker[cameraField] = camera }
-        }
+        if let taken { marker[takenField] = takenFormatter().string(from: taken) }
         for (sidecar, raw) in zip(Stars.sidecars(of: shot), Stars.raws(of: shot)) {
             try Stars.write(stars, toXMP: sidecar, raw: raw, now: now, extra: marker)
         }
         return AutoCheck(stars: stars, problems: problems, score: measured, subject: subject,
-                         subjectIsFace: score.largestFaceScore != nil, taken: moment?.taken, camera: moment?.camera)
+                         subjectIsFace: score.largestFaceScore != nil, taken: taken)
     }
 }
 

@@ -1,14 +1,13 @@
 import XCTest
 @testable import CardIngestCore
 
-/// Bursts: three or more frames from one camera, each within a second of the
-/// one before; the sharpest gets the green chip.
+/// Bursts: three or more frames, each within a second of the one before; the
+/// sharpest gets the green chip.
 final class BurstsTests: XCTestCase {
     private let start = Date(timeIntervalSince1970: 1_800_000_000)
 
-    private func frame(_ id: String, _ seconds: Double, _ subject: Double?, face: Bool = true,
-                       camera: String? = "Canon EOS R5 0123") -> Bursts.Frame {
-        Bursts.Frame(id: id, taken: start + seconds, camera: camera, subject: subject, subjectIsFace: face)
+    private func frame(_ id: String, _ seconds: Double, _ subject: Double?, face: Bool = true) -> Bursts.Frame {
+        Bursts.Frame(id: id, taken: start + seconds, subject: subject, subjectIsFace: face)
     }
 
     func testTheSharpestOfABurstOfThree() {
@@ -28,13 +27,6 @@ final class BurstsTests: XCTestCase {
         // In any order: they're put in the order taken.
         XCTAssertEqual(Bursts.sharpest(frames.reversed()), ["c", "e"])
         XCTAssertEqual(Bursts.sharpest([frame("a", 0, 40), frame("b", 1.2, 90), frame("c", 2.4, 60)]), [])
-    }
-
-    func testAnotherCameraIsAnotherBurst() {
-        let frames = [frame("a", 0, 40), frame("b", 0.1, 90, camera: "Nikon Z9"), frame("c", 0.2, 60),
-                      frame("d", 0.3, 50)]
-        XCTAssertEqual(Bursts.groups(frames).map { $0.map(\.id) }, [["a", "c", "d"]])
-        XCTAssertEqual(Bursts.sharpest(frames), ["c"])
     }
 
     func testFacesWinOverFramesWithout() {
@@ -63,7 +55,7 @@ final class BurstsTests: XCTestCase {
         })
         func check(_ subject: Double, _ seconds: Double, stars: Int? = 1) -> AutoCheck {
             AutoCheck(stars: stars, problems: stars == 0 ? [.softFace] : [], score: subject, subject: subject,
-                      subjectIsFace: true, taken: start + seconds, camera: "R5")
+                      subjectIsFace: true, taken: start + seconds)
         }
         grid.apply(check(40, 0), to: "a_1")
         grid.apply(check(90, 0.1, stars: 0), to: "a_2")
@@ -83,20 +75,19 @@ final class BurstsTests: XCTestCase {
         try Stars.write(1, toXMP: xmp, extra: [
             AutoRating.checkedField: "2026-10-30T12:00:00Z", AutoRating.starsField: "1", AutoRating.scoreField: "55.0",
             AutoRating.facesField: "2", AutoRating.subjectField: "42.5",
-            AutoRating.takenField: "2026-07-01T15:04:05.25Z", AutoRating.cameraField: "Canon EOS R5 0123",
+            AutoRating.takenField: "2026-07-01T15:04:05.25Z",
         ])
         let check = try XCTUnwrap(AutoRating.check(in: xmp))
         XCTAssertEqual(check.subject, 42.5)
         XCTAssertTrue(check.subjectIsFace)
-        XCTAssertEqual(check.camera, "Canon EOS R5 0123")
         XCTAssertEqual(try XCTUnwrap(check.taken).timeIntervalSince1970.truncatingRemainder(dividingBy: 1), 0.25, accuracy: 0.001)
 
-        // Checked before bursts: the score stands in for the subject.
+        // Checked before bursts: left out of them.
         let older = folder.appendingPathComponent("A_2.xmp")
         try Stars.write(1, toXMP: older, extra: [AutoRating.checkedField: "2026-10-27T12:00:00Z", AutoRating.starsField: "1",
                                                 AutoRating.scoreField: "55.0", AutoRating.facesField: "0"])
         let old = try XCTUnwrap(AutoRating.check(in: older))
-        XCTAssertEqual(old.subject, 55)
+        XCTAssertNil(old.subject)
         XCTAssertFalse(old.subjectIsFace)
         XCTAssertNil(old.taken)
     }

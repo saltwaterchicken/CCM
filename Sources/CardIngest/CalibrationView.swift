@@ -669,7 +669,7 @@ struct CalibrationTile: View {
 struct BurstChip: View {
     var body: some View {
         CalibrationChip(text: "Subject Sharpest", color: .green)
-            .help("The sharpest of a burst: frames from one camera, each within a second of the one before. "
+            .help("The sharpest of a burst: three or more frames, each within a second of the one before. "
                   + "Judged on the largest face, or the sharpest area with no face.")
     }
 }
