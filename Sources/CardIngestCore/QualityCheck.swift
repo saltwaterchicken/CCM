@@ -33,6 +33,10 @@ public struct QualityScore: Sendable, Equatable {
     public let facePixels: Int?
     /// The longest side the scores were measured at.
     public let measuredAt: Int
+    /// The largest face, most likely the subject, scored the way `faceScore`
+    /// scores the sharpest: what the frames of a burst are compared on. Nil
+    /// with no face.
+    public var largestFaceScore: Double? = nil
 }
 
 extension QualityScore {
@@ -41,13 +45,22 @@ extension QualityScore {
     /// has less edge contrast than the same face in sun. Nil with no face.
     public var faceScore: Double? {
         guard let scaled = faceSharpnessScaled else { return nil }
-        return scaled * pow(128 / max(faceBrightness ?? 128, 12), 2)
+        return Self.faceScore(scaled: scaled, brightness: faceBrightness ?? 128)
     }
 
     /// How bright the subject is (0 to 255): the sharpest face, else the
     /// sharpest area. A lit face on a black stage stays bright here; an
     /// underexposed shot doesn't, however little of it is pure black.
     public var subjectBrightness: Double { faceBrightness ?? areaBrightness }
+
+    /// What the frames of a burst are compared on: the largest face, else the
+    /// sharpest area when there's no face.
+    public var subjectSharpness: Double { largestFaceScore ?? areaSharpness }
+
+    /// How a face's sharpness at `faceWidth` pixels is allowed for its brightness.
+    static func faceScore(scaled: Double, brightness: Double) -> Double {
+        scaled * pow(128 / max(brightness, 12), 2)
+    }
 }
 
 public enum QualityCheck {
@@ -86,6 +99,7 @@ public enum QualityCheck {
             return (gray.laplacianVariance(x: x, y: y, width: w, height: h), mean, deviation, scaled, w)
         }
         let bestFace = faceScores.max { $0.sharpness < $1.sharpness }
+        let largestFace = faceScores.max { $0.pixels < $1.pixels }
         let side = max(gray.width, gray.height) / grid
         var areas: [(sharpness: Double, x: Int, y: Int)] = []
         for y in stride(from: 0, to: gray.height - side / 2, by: side) {
@@ -103,7 +117,8 @@ public enum QualityCheck {
                             faceBrightness: bestFace?.mean, faceContrast: bestFace?.deviation,
                             areaBrightness: areaMean, areaContrast: areaDeviation,
                             faceSharpnessScaled: bestFace?.scaled, facePixels: bestFace?.pixels,
-                            measuredAt: max(gray.width, gray.height))
+                            measuredAt: max(gray.width, gray.height),
+                            largestFaceScore: largestFace.map { QualityScore.faceScore(scaled: $0.scaled, brightness: $0.mean) })
     }
 
     private struct Face {

@@ -234,7 +234,7 @@ final class GridModel {
             // Stars stay on this Mac: the server's copies are written once, by the backup and Sync.
             let shots = try ImportedFolder.shots(in: folder, backupRoot: nil, fileTypes: fileTypes)
             begin(UUID(), cardName: "Loaded", folder: folder)
-            for shot in shots { grid.add(shot) }
+            grid.add(contentsOf: shots)
             if shots.isEmpty { problem = "No photos or clips in \(folder.lastPathComponent)." }
         } catch {
             problem = "Couldn't load \(folder.lastPathComponent): \(error.localizedDescription)"
@@ -315,6 +315,11 @@ final class GridModel {
         serverRoot = settings.backupRootURL
         notifier = PhoneNotifier(settings.notifications)
         if !rating.available, grid.filter == .appFlagged { grid.filter = .all }
+    }
+
+    /// The sharpest frame of a burst, while auto-rating is available.
+    func isBurstSharpest(_ id: String) -> Bool {
+        rating.available && grid.burstSharpest.contains(id)
     }
 
     /// What the checks found for a shot, as the grid shows it: nothing when
@@ -522,6 +527,7 @@ struct CullingView: View {
                             ForEach(model.grid.visible) { shot in
                                 TileView(shot: shot, stars: model.grid.stars[shot.id], check: model.check(of: shot.id),
                                          keywords: model.grid.keywords[shot.id] ?? [],
+                                         isBurstSharpest: model.isBurstSharpest(shot.id),
                                          isSelected: model.grid.selected.contains(shot.id), cache: model.cache)
                                     .id(shot.id)
                                     .onTapGesture {
@@ -951,6 +957,8 @@ struct TileView: View {
     let check: AutoCheck?
     /// Shown as a tag and a count on the picture.
     let keywords: [String]
+    /// The sharpest frame of a burst: a green chip.
+    var isBurstSharpest = false
     let isSelected: Bool
     let cache: ThumbnailCache
     @State private var thumbnail: Thumbnail?
@@ -995,9 +1003,11 @@ struct TileView: View {
                 if let badge = shot.badge { tag(badge).padding(4) }
             }
             .overlay(alignment: .topTrailing) {
-                if let check, check.isFlagged, stars == 0 {
+                let flagged = check.map { $0.isFlagged && stars == 0 } ?? false
+                if flagged || isBurstSharpest {
                     HStack(spacing: 3) {
-                        ForEach(check.problems, id: \.self) { CalibrationChip(text: $0.label) }
+                        if isBurstSharpest { BurstChip() }
+                        if flagged, let check { ForEach(check.problems, id: \.self) { CalibrationChip(text: $0.label) } }
                     }
                     .padding(4)
                 }
@@ -1301,6 +1311,7 @@ struct LargeView: View {
                 if shot.isRatable {
                     let check = model.check(of: shot.id)
                     StarsView(stars: model.grid.stars[shot.id], byApp: check?.stars != nil && check?.stars == model.grid.stars[shot.id])
+                    if model.isBurstSharpest(shot.id) { BurstChip() }
                     if let check, check.isFlagged, model.grid.stars[shot.id] == 0 {
                         ForEach(check.problems, id: \.self) { CalibrationChip(text: $0.label) }
                     }

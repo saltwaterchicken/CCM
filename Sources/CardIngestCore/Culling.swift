@@ -52,6 +52,8 @@ public struct CullGrid: Equatable, Sendable {
     public private(set) var stars: [String: Int] = [:]
     /// What the auto-rating checks found, for the shots they've looked at.
     public private(set) var checks: [String: AutoCheck] = [:]
+    /// The sharpest checked frame of each burst (see Bursts), for the green chip.
+    public private(set) var burstSharpest: Set<String> = []
     /// Each photo's or clip's keywords, for the ones that have any.
     public private(set) var keywords: [String: [String]] = [:]
     public private(set) var selected: Set<String> = []
@@ -90,7 +92,22 @@ public struct CullGrid: Equatable, Sendable {
         checks[id] = check
         if let given = check.stars { stars[id] = given }
         keepSelectionVisible()
+        findBursts()
         return true
+    }
+
+    /// Works out each burst's sharpest frame afresh, from the checked shots.
+    private mutating func findBursts() {
+        burstSharpest = Bursts.sharpest(checks.compactMap { id, check in
+            check.taken.map { Bursts.Frame(id: id, taken: $0, camera: check.camera, subject: check.subject,
+                                           subjectIsFace: check.subjectIsFace) }
+        })
+    }
+
+    /// Many shots at once, as Load Folder brings them: the bursts are worked out once, at the end.
+    public mutating func add(contentsOf landed: [LandedShot]) {
+        for shot in landed { insert(shot) }
+        findBursts()
     }
 
     /// What the Open button sends: the selected shots, or everything showing
@@ -105,6 +122,11 @@ public struct CullGrid: Equatable, Sendable {
     /// A shot whose files are all in. Shots are kept in landing order even if
     /// two arrive the other way round.
     public mutating func add(_ landed: LandedShot) {
+        insert(landed)
+        if landed.check != nil { findBursts() }
+    }
+
+    private mutating func insert(_ landed: LandedShot) {
         let id = landed.shot.id
         if let stars = landed.stars { self.stars[id] = stars }
         if let check = landed.check { checks[id] = check }

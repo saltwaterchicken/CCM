@@ -19,7 +19,11 @@ final class CalibrationModel {
     /// stars counted where the photographer left them.
     private(set) var isThisCard = false
     private(set) var phase = Phase.idle
-    private(set) var scored: [ScoredShot] = []
+    private(set) var scored: [ScoredShot] = [] {
+        didSet { burstSharpest = ScoredShot.burstSharpest(scored) }
+    }
+    /// The sharpest frame of each burst, for the green chip.
+    private(set) var burstSharpest: Set<String> = []
     /// Photos that couldn't be read or checked.
     private(set) var unreadable: [String] = []
     /// The limits being tried; saved only with Save.
@@ -226,6 +230,7 @@ struct CalibrationView: View {
         .onDisappear { model.stop() }
         .sheet(item: $model.viewing) { photo in
             CalibrationPhotoView(photo: photo, problems: model.report.problems[photo.id] ?? [], labels: model.labels(for: photo),
+                                 isBurstSharpest: model.burstSharpest.contains(photo.id),
                                  toggle: { model.toggle($0, on: photo) }) { model.viewing = nil }
         }
     }
@@ -559,7 +564,8 @@ struct CalibrationView: View {
                             ForEach(photos) { photo in
                                 let labels = model.labels(for: photo)
                                 CalibrationTile(photo: photo, problems: report.problems[photo.id] ?? [], labels: labels,
-                                                showsKept: model.showing == .rescued)
+                                                showsKept: model.showing == .rescued,
+                                                isBurstSharpest: model.burstSharpest.contains(photo.id))
                                     .onTapGesture { model.viewing = photo }
                                     .contextMenu { LabelMenuItems(photo: photo, labels: labels) { model.toggle($0, on: photo) } }
                             }
@@ -608,6 +614,7 @@ struct CalibrationTile: View {
     var labels: [PhotoLabel] = []
     /// In the Rescued list, a passing photo says so instead of showing nothing.
     var showsKept = false
+    var isBurstSharpest = false
     @State private var image: CGImage?
 
     var body: some View {
@@ -624,6 +631,7 @@ struct CalibrationTile: View {
             .clipped()
             .overlay(alignment: .topLeading) {
                 HStack(spacing: 3) {
+                    if isBurstSharpest { BurstChip() }
                     ForEach(problems, id: \.self) { CalibrationChip(text: $0.label) }
                     if showsKept && problems.isEmpty { CalibrationChip(text: "Kept now", color: .green) }
                 }
@@ -657,6 +665,15 @@ struct CalibrationTile: View {
     }
 }
 
+/// On the sharpest frame of a burst: green, as it's good news.
+struct BurstChip: View {
+    var body: some View {
+        CalibrationChip(text: "Subject Sharpest", color: .green)
+            .help("The sharpest of a burst: frames from one camera, each within a second of the one before. "
+                  + "Judged on the largest face, or the sharpest area with no face.")
+    }
+}
+
 struct CalibrationChip: View {
     let text: String
     var color = Color.orange
@@ -676,6 +693,7 @@ struct CalibrationPhotoView: View {
     let photo: ScoredShot
     let problems: [QualityProblem]
     let labels: [PhotoLabel]
+    var isBurstSharpest = false
     let toggle: (PhotoLabel) -> Void
     let close: () -> Void
     @State private var image: CGImage?
@@ -692,6 +710,7 @@ struct CalibrationPhotoView: View {
             }
             .frame(minWidth: 900, minHeight: 600)
             HStack(spacing: 8) {
+                if isBurstSharpest { BurstChip() }
                 ForEach(problems, id: \.self) { CalibrationChip(text: $0.label) }
                 Text(photo.shot.baseName)
                 Text(Self.details(photo)).foregroundStyle(.secondary).monospacedDigit()

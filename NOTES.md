@@ -160,6 +160,25 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   on a black stage passes. Its own "Dark subject" slider (off to 128); the two share sliders now go
   0 to 100%. Recorded as `cardingest:Brightness` in the marker. To tune on a folder with dark
   outtakes; score-folder's CSV already has `face_brightness` and `area_brightness`.
+  **Subject Sharpest in bursts (asked 2026-10-30, built 2026-10-30, not yet tried on the Mac):** a
+  green "Subject Sharpest" chip on the sharpest frame of each burst, in the grid, its large view
+  and the calibration window. Photographer's calls: a burst is 3 or more frames from one camera,
+  each within 1 s of the one before; judged on the **largest** face (the subject), not the
+  sharpest one, among the frames with a face, else on the sharpest area; green and orange
+  together when the sharpest is still soft; only points it out, no stars given or taken; one
+  frame per burst even on a near tie. Each camera's frames are grouped on their own (model and
+  serial number). Capture time read to the hundredth of a second (EXIF SubSecTimeOriginal,
+  `CaptureDate.moment`). The check's marker now also keeps `cardingest:Subject` (the largest
+  face's score, else the area's), `cardingest:Taken` and `cardingest:Camera`, so Load Folder needs
+  no extra reading; photos checked before keep their Score as the subject and have the time read
+  from the photo. Only checked photos take part (`Bursts.swift`, `CullGrid.burstSharpest`).
+  **Calibration rework, agreed 2026-10-30, to build after the burst chip:** calibrate in the main
+  grid and its large view (100%, arrows) instead of the separate window; every photo shown, with
+  the orange chips and reasons; the sliders in a side panel; disagreeing through a drop-down of
+  reasons (right-click, or the menu in the large view), no quick key: on a flagged photo "it's
+  fine", on another "should be flagged" with a reason; disagreements apply live (nothing saved
+  until Save to Settings) and build up across cards like labels; the 1% cap stays; a toggle
+  between shooting order and score order, keeping the selected photo in view; stars never train.
   **Labels that refine the limits (2026-10-27, asked by the photographer; confirmed on the Mac
   2026-10-27):** right-click a photo in
   the calibration window (or Label in the large view): Image Too Dark / Subject Too Dark / Image

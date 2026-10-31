@@ -244,6 +244,13 @@ public enum Help {
                    + "Lightroom, Bridge and Photo Mechanic read; the photos themselves are never changed. Clips take keywords too, in a "
                    + ".xmp of their own beside the clip. The arrows still move in the grid while you type.",
                    keywords: ["keyword", "tag", "tags", "metadata", "subject", "my keywords", "autofill", "recent"], target: .keywords),
+        HelpAnswer("burst", "What does the green Subject Sharpest chip mean?",
+                   "It marks the sharpest frame of a burst: three or more frames from one camera, each taken within a second of "
+                   + "the one before. Frames with a face are judged on the largest face, as that's most likely the subject; a "
+                   + "burst with no face, on the sharpest part of the picture. It only points the frame out: no stars are given "
+                   + "or taken. It shows on photos the sharpness and exposure checks have looked at, so with auto-rating off, "
+                   + "press Check N Photos first. If even the sharpest is soft, it has the orange chip too.",
+                   keywords: ["burst", "sharpest", "green", "chip", "subject", "frames", "sequence", "continuous"]),
         HelpAnswer("lightroom", "My stars don't show in Lightroom",
                    "Stars for RAW photos are in the .xmp sidecar next to each file, which Lightroom reads when it imports. For photos "
                    + "already in Lightroom, select them and choose Metadata › Read Metadata from Files. JPEG-only and HEIC photos "

@@ -9,12 +9,25 @@ public struct ScoredShot: Sendable, Identifiable {
     /// Flagged by the checks, then starred by the photographer: the mistakes
     /// worth calibrating on while the card is fresh.
     public let rescued: Bool
+    /// When and on which camera it was taken, to find bursts.
+    public var taken: Date?
+    public var camera: String?
 
-    public init(shot: Shot, stars: Int, score: QualityScore, rescued: Bool = false) {
+    public init(shot: Shot, stars: Int, score: QualityScore, rescued: Bool = false, taken: Date? = nil, camera: String? = nil) {
         self.shot = shot
         self.stars = stars
         self.score = score
         self.rescued = rescued
+        self.taken = taken
+        self.camera = camera
+    }
+
+    /// The sharpest frame of each burst among `scored`.
+    public static func burstSharpest(_ scored: [ScoredShot]) -> Set<String> {
+        Bursts.sharpest(scored.compactMap { photo in
+            photo.taken.map { Bursts.Frame(id: photo.id, taken: $0, camera: photo.camera, subject: photo.score.subjectSharpness,
+                                           subjectIsFace: photo.score.largestFaceScore != nil) }
+        })
     }
 
     public var id: String { shot.id }
@@ -86,7 +99,9 @@ public enum Calibration {
             let score = landed.shot.primary.destinations.first.flatMap { try? QualityCheck.score($0) }
             let stars = landed.stars ?? 0
             let rescued = landed.check.map { $0.stars == nil && !$0.problems.isEmpty && stars >= 1 } ?? false
-            let done = tally.add(i, score.map { ScoredShot(shot: landed.shot, stars: stars, score: $0, rescued: rescued) },
+            let moment = landed.shot.primary.destinations.first.flatMap { CaptureDate.moment($0) }
+            let done = tally.add(i, score.map { ScoredShot(shot: landed.shot, stars: stars, score: $0, rescued: rescued,
+                                                           taken: moment?.taken, camera: moment?.camera) },
                                  name: landed.shot.primary.newName)
             progress(done)
         }
