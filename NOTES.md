@@ -61,7 +61,7 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   both folders to the Synology, and record in the checklist what Synology Photos shows. Then look
   inside the tagged files to see where each app wrote the metadata.
 - [ ] Step 2: Agree the spec from what the test shows, plus the photographer's template values.
-- [x] Keywords (asked for 2026-10-28, built 2026-10-28, confirmed in Lightroom 2026-10-30): job keywords on
+- [x] Keywords (asked for 2026-10-28, built 2026-10-28, confirmed in Lightroom and on the Synology 2026-10-30): job keywords on
   every photo as it lands, and a keyword bar under the grid. See "Keywords" under Metadata; test
   step 23.
 
@@ -629,7 +629,7 @@ changed after verifying (proposed: receipt keeps the card's checksum and adds th
 files matched by name like `.xmp`); per-job fields in the Job panel or the settings file; the
 template values themselves.
 
-### Keywords (asked 2026-10-28, built 2026-10-28, confirmed in Lightroom 2026-10-30; Synology test under way)
+### Keywords (asked 2026-10-28, built 2026-10-28, confirmed in Lightroom 2026-10-30, and showing on the Synology 2026-10-30)
 
 The photographer wanted to start testing keywording at camp. Built the way stars already work, so
 nothing new is decided about where metadata lives:
