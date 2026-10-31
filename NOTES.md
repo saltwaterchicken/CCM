@@ -160,7 +160,7 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   on a black stage passes. Its own "Dark subject" slider (off to 128); the two share sliders now go
   0 to 100%. Recorded as `cardingest:Brightness` in the marker. To tune on a folder with dark
   outtakes; score-folder's CSV already has `face_brightness` and `area_brightness`.
-  **Subject Sharpest in bursts (asked 2026-10-30, built 2026-10-30, not yet tried on the Mac):** a
+  **Subject Sharpest in bursts (asked 2026-10-30, built 2026-10-30, confirmed on the Mac 2026-10-30):** a
   green "Subject Sharpest" chip on the sharpest frame of each burst, in the grid, its large view
   and the calibration window. Photographer's calls: a burst is 3 or more frames, each within 1 s
   of the one before; judged on the **largest** face (the subject), not the
