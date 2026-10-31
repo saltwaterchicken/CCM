@@ -34,6 +34,12 @@ public struct NotificationSettings: Codable, Equatable, Sendable {
     }
 
     public var isOn: Bool { serverURL != nil }
+
+    /// A new topic nobody would guess: "ccm-" and 24 random hex digits.
+    public static func newTopic() -> String {
+        var generator = SystemRandomNumberGenerator()
+        return "ccm-" + (0..<12).map { _ in String(format: "%02x", UInt8.random(in: 0...255, using: &generator)) }.joined()
+    }
 }
 
 /// One alert for the phone.

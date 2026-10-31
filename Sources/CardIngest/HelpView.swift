@@ -372,10 +372,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-/// The Help menu: this app's help, and Live Tech Support.
+/// The Help menu: this app's help, Live Tech Support, and a test alert for the phone.
 struct HelpCommands: Commands {
     var help: HelpModel
     var license: LicenseModel
+    var watcher: CardWatcher
     @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
@@ -388,6 +389,8 @@ struct HelpCommands: Commands {
             }
             Divider()
             Button("Setup Tutorial…") { openWindow(id: "tutorial") }
+            Button("Send Test Notification") { watcher.sendTestNotification() }
+                .disabled(!watcher.notificationsOn)
             Button("License…") { openWindow(id: "license") }
         }
         CommandGroup(replacing: .appInfo) {

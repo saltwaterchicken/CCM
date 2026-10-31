@@ -68,4 +68,12 @@ final class PhoneNotificationsTests: XCTestCase {
         XCTAssertEqual(bad.title, "Sync done, 1 file needs the admin")
         XCTAssertTrue(bad.isProblem)
     }
+
+    func testNewTopicIsLongAndRandom() {
+        let topic = NotificationSettings.newTopic()
+        XCTAssertTrue(topic.hasPrefix("ccm-"))
+        XCTAssertEqual(topic.count, 28)
+        XCTAssertNotEqual(topic, NotificationSettings.newTopic())
+        XCTAssertTrue(NotificationSettings(topic: topic).isOn)
+    }
 }

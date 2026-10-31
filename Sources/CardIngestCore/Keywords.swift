@@ -54,6 +54,29 @@ public enum Keywords {
         return merged([], adding: words)
     }
 
+    /// The keyword field filled in as it's typed: when the keyword being typed
+    /// (after the last comma or semicolon) is the start of a known one, the
+    /// text with that keyword finished, in its known case, and how much of it
+    /// (in UTF-16 units, as a text field counts) was typed; the rest is what
+    /// the field shows selected, so typing on replaces it. Nil when nothing
+    /// fits, or the only fits are already typed earlier in the field.
+    /// `known` is in order of preference, the most recently used first.
+    public static func completion(of text: String, among known: [String]) -> (text: String, typedLength: Int)? {
+        let start = text.lastIndex { $0 == "," || $0 == ";" }.map { text.index(after: $0) } ?? text.startIndex
+        let before = String(text[..<start])
+        let token = text[start...].drop { $0 == " " }
+        guard !token.isEmpty else { return nil }
+        let leading = String(text[start...].prefix { $0 == " " })
+        let earlier = parse(before)
+        guard let word = known.first(where: { word in
+            word.count > token.count
+                && word.lowercased().hasPrefix(token.lowercased())
+                && !earlier.contains { same($0, word) }
+        }) else { return nil }
+        let typed = before + leading + String(word.prefix(token.count))
+        return (before + leading + word, typed.utf16.count)
+    }
+
     /// `existing` with any of `words` it doesn't already have, in any case, added at the end.
     public static func merged(_ existing: [String], adding words: [String]) -> [String] {
         var result = existing

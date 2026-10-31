@@ -300,7 +300,7 @@ final class CardWatcher {
         }
     }
 
-    /// File › Send Test Notification: tells the photographer whether it reached ntfy.
+    /// Help › Send Test Notification (and the tutorial): tells the photographer whether it reached ntfy.
     func sendTestNotification() {
         notifier.send(.test) { problem in
             Task { @MainActor in

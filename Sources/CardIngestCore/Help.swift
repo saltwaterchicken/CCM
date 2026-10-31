@@ -235,10 +235,10 @@ public enum Help {
                    keywords: ["keys", "keyboard", "cull", "zoom", "100%"], target: .starFilter),
         HelpAnswer("keywords", "How do I add keywords?",
                    "Type the job's keywords in Keywords in the Job panel, with commas between (Camp, 2026, Summer): every photo "
-                   + "gets them as it lands. For a few photos, select them in the grid, press K (or ⌘K), type keywords with commas "
-                   + "between and press Return; the grid takes the keys back so you can carry on rating. The bar under the grid "
+                   + "gets them as it lands. For a few photos, select them in the grid, press K, type keywords with commas between and "
+                   + "press Return (a keyword used before fills itself in: Tab or a comma takes it); the grid takes the keys back so you can carry on rating. The bar under the grid "
                    + "shows the selection's keywords: × takes one off, a dim one is only on some (click it to add it to all), and "
-                   + "Recent adds one you used lately in one click. Keywords go in the same .xmp sidecar as the stars, which "
+                   + "Recent adds one you used lately in one click. ⌘K shows and hides the bar. Keywords go in the same .xmp sidecar as the stars, which "
                    + "Lightroom, Bridge and Photo Mechanic read; the photos themselves are never changed. Clips don't take keywords yet.",
                    keywords: ["keyword", "tag", "tags", "metadata", "subject"], target: .keywords),
         HelpAnswer("lightroom", "My stars don't show in Lightroom",
@@ -296,12 +296,13 @@ public enum Help {
                    + "Or edit Folder name in the Job panel; the file names follow the rename pattern in the settings file.",
                    keywords: ["initials", "es", "name", "letters"], target: .folderName),
         HelpAnswer("notifications", "How do I get alerts on my iPhone or Watch?",
-                   "Install the free ntfy app on the iPhone and subscribe to a topic: a long name nobody would guess, like a "
-                   + "password. Put the same topic in the settings file under notifications › topic, then Reload Settings and "
-                   + "choose File › Send Test Notification. You'll be told when a card is copied, when its backup is on the "
+                   "Install the free ntfy app on the iPhone and subscribe to this Mac's topic: a long name nobody would guess, like "
+                   + "a password. Help › Setup Tutorial… makes one and copies it, to paste into ntfy (tap +) or text to yourself. "
+                   + "It's kept in the settings file under notifications › topic. Then choose Help › Send Test Notification. If "
+                   + "ntfy lists the messages but the phone gives no alerts, delete ntfy, install it again and subscribe again. You'll be told when a card is copied, when its backup is on the "
                    + "server, and when Sync With Server is done. The Watch shows them when the iPhone passes on ntfy's alerts. "
                    + "Leave the topic empty to turn them off.",
-                   keywords: ["notification", "alert", "phone", "iphone", "watch", "ntfy", "push", "done", "finished"]),
+                   keywords: ["notification", "alert", "phone", "iphone", "watch", "ntfy", "push", "done", "finished", "topic", "test"]),
         HelpAnswer("support", "How do I reach tech support?",
                    "Choose Live Tech Support at the top of this window. Type what happened; the app adds its version, the card "
                    + "and the latest receipt's summary, and opens WhatsApp with it all written. One more tap sends it, and the reply "

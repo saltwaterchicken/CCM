@@ -311,6 +311,7 @@ final class GridModel {
         destinationRoot = settings.destinationRootURL
         fileTypes = settings.fileTypes
         rating = settings.rating
+        jobKeywords = settings.metadata.keywords
         serverRoot = settings.backupRootURL
         notifier = PhoneNotifier(settings.notifications)
         if !rating.available, grid.filter == .appFlagged { grid.filter = .all }
@@ -393,12 +394,41 @@ final class GridModel {
         }
     }
 
-    /// Keywords used lately, newest first, offered as one-click buttons under
-    /// the grid. Kept on this Mac only.
+    /// Keywords used on this Mac, newest first: the first few are offered as
+    /// one-click buttons under the grid, and all of them fill in the keyword
+    /// field as it's typed. Kept on this Mac only.
     private(set) var recentKeywords: [String] = GridModel.savedRecentKeywords()
-    /// Bumped by Photos › Add Keywords… (⌘K): the keyword field takes the keys.
-    var keywordFieldRequest = 0
+    /// The job's keywords from the settings file, also filled in as typed.
+    private(set) var jobKeywords: [String] = []
+    /// The keyword bar under the grid, shown and hidden with ⌘K; remembered.
+    private(set) var keywordBarShown = UserDefaults.standard.object(forKey: GridModel.keywordBarShownKey) as? Bool ?? true
+    /// Set when the keyword field should take the keys; it clears it once it has.
+    var keywordFieldWantsFocus = false
     nonisolated private static let recentKeywordsKey = "recentKeywords"
+    nonisolated private static let keywordBarShownKey = "keywordBarShown"
+
+    /// Every keyword the field can fill in, the most recently used first.
+    var knownKeywords: [String] {
+        let onPhotos = grid.keywords.values.reduce(into: [String]()) { $0 = Keywords.merged($0, adding: $1) }
+        return Keywords.merged(Keywords.merged(recentKeywords, adding: jobKeywords), adding: onPhotos.sorted())
+    }
+
+    /// Photos › Show/Hide Keywords (⌘K). Shown with photos selected, the field takes the keys.
+    func toggleKeywordBar() {
+        keywordBarShown.toggle()
+        UserDefaults.standard.set(keywordBarShown, forKey: Self.keywordBarShownKey)
+        if keywordBarShown, !grid.selectedPhotos.isEmpty { keywordFieldWantsFocus = true }
+    }
+
+    /// K in the grid: shows the bar if it's hidden, and the field takes the keys.
+    func typeKeywords() {
+        guard !grid.selectedPhotos.isEmpty else { return }
+        if !keywordBarShown {
+            keywordBarShown = true
+            UserDefaults.standard.set(true, forKey: Self.keywordBarShownKey)
+        }
+        keywordFieldWantsFocus = true
+    }
 
     nonisolated private static func savedRecentKeywords() -> [String] {
         UserDefaults.standard.stringArray(forKey: recentKeywordsKey) ?? []
@@ -408,7 +438,7 @@ final class GridModel {
     /// changes to one sidecar are written in the order they were made.
     func addKeywords(_ words: [String]) {
         guard !words.isEmpty else { return }
-        recentKeywords = Array(Keywords.merged(words, adding: recentKeywords).prefix(12))
+        recentKeywords = Array(Keywords.merged(words, adding: recentKeywords).prefix(500))
         UserDefaults.standard.set(recentKeywords, forKey: Self.recentKeywordsKey)
         let shots = grid.addKeywords(words)
         writeKeywords(shots) { try Keywords.add(words, to: $0) }
@@ -455,7 +485,6 @@ final class GridModel {
 struct CullingView: View {
     var model: GridModel
     @FocusState private var focused: Bool
-    @FocusState private var keywordFocused: Bool
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -542,24 +571,29 @@ struct CullingView: View {
                 // K: type keywords for the selection, as in Photo Mechanic's quick keywording.
                 .onKeyPress(characters: CharacterSet(charactersIn: "kK")) { press in
                     guard !press.modifiers.contains(.command), !model.grid.selectedPhotos.isEmpty else { return .ignored }
-                    keywordFocused = true
+                    model.typeKeywords()
                     return .handled
                 }
             }
-            if !model.grid.shots.isEmpty {
-                KeywordBar(model: model, field: $keywordFocused) {
-                    keywordFocused = false
-                    focused = true
-                }
+            if !model.grid.shots.isEmpty, model.keywordBarShown {
+                KeywordBar(model: model) { giveKeysToGrid() }
             }
         }
-        .onChange(of: model.keywordFieldRequest) {
-            if !model.grid.selectedPhotos.isEmpty { keywordFocused = true }
+        // Hidden with ⌘K while typing in it: the grid takes the keys back.
+        .onChange(of: model.keywordBarShown) { _, shown in
+            if !shown { giveKeysToGrid() }
         }
         .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Theme.panel, in: RoundedRectangle(cornerRadius: 6))
         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.panelEdge, lineWidth: 1))
+    }
+
+    /// Back to culling. The keyword field is AppKit's, outside SwiftUI's focus,
+    /// so the grid's focus is set afresh once the field has let go.
+    private func giveKeysToGrid() {
+        focused = false
+        DispatchQueue.main.async { focused = true }
     }
 
     private var header: some View {
@@ -574,7 +608,7 @@ struct CullingView: View {
                          + (model.folder.map { " in \($0.lastPathComponent)" } ?? ""))
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Text("0–5 rate · K keywords · arrows move · double-click or Space to look closer · ⌘A all")
+                    Text("0–5 rate · K keywords (⌘K shows or hides them) · arrows move · double-click or Space to look closer · ⌘A all")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 } else {
@@ -656,11 +690,13 @@ struct CullingView: View {
 }
 
 /// Under the grid: the selected photos' keywords, a field to add more, and
-/// the ones used lately. Return adds what's typed and gives the keys back to
-/// the grid, so culling carries on; Esc gives them back without adding.
+/// the ones used lately, in type big enough to read and click on any screen.
+/// Return adds what's typed and gives the keys back to the grid, so culling
+/// carries on; Esc gives them back without adding. A keyword used before
+/// fills itself in as it's typed: Tab, a comma or → takes it, typing on
+/// replaces it. ⌘K shows and hides the bar.
 struct KeywordBar: View {
     var model: GridModel
-    var field: FocusState<Bool>.Binding
     /// Back to the grid.
     var done: () -> Void
     @State private var text = ""
@@ -670,76 +706,202 @@ struct KeywordBar: View {
         let onSelection = model.grid.selectionKeywords
         let recent = model.recentKeywords.filter { word in
             !onSelection.contains { $0.onAll && $0.keyword.caseInsensitiveCompare(word) == .orderedSame }
-        }
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
+        }.prefix(12)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
                 Text("Keywords")
-                    .font(.caption.weight(.semibold))
-                    .textCase(.uppercase)
+                    .font(.headline)
                     .foregroundStyle(.secondary)
-                TextField(photos.isEmpty ? "Select photos, then press K to type keywords"
-                          : "Add to \(photos.count) \(photos.count == 1 ? "photo" : "photos"), commas between, then Return",
-                          text: $text)
-                    .textFieldStyle(.roundedBorder)
-                    .focused(field)
-                    .disabled(photos.isEmpty)
-                    .onSubmit(add)
-                    .onKeyPress(.escape) {
-                        text = ""
-                        done()
-                        return .handled
-                    }
+                KeywordField(text: $text,
+                             placeholder: photos.isEmpty ? "Select photos, then press K to type keywords"
+                                 : "Add to \(photos.count) \(photos.count == 1 ? "photo" : "photos"), commas between, then Return",
+                             enabled: !photos.isEmpty,
+                             suggestions: model.knownKeywords,
+                             wantsFocus: Binding(get: { model.keywordFieldWantsFocus },
+                                                 set: { model.keywordFieldWantsFocus = $0 }),
+                             onSubmit: add,
+                             onCancel: {
+                                 text = ""
+                                 done()
+                             })
+                    .frame(height: 30)
+                Button {
+                    model.toggleKeywordBar()
+                } label: {
+                    Image(systemName: "xmark.circle.fill").font(.title2)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
+                .help("Hides the keywords (⌘K brings them back)")
             }
             // One row of fixed height whatever is selected, so the grid above never moves.
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 4) {
+                HStack(spacing: 6) {
                     if photos.isEmpty {
                         Text(model.grid.selected.isEmpty ? "Nothing selected" : "Clips don't take keywords yet")
-                            .font(.caption).foregroundStyle(.tertiary)
+                            .foregroundStyle(.tertiary)
                     }
                     ForEach(onSelection, id: \.self) { item in chip(item) }
                     if !photos.isEmpty, !recent.isEmpty {
-                        Text(onSelection.isEmpty ? "Recent:" : "· Recent:").font(.caption).foregroundStyle(.tertiary)
-                        ForEach(recent, id: \.self) { word in
-                            Button("+ \(word)") { model.addKeywords([word]) }
-                                .buttonStyle(.borderless)
-                                .font(.caption)
-                                .help("Adds \(word) to the selected photos")
+                        Text(onSelection.isEmpty ? "Recent:" : "· Recent:").foregroundStyle(.tertiary)
+                        ForEach(Array(recent), id: \.self) { word in
+                            Button {
+                                model.addKeywords([word])
+                            } label: {
+                                Text("+ \(word)")
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(Color.secondary.opacity(0.18), in: Capsule())
+                                    .contentShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .help("Adds \(word) to the selected photos")
                         }
                     }
                 }
+                .font(.body)
             }
-            .frame(height: 20)
+            .frame(height: 32)
         }
     }
 
     /// A keyword on the selection: bright when every selected photo has it,
     /// dim when only some do (click it to give it to all), × to take it off.
     private func chip(_ item: SelectionKeyword) -> some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 6) {
             Text(item.keyword)
                 .onTapGesture { if !item.onAll { model.addKeywords([item.keyword]) } }
             Button {
                 model.removeKeyword(item.keyword)
             } label: {
-                Image(systemName: "xmark").font(.caption2.weight(.bold))
+                Image(systemName: "xmark").font(.caption.weight(.bold))
+                    .frame(width: 18, height: 18)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
             .help("Takes \(item.keyword) off the selected photos")
         }
-        .font(.caption)
-        .padding(.horizontal, 6)
-        .padding(.vertical, 2)
+        .font(.body)
+        .padding(.leading, 10)
+        .padding(.trailing, 6)
+        .padding(.vertical, 5)
         .background(Color.accentColor.opacity(item.onAll ? 0.35 : 0.12), in: Capsule())
         .foregroundStyle(item.onAll ? .primary : .secondary)
         .help(item.onAll ? "On every selected photo" : "On some of the selected photos; click to add it to all")
     }
 
-    private func add() {
-        let words = Keywords.parse(text)
+    private func add(_ typed: String) {
+        let words = Keywords.parse(typed)
         if !words.isEmpty { model.addKeywords(words) }
         text = ""
         done()
+    }
+}
+
+/// The keyword field, AppKit's own so it can fill in a keyword used before
+/// as it's typed, with the rest selected (SwiftUI's text field can't select
+/// before macOS 15).
+struct KeywordField: NSViewRepresentable {
+    @Binding var text: String
+    var placeholder: String
+    var enabled: Bool
+    /// Keywords to fill in, in order of preference.
+    var suggestions: [String]
+    @Binding var wantsFocus: Bool
+    var onSubmit: (String) -> Void
+    var onCancel: () -> Void
+
+    func makeNSView(context: Context) -> NSTextField {
+        let field = NSTextField()
+        field.font = .systemFont(ofSize: 17)
+        field.bezelStyle = .roundedBezel
+        field.lineBreakMode = .byTruncatingTail
+        field.cell?.isScrollable = true
+        field.delegate = context.coordinator
+        return field
+    }
+
+    func updateNSView(_ field: NSTextField, context: Context) {
+        context.coordinator.parent = self
+        if field.stringValue != text {
+            field.stringValue = text
+            context.coordinator.typed = text
+            context.coordinator.pending = nil
+        }
+        field.placeholderString = placeholder
+        field.isEnabled = enabled
+        if wantsFocus, enabled {
+            DispatchQueue.main.async {
+                field.window?.makeFirstResponder(field)
+                wantsFocus = false
+            }
+        }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    @MainActor
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: KeywordField
+        /// What was last typed, without a filled-in ending.
+        var typed = ""
+        /// The filled-in ending on show: what was typed, and the whole text.
+        var pending: (typed: String, completed: String)?
+
+        init(_ parent: KeywordField) { self.parent = parent }
+
+        func controlTextDidChange(_ notification: Notification) {
+            guard let field = notification.object as? NSTextField else { return }
+            let value = field.stringValue
+            // A comma typed over the filled-in ending takes it, as Tab does.
+            if let pending, value == pending.typed + "," || value == pending.typed + ";" {
+                return accept(pending.completed, in: field)
+            }
+            pending = nil
+            let grew = value.count > typed.count
+            typed = value
+            if grew, let editor = field.currentEditor(), editor.selectedRange.location == (value as NSString).length,
+               let done = Keywords.completion(of: value, among: parent.suggestions) {
+                field.stringValue = done.text
+                editor.selectedRange = NSRange(location: done.typedLength,
+                                               length: (done.text as NSString).length - done.typedLength)
+                pending = (value, done.text)
+            }
+            parent.text = field.stringValue
+        }
+
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+            guard let field = control as? NSTextField else { return false }
+            switch selector {
+            case #selector(NSResponder.insertTab(_:)):
+                guard let pending else { return false }
+                accept(pending.completed, in: field)
+                return true
+            case #selector(NSResponder.insertNewline(_:)):
+                let value = field.stringValue
+                pending = nil
+                field.window?.makeFirstResponder(nil)
+                parent.onSubmit(value)
+                return true
+            case #selector(NSResponder.cancelOperation(_:)):
+                pending = nil
+                field.window?.makeFirstResponder(nil)
+                parent.onCancel()
+                return true
+            default:
+                return false
+            }
+        }
+
+        /// Keeps the filled-in keyword and starts the next one.
+        private func accept(_ completed: String, in field: NSTextField) {
+            let value = completed + ", "
+            pending = nil
+            typed = value
+            field.stringValue = value
+            field.currentEditor()?.selectedRange = NSRange(location: (value as NSString).length, length: 0)
+            parent.text = value
+        }
     }
 }
 

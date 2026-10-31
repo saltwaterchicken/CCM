@@ -237,4 +237,29 @@ final class CullGridKeywordsTests: XCTestCase {
         XCTAssertEqual(Help.search("add keywords").first?.id, "keywords")
         XCTAssertEqual(Help.search("tags").first?.id, "keywords")
     }
+
+    func testCompletionFinishesAKnownKeyword() {
+        let known = ["Swimming", "Campfire", "Camp"]
+        let done = Keywords.completion(of: "swi", among: known)
+        XCTAssertEqual(done?.text, "Swimming")
+        XCTAssertEqual(done?.typedLength, 3)
+        // After a comma, only the keyword being typed is finished.
+        let second = Keywords.completion(of: "Lake, cam", among: known)
+        XCTAssertEqual(second?.text, "Lake, Campfire")
+        XCTAssertEqual(second?.typedLength, "Lake, cam".utf16.count)
+    }
+
+    func testCompletionLeavesAloneWhatDoesntFit() {
+        let known = ["Swimming", "Camp"]
+        XCTAssertNil(Keywords.completion(of: "", among: known))
+        XCTAssertNil(Keywords.completion(of: "Lake, ", among: known))
+        XCTAssertNil(Keywords.completion(of: "zip", among: known))
+        // Already whole, or already typed earlier in the field.
+        XCTAssertNil(Keywords.completion(of: "camp", among: known))
+        XCTAssertNil(Keywords.completion(of: "Swimming, swi", among: known))
+    }
+
+    func testCompletionPrefersTheFirstKnown() {
+        XCTAssertEqual(Keywords.completion(of: "ca", among: ["Canoe", "Camp"])?.text, "Canoe")
+    }
 }

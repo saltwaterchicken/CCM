@@ -1,5 +1,6 @@
 import AppKit
 import CardIngestCore
+import CoreImage.CIFilterBuiltins
 import SwiftUI
 
 /// The setup tutorial: opens by itself the first time Card Ingest runs for
@@ -13,12 +14,13 @@ struct TutorialView: View {
     @Environment(\.dismissWindow) private var dismissWindow
     @State private var step = Step.welcome
     @State private var initials = ""
+    @State private var topicCopied = false
 
     /// Seen once on this Mac (for this user), so it opens by itself only the first time.
     static let seenKey = "setupTutorialSeen"
 
     enum Step: Int, CaseIterable {
-        case welcome, initials, destination, backup, counter, whenDone, expect, done
+        case welcome, initials, destination, backup, counter, whenDone, phone, expect, done
     }
 
     var body: some View {
@@ -137,6 +139,8 @@ struct TutorialView: View {
                     .padding(.leading, 20)
             }
             showMe(.whenDone)
+        case .phone:
+            phone
         case .expect:
             title("What happens with each card")
             numbered(1, "Put the card in. It shows at the top left with how many files it has.", target: .cards)
@@ -157,6 +161,82 @@ struct TutorialView: View {
         }
     }
 
+    /// ntfy's page on the App Store, for the phone's camera.
+    static let ntfyAppStore = "https://apps.apple.com/app/ntfy/id1625396347"
+
+    /// Alerts on the phone: get ntfy, then this Mac's topic, copied to paste in.
+    @ViewBuilder
+    private var phone: some View {
+        let topic = settings.settings.notifications.topic.trimmingCharacters(in: .whitespaces)
+        title("Alerts on your phone")
+        para("Card Ingest can tell your iPhone (and Watch) when a card is copied, when its backup is on the server, and when "
+             + "Sync With Server is done, so you can walk away from the Mac. It uses ntfy, a free app.")
+        HStack(alignment: .top, spacing: 16) {
+            if let code = Self.qrCode(Self.ntfyAppStore) {
+                Image(nsImage: code)
+                    .interpolation(.none)
+                    .resizable()
+                    .frame(width: 120, height: 120)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                numberedLine(1, "Get ntfy on your iPhone: point its camera at this code, or search the App Store for ntfy.")
+                numberedLine(2, topic.isEmpty ? "Make your topic: the private name your alerts are sent under."
+                                              : "Copy your topic below, then paste it on the phone.")
+                numberedLine(3, "In ntfy, tap +, paste the topic, leave the server as ntfy.sh and tap Subscribe. "
+                             + "Allow notifications when it asks.")
+            }
+        }
+        if topic.isEmpty {
+            Button("Make My Topic") {
+                settings.change { $0.notifications.topic = NotificationSettings.newTopic() }
+            }
+            .controlSize(.large)
+        } else {
+            HStack {
+                Text(topic).font(.title3.monospaced()).textSelection(.enabled)
+                Spacer()
+                Button(topicCopied ? "Copied" : "Copy Topic") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(topic, forType: .string)
+                    topicCopied = true
+                }
+                .controlSize(.large)
+            }
+            .padding(10)
+            .background(Theme.panel, in: RoundedRectangle(cornerRadius: 6))
+            para("Not at the phone? Paste it into a message to yourself, then copy it from there on the phone. Keep it to "
+                 + "yourself: anyone with the topic can read your alerts.")
+                .font(.callout).foregroundStyle(.secondary)
+            HStack {
+                Button("Send Test Notification") { watcher.sendTestNotification() }
+                Text("Also in the Help menu.").font(.caption).foregroundStyle(.secondary)
+            }
+            para("Messages listed in ntfy but no alerts? Delete ntfy, install it again and subscribe again.")
+                .font(.callout).foregroundStyle(.secondary)
+        }
+        para("No phone alerts wanted? Skip this with Next.")
+            .font(.callout).foregroundStyle(.secondary)
+    }
+
+    private func numberedLine(_ number: Int, _ text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text("\(number)").font(.headline).frame(width: 16)
+            para(text)
+        }
+    }
+
+    /// A QR code for `text`, sharp at any size.
+    static func qrCode(_ text: String) -> NSImage? {
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(text.utf8)
+        filter.correctionLevel = "M"
+        guard let output = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 8, y: 8)) else { return nil }
+        let rep = NSCIImageRep(ciImage: output)
+        let image = NSImage(size: rep.size)
+        image.addRepresentation(rep)
+        return image
+    }
+
     private var buttons: some View {
         HStack {
             if step == .welcome {
@@ -175,6 +255,7 @@ struct TutorialView: View {
 
     private func move(_ by: Int) {
         step = Step(rawValue: step.rawValue + by) ?? step
+        topicCopied = false
     }
 
     private func close() {

@@ -35,8 +35,6 @@ struct CardCommands: Commands {
             Button("Use Default Settings") { settings.useDefaultFile() }
             Button("Reload Settings") { settings.reload() }
             Button("Show Settings File in Finder") { NSWorkspace.shared.activateFileViewerSelecting([settings.fileURL]) }
-            Button("Send Test Notification") { watcher.sendTestNotification() }
-                .disabled(!watcher.notificationsOn)
         }
 
         CommandMenu("Photos") {
@@ -45,12 +43,12 @@ struct CardCommands: Commands {
             let count = grid.grid.toOpen.count
             Button("Open \(count) in \(grid.applicationName)") { grid.openInApplication() }
                 .disabled(!hasPhotos || count == 0)
-            Button("Add Keywords…") {
+            Button(grid.keywordBarShown ? "Hide Keywords" : "Show Keywords") {
                 grid.closeView()
-                grid.keywordFieldRequest += 1
+                grid.toggleKeywordBar()
             }
             .keyboardShortcut("k", modifiers: .command)
-            .disabled(grid.grid.selectedPhotos.isEmpty)
+            .disabled(!hasPhotos)
             Divider()
             Button("Show All Photos") { grid.filter = .all }
                 .disabled(!hasPhotos)

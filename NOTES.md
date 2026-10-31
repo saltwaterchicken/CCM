@@ -61,7 +61,7 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   both folders to the Synology, and record in the checklist what Synology Photos shows. Then look
   inside the tagged files to see where each app wrote the metadata.
 - [ ] Step 2: Agree the spec from what the test shows, plus the photographer's template values.
-- [ ] Keywords (asked for 2026-10-28, built 2026-10-28, not yet tried on the Mac): job keywords on
+- [x] Keywords (asked for 2026-10-28, built 2026-10-28, confirmed in Lightroom 2026-10-30): job keywords on
   every photo as it lands, and a keyword bar under the grid. See "Keywords" under Metadata; test
   step 23.
 
@@ -629,7 +629,7 @@ changed after verifying (proposed: receipt keeps the card's checksum and adds th
 files matched by name like `.xmp`); per-job fields in the Job panel or the settings file; the
 template values themselves.
 
-### Keywords (asked 2026-10-28, built 2026-10-28, not yet tried on the Mac)
+### Keywords (asked 2026-10-28, built 2026-10-28, confirmed in Lightroom 2026-10-30; Synology test under way)
 
 The photographer wanted to start testing keywording at camp. Built the way stars already work, so
 nothing new is decided about where metadata lives:
@@ -644,8 +644,7 @@ nothing new is decided about where metadata lives:
   now the Job panel's "Keywords" field, typed with commas between. Every photo gets them as it lands
   (`LiveShots(keywords:)`), added to whatever its sidecar already has, the card's own `.xmp`
   included. With none set, landing writes exactly what it did before.
-- **In the grid:** select photos and press K (or Photos › Add Keywords…, ⌘K), type keywords with
-  commas between, Return. The keys go back to the grid so rating carries on. The bar under the grid
+- **In the grid:** select photos and press K, type keywords with commas between, Return. The keys go back to the grid so rating carries on. The bar under the grid
   shows the selection's keywords: × takes one off, a dim one is only on some of them (click to give
   it to all), and up to 12 recent keywords (kept on this Mac, `recentKeywords` in the app's
   defaults) add in one click. Tiles show a tag and a count; the large view lists them.
@@ -653,8 +652,19 @@ nothing new is decided about where metadata lives:
 - **Load Folder** reads them back from the sidecars.
 - **Server:** keywords ride up with the sidecars in Sync With Server. As with stars, a sidecar
   already on the write-once server can't be updated, so keyword before the first Sync.
-- Not done: keyword hierarchies (Lightroom's `lr:hierarchicalSubject`), a keyword list or
-  autocomplete, filtering the grid by keyword, captions and the other template fields.
+- **Bigger bar, shown and hidden, filling in (asked 2026-10-30, built 2026-10-30, not yet tried on
+  the Mac):** the photographer found the bar's type and the Recent buttons too small to read and
+  click on a high-res or small screen, and wanted ⌘K to show and hide the bar rather than only
+  put the keys in it. ⌘K (Photos › Show/Hide Keywords) now shows and hides it (remembered,
+  `keywordBarShown` in the app's defaults; × on the bar hides it too); shown with photos selected,
+  the field takes the keys. K still opens it and types. The field is 17 pt, the chips and Recent
+  buttons body-size capsules with room to click. A keyword used before fills itself in as typed,
+  the rest selected (Lightroom's way): typing on replaces it, Tab, a comma or → keeps it, Delete
+  drops it, Return adds all. Filled in from the recent ones (now up to 500 kept, 12 shown), the
+  job's keywords and those on the grid's photos, most recent first (`Keywords.completion`). The
+  field is AppKit's (`KeywordField` in `CullingView.swift`): SwiftUI can't select text before
+  macOS 15.
+- Not done: keyword hierarchies (Lightroom's `lr:hierarchicalSubject`), a keyword list, filtering the grid by keyword, captions and the other template fields.
 
 ## Server backup (asked 2026-10-27, built and confirmed on the Mac 2026-10-27)
 
@@ -828,13 +838,20 @@ app's user defaults, set as soon as it opens, so closing it early counts), and f
 Tutorial… after that. A floating window (`TutorialView.swift`), so its Show Me buttons can point at
 the real Job panel underneath. Steps: Welcome (Skip for Now / Start), Your initials, Where cards are
 copied, The backup on the server, The card counter, When a card is done (Trash, eject,
-auto-rating), What happens with each card (six numbered steps), You're set. Each choice is saved
+auto-rating), Alerts on your phone, What happens with each card (six numbered steps), You're set. Each choice is saved
 straight to the settings file in use, as the Job panel does. Initials (`Initials.swift`): the
 letters just before `{iseq}` in the folder name are the initials; typing new ones replaces them
 where they stand alone outside the tokens, in both the folder name and the rename pattern, with a
 live preview of the next folder and a file name. A folder name with nothing before `{iseq}` says
 to edit it in the Job panel. To see it again as a first run: `defaults delete
 com.capturecampmemories.cardingest setupTutorialSeen`.
+
+**Alerts on your phone step (asked 2026-10-30, built 2026-10-30, not yet tried on the Mac):** after
+"When a card is done". A QR code for ntfy's App Store page (CoreImage, scanned with the iPhone's
+camera), then the steps to subscribe. With no topic yet, Make My Topic saves a new random one
+(`NotificationSettings.newTopic()`, "ccm-" and 24 hex digits) to the settings file; with one, it's
+shown with Copy Topic (the clipboard, to paste into ntfy or text to oneself), Send Test
+Notification, and the reinstall tip. Next skips it.
 
 ## GUI wishlist
 
@@ -1073,7 +1090,7 @@ Anyone who knows the topic can read the alerts on ntfy.sh, so it's long and rand
 card copies and verifies (or had nothing new, or failed; not when Stop was pressed), when that
 card's backup to the server finishes (all there, problems, or the server went away), and when Sync
 With Server finishes (per card counts). Problems go at priority 4 with a warning tag. A failed
-send is only logged; nothing waits for it. File › Send Test Notification (on when a topic is set)
+send is only logged; nothing waits for it. Help › Send Test Notification (on when a topic is set; moved from File 2026-10-30)
 says whether ntfy took it. The Watch shows them when the iPhone's ntfy notifications are mirrored
 (Watch app › Notifications › ntfy). Help answer "notifications" added.
 If a phone lists the messages in ntfy but gives no alerts (seen 2026-10-30 on the photographer's

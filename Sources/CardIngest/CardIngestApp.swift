@@ -46,7 +46,7 @@ struct CardIngestApp: App {
         }
         .commands {
             CardCommands(settings: model, watcher: watcher)
-            HelpCommands(help: help, license: license)
+            HelpCommands(help: help, license: license, watcher: watcher)
         }
         Window("Calibrate Auto-Rating", id: "calibration") {
             CalibrationView(settings: model, grid: watcher.grid)
