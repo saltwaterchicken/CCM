@@ -20,7 +20,7 @@ struct TutorialView: View {
     static let seenKey = "setupTutorialSeen"
 
     enum Step: Int, CaseIterable {
-        case welcome, initials, destination, backup, counter, whenDone, phone, expect, done
+        case welcome, initials, destination, backup, counter, keywords, whenDone, phone, expect, done
     }
 
     var body: some View {
@@ -122,6 +122,8 @@ struct TutorialView: View {
             }
             preview
             showMe(.importNumber)
+        case .keywords:
+            jobKeywords
         case .whenDone:
             title("When a card is done")
             Toggle("Move the card's photos and videos to the card's Trash once every copy is verified", isOn: Binding(
@@ -159,6 +161,34 @@ struct TutorialView: View {
             preview
             para("Help › Setup Tutorial… brings this back any time.")
         }
+    }
+
+    /// The job's keywords, on every photo and clip as it lands; the
+    /// photographer's own are kept apart, in My Keywords.txt.
+    @ViewBuilder
+    private var jobKeywords: some View {
+        let year = String(Calendar.current.component(.year, from: Date()))
+        let words = settings.settings.metadata.keywords
+        title("Keywords on every photo")
+        para("Keywords for the whole job, like the camp's name, the season and the year, go on every photo and clip as it "
+             + "lands, so they're there in Lightroom and on the Synology without typing them again. They're saved in the "
+             + "settings file, so a project settings file can have its own.")
+        JobKeywordsField(model: settings)
+            .font(.title3)
+        HStack {
+            Text("Add:").foregroundStyle(.secondary)
+            ForEach([year, "Summer Camp"], id: \.self) { word in
+                Button("+ \(word)") { settings.change { $0.metadata.keywords = Keywords.merged(words, adding: [word]) } }
+                    .disabled(words.contains { $0.caseInsensitiveCompare(word) == .orderedSame })
+            }
+        }
+        para("Keywords for a few photos (a camper's name, a place, an activity) you add in the grid as you cull: select "
+             + "them and press K. Those are yours, kept on this Mac in My Keywords.txt rather than the settings file, and "
+             + "they fill themselves in as you type them next time. File › Show My Keywords in Finder shows the file.")
+            .font(.callout).foregroundStyle(.secondary)
+        para("No job keywords? Leave it empty and press Next.")
+            .font(.callout).foregroundStyle(.secondary)
+        showMe(.keywords)
     }
 
     /// ntfy's page on the App Store, for the phone's camera.

@@ -655,9 +655,17 @@ nothing new is decided about where metadata lives:
   included. With none set, landing writes exactly what it did before.
 - **In the grid:** select photos and press K, type keywords with commas between, Return. The keys go back to the grid so rating carries on. The bar under the grid
   shows the selection's keywords: × takes one off, a dim one is only on some of them (click to give
-  it to all), and up to 12 recent keywords (kept on this Mac, `recentKeywords` in the app's
-  defaults) add in one click. Tiles show a tag and a count; the large view lists them.
+  it to all), and up to 12 recent keywords (the photographer's own, from `My Keywords.txt`) add in one click. Tiles show a tag and a count; the large view lists them.
   Same case-insensitive matching everywhere: `camp` and `Camp` are one keyword.
+- **Two kinds, kept apart (asked 2026-10-30, built 2026-10-30, not yet tried on the Mac):** the
+  job's keywords (Summer Camp, the year) in the settings file, set in the Job panel or the
+  tutorial's new "Keywords on every photo" step (with + year and + Summer Camp buttons); the
+  photographer's own, used from the grid now and then (names, places), in
+  `~/Library/Application Support/Card Ingest/My Keywords.txt`, one per line, newest first, up to
+  500, read afresh before each add so hand edits stick (`KeywordHistory.swift`; File › Show My
+  Keywords in Finder). They used to be in the app's preferences, which differ between `swift run`
+  (`CardIngest`) and the double-click app (`com.capturecampmemories.cardingest`), so each kept its
+  own list; the file is made the first time from both.
 - **Load Folder** reads them back from the sidecars.
 - **Server:** keywords ride up with the sidecars in Sync With Server. As with stars, a sidecar
   already on the write-once server can't be updated, so keyword before the first Sync.
@@ -848,7 +856,7 @@ Opens by itself the first time Card Ingest runs for someone on a Mac (`setupTuto
 app's user defaults, set as soon as it opens, so closing it early counts), and from Help › Setup
 Tutorial… after that. A floating window (`TutorialView.swift`), so its Show Me buttons can point at
 the real Job panel underneath. Steps: Welcome (Skip for Now / Start), Your initials, Where cards are
-copied, The backup on the server, The card counter, When a card is done (Trash, eject,
+copied, The backup on the server, The card counter, Keywords on every photo, When a card is done (Trash, eject,
 auto-rating), Alerts on your phone, What happens with each card (six numbered steps), You're set. Each choice is saved
 straight to the settings file in use, as the Job panel does. Initials (`Initials.swift`): the
 letters just before `{iseq}` in the folder name are the initials; typing new ones replaces them

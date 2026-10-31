@@ -35,6 +35,7 @@ struct CardCommands: Commands {
             Button("Use Default Settings") { settings.useDefaultFile() }
             Button("Reload Settings") { settings.reload() }
             Button("Show Settings File in Finder") { NSWorkspace.shared.activateFileViewerSelecting([settings.fileURL]) }
+            Button("Show My Keywords in Finder") { watcher.grid.showKeywordFile() }
         }
 
         CommandMenu("Photos") {

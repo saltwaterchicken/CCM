@@ -394,9 +394,10 @@ final class GridModel {
         }
     }
 
-    /// Keywords used on this Mac, newest first: the first few are offered as
-    /// one-click buttons under the grid, and all of them fill in the keyword
-    /// field as it's typed. Kept on this Mac only.
+    /// The photographer's own keywords, newest first: the first few are offered
+    /// as one-click buttons under the grid, and all of them fill in the keyword
+    /// field as it's typed. In My Keywords.txt, not the settings file, which
+    /// holds the job's.
     private(set) var recentKeywords: [String] = GridModel.savedRecentKeywords()
     /// The job's keywords from the settings file, also filled in as typed.
     private(set) var jobKeywords: [String] = []
@@ -404,13 +405,19 @@ final class GridModel {
     private(set) var keywordBarShown = UserDefaults.standard.object(forKey: GridModel.keywordBarShownKey) as? Bool ?? true
     /// Set when the keyword field should take the keys; it clears it once it has.
     var keywordFieldWantsFocus = false
-    nonisolated private static let recentKeywordsKey = "recentKeywords"
     nonisolated private static let keywordBarShownKey = "keywordBarShown"
 
     /// Every keyword the field can fill in, the most recently used first.
     var knownKeywords: [String] {
         let onPhotos = grid.keywords.values.reduce(into: [String]()) { $0 = Keywords.merged($0, adding: $1) }
         return Keywords.merged(Keywords.merged(recentKeywords, adding: jobKeywords), adding: onPhotos.sorted())
+    }
+
+    /// File › Show My Keywords in Finder; made first if no keyword's been used yet.
+    func showKeywordFile() {
+        let url = KeywordHistory.defaultFileURL
+        if !FileManager.default.fileExists(atPath: url.path) { try? KeywordHistory.save(recentKeywords, to: url) }
+        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
     /// Photos › Show/Hide Keywords (⌘K). Shown with photos selected, the field takes the keys.
@@ -430,16 +437,26 @@ final class GridModel {
         keywordFieldWantsFocus = true
     }
 
+    /// The file, made the first time from the lists the app kept before in its
+    /// preferences: one for `swift run`, one for the double-click app.
     nonisolated private static func savedRecentKeywords() -> [String] {
-        UserDefaults.standard.stringArray(forKey: recentKeywordsKey) ?? []
+        let older = [UserDefaults.standard, UserDefaults(suiteName: "CardIngest"),
+                     UserDefaults(suiteName: "com.capturecampmemories.cardingest")]
+            .map { $0?.stringArray(forKey: "recentKeywords") ?? [] }
+        return KeywordHistory.moveIn(older)
     }
 
     /// Adds keywords to the selected photos' sidecars, on the stars' queue so
     /// changes to one sidecar are written in the order they were made.
     func addKeywords(_ words: [String]) {
         guard !words.isEmpty else { return }
-        recentKeywords = Array(Keywords.merged(words, adding: recentKeywords).prefix(500))
-        UserDefaults.standard.set(recentKeywords, forKey: Self.recentKeywordsKey)
+        // Read afresh, so the file can be edited by hand while the app is open.
+        recentKeywords = KeywordHistory.used(words, in: KeywordHistory.load())
+        do {
+            try KeywordHistory.save(recentKeywords)
+        } catch {
+            problem = "Couldn't save My Keywords.txt: \(error.localizedDescription)"
+        }
         let shots = grid.addKeywords(words)
         writeKeywords(shots) { try Keywords.add(words, to: $0) }
     }

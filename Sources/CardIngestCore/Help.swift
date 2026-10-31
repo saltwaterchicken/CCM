@@ -238,10 +238,12 @@ public enum Help {
                    + "gets them as it lands. For a few photos, select them in the grid, press K, type keywords with commas between and "
                    + "press Return (a keyword used before fills itself in: Tab or a comma takes it); the grid takes the keys back so you can carry on rating. The bar under the grid "
                    + "shows the selection's keywords: × takes one off, a dim one is only on some (click it to add it to all), and "
-                   + "Recent adds one you used lately in one click. ⌘K shows and hides the bar. Keywords go in the same .xmp sidecar as the stars, which "
+                   + "Recent adds one you used lately in one click. ⌘K shows and hides the bar. The job's keywords are in the "
+                   + "settings file; the ones you add in the grid are yours, kept in My Keywords.txt (File › Show My Keywords in "
+                   + "Finder), one per line, to edit by hand if you like. Keywords go in the same .xmp sidecar as the stars, which "
                    + "Lightroom, Bridge and Photo Mechanic read; the photos themselves are never changed. Clips take keywords too, in a "
                    + ".xmp of their own beside the clip. The arrows still move in the grid while you type.",
-                   keywords: ["keyword", "tag", "tags", "metadata", "subject"], target: .keywords),
+                   keywords: ["keyword", "tag", "tags", "metadata", "subject", "my keywords", "autofill", "recent"], target: .keywords),
         HelpAnswer("lightroom", "My stars don't show in Lightroom",
                    "Stars for RAW photos are in the .xmp sidecar next to each file, which Lightroom reads when it imports. For photos "
                    + "already in Lightroom, select them and choose Metadata › Read Metadata from Files. JPEG-only and HEIC photos "
