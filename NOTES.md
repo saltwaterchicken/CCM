@@ -173,8 +173,8 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   face's score, else the area's), `cardingest:Taken`, so Load Folder needs no extra reading. Not
   needed on cards copied before (photographer): photos checked before 2026-10-30 have no Taken
   and are left out. Only checked photos take part (`Bursts.swift`, `CullGrid.burstSharpest`).
-  **Calibration rework, agreed 2026-10-30, built 2026-10-30 on branch `claude/calibrate-in-grid`, not
-  yet tried on the Mac:** mainly for cards
+  **Calibration rework, agreed 2026-10-30, built 2026-10-30; interface confirmed on the Mac 2026-10-30,
+  to try on a new card of campers:** mainly for cards
   copied earlier (Load Folder, then calibrate), revisited over the summer; it scores every photo
   afresh, so any earlier card works and shows the burst chip too. Calibrate in the main
   grid and its large view (100%, arrows) instead of the separate window; every photo shown, with
