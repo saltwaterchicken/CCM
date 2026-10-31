@@ -47,7 +47,8 @@ struct CardIngestApp: App {
                 }
                 .environment(help)
         }
-        // A folder dropped on the Dock icon goes to the delegate, not a second window.
+        // A folder dropped on the Dock icon goes to the delegate. Every scene says so,
+        // or SwiftUI opens the next one in line (Help) for it.
         .handlesExternalEvents(matching: [])
         .commands {
             CardCommands(settings: model, watcher: watcher)
@@ -62,6 +63,7 @@ struct CardIngestApp: App {
                 .environment(help)
         }
         .defaultSize(width: 520, height: 640)
+        .handlesExternalEvents(matching: [])
         Window("Set Up Card Ingest", id: "tutorial") {
             TutorialView(settings: model, watcher: watcher)
                 .frame(minWidth: 560, minHeight: 520)
@@ -71,6 +73,7 @@ struct CardIngestApp: App {
                 .environment(help)
         }
         .defaultSize(width: 600, height: 600)
+        .handlesExternalEvents(matching: [])
         Window("Card Ingest License", id: "license") {
             LicenseView(license: license)
                 .frame(minWidth: 480, minHeight: 300)
@@ -78,6 +81,7 @@ struct CardIngestApp: App {
                 .preferredColorScheme(.dark)
         }
         .windowResizability(.contentSize)
+        .handlesExternalEvents(matching: [])
     }
 }
 

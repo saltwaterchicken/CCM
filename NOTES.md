@@ -227,8 +227,10 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
      Mac's folder opener) in `make-app.sh`; `AppDelegate.application(_:open:)` loads the first
      folder dropped (files are ignored), held until the main window is up when the drop launched
      the app; `.handlesExternalEvents(matching: [])` keeps SwiftUI from opening a second window.
-     Only from the built app, not `swift run`. Tried here with `open -a` on a folder: the app
-     launched; the grid itself wasn't checked.
+     Only from the built app, not `swift run`. **Confirmed on the Mac 2026-10-31**, with Adjust Raw
+     Images; but each drop also opened the Help window, because SwiftUI hands the event to the
+     next scene in line. Fixed the same day by giving every scene `handlesExternalEvents(matching:
+     [])`; to check on the Mac.
   3. **Done 2026-10-31, to try on the Mac:** the Photos menu item is now always "Adjust Raw
      Images" (`AppCommands.swift`), so the photographer can give it a shortcut in System Settings
      › Keyboard › Keyboard Shortcuts › App Shortcuts, which matches by exact title. The app adds
