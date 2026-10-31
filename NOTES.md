@@ -1055,3 +1055,24 @@ built with uncommitted changes), also sent with Live Tech Support. The logo: put
 `scripts/logo.png` (1024 x 1024, clear background) and make-app.sh turns it into the app's icon,
 which the About box shows. Logo added 2026-10-27: Capture Camp Media's orange CC with "PHOTO / FILM /
 CONTENT" (1024 x 1024, clear background).
+
+## Phone and Watch notifications (asked 2026-10-28, built 2026-10-28, not yet tried on the Mac)
+
+ntfy (https://ntfy.sh, free): one JSON POST per alert with URLSession, no new dependencies
+(`PhoneNotifications.swift`). Off until the settings file has a topic:
+
+```xml
+<key>notifications</key>
+<dict>
+  <key>server</key><string>https://ntfy.sh</string>
+  <key>topic</key><string>ccm-long-random-name</string>
+</dict>
+```
+
+Anyone who knows the topic can read the alerts on ntfy.sh, so it's long and random. Sent when a
+card copies and verifies (or had nothing new, or failed; not when Stop was pressed), when that
+card's backup to the server finishes (all there, problems, or the server went away), and when Sync
+With Server finishes (per card counts). Problems go at priority 4 with a warning tag. A failed
+send is only logged; nothing waits for it. File › Send Test Notification (on when a topic is set)
+says whether ntfy took it. The Watch shows them when the iPhone's ntfy notifications are mirrored
+(Watch app › Notifications › ntfy). Help answer "notifications" added.

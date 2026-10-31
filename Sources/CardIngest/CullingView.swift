@@ -39,6 +39,8 @@ final class GridModel {
     var serverRoot: URL?
     /// The cards' backups, so Sync waits for this card's to finish.
     weak var backups: ServerBackups?
+    /// Tells the phone when Sync With Server is done.
+    var notifier = PhoneNotifier(NotificationSettings())
     private(set) var sync = SyncState.idle
 
     enum SyncState: Equatable {
@@ -126,6 +128,10 @@ final class GridModel {
             }
             backups?.synced(results)
             sync = .done(results)
+            notifier.send(.syncDone(results.map {
+                PhoneNotification.SyncedCard(name: $0.name, added: $0.outcome.added,
+                                             problems: $0.outcome.problems.count + $0.cantUpdate.count)
+            }))
         }
     }
 
@@ -306,6 +312,7 @@ final class GridModel {
         fileTypes = settings.fileTypes
         rating = settings.rating
         serverRoot = settings.backupRootURL
+        notifier = PhoneNotifier(settings.notifications)
         if !rating.available, grid.filter == .appFlagged { grid.filter = .all }
     }
 

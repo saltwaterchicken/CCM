@@ -89,6 +89,8 @@ final class CardWatcher {
     var licensed = true {
         didSet { grid.licensed = licensed }
     }
+    /// Alerts on the phone and Watch, from the settings file.
+    private var notifier: PhoneNotifier
 
     private var settings: IngestSettings
     /// Called after a card copies and verifies, to move the import counter on.
@@ -102,6 +104,8 @@ final class CardWatcher {
         self.settings = settings
         self.onImported = onImported
         self.onTrashConfirmed = onTrashConfirmed
+        notifier = PhoneNotifier(settings.notifications)
+        backups.notifier = notifier
         grid.use(settings)
         grid.backups = backups
         let center = NSWorkspace.shared.notificationCenter
@@ -115,6 +119,8 @@ final class CardWatcher {
 
     func update(settings: IngestSettings) {
         self.settings = settings
+        notifier = PhoneNotifier(settings.notifications)
+        backups.notifier = notifier
         grid.use(settings)
         refresh()
     }
@@ -251,9 +257,21 @@ final class CardWatcher {
                     }
                     var finished = Finished(cardName: name, report: report, check: plan.check)
                     finished.sidecarProblems = sidecarProblems
+                    if let report {
+                        self.notifier.send(.cardCopied(folder: plan.folders.first?.lastPathComponent ?? name, cardName: name,
+                                                       files: report.files.count, bytes: report.totalBytes,
+                                                       alreadyImported: plan.check.alreadyImported.count,
+                                                       sidecarProblems: sidecarProblems.count))
+                    } else {
+                        self.notifier.send(.nothingNew(cardName: name, alreadyImported: plan.check.alreadyImported.count))
+                    }
                     self.afterCopy(url, finished)
                 case let .failure(error):
                     self.copyStates[url] = .failed(error.localizedDescription)
+                    // Stop was pressed here, so the phone doesn't need telling.
+                    if (error as? CopyError) != .cancelled {
+                        self.notifier.send(.copyFailed(cardName: name, reason: error.localizedDescription))
+                    }
                 }
             }
         }
@@ -281,6 +299,21 @@ final class CardWatcher {
             Task { @MainActor in backups.update(id, status) }
         }
     }
+
+    /// File › Send Test Notification: tells the photographer whether it reached ntfy.
+    func sendTestNotification() {
+        notifier.send(.test) { problem in
+            Task { @MainActor in
+                let alert = NSAlert()
+                alert.messageText = problem == nil ? "Test notification sent" : "The test notification wasn't sent"
+                alert.informativeText = problem ?? "It should be on your iPhone (and Watch) in a few seconds. "
+                    + "If it isn't, check the ntfy app is subscribed to the topic in the settings file."
+                alert.runModal()
+            }
+        }
+    }
+
+    var notificationsOn: Bool { notifier.settings.isOn }
 
     func stopCopy(_ card: DetectedVolume) {
         stopFlags[card.id]?.stop()

@@ -295,6 +295,13 @@ public enum Help {
                    "Help › Setup Tutorial… changes them in both the folder name and the file names at once, with a preview. "
                    + "Or edit Folder name in the Job panel; the file names follow the rename pattern in the settings file.",
                    keywords: ["initials", "es", "name", "letters"], target: .folderName),
+        HelpAnswer("notifications", "How do I get alerts on my iPhone or Watch?",
+                   "Install the free ntfy app on the iPhone and subscribe to a topic: a long name nobody would guess, like a "
+                   + "password. Put the same topic in the settings file under notifications › topic, then Reload Settings and "
+                   + "choose File › Send Test Notification. You'll be told when a card is copied, when its backup is on the "
+                   + "server, and when Sync With Server is done. The Watch shows them when the iPhone passes on ntfy's alerts. "
+                   + "Leave the topic empty to turn them off.",
+                   keywords: ["notification", "alert", "phone", "iphone", "watch", "ntfy", "push", "done", "finished"]),
         HelpAnswer("support", "How do I reach tech support?",
                    "Choose Live Tech Support at the top of this window. Type what happened; the app adds its version, the card "
                    + "and the latest receipt's summary, and opens WhatsApp with it all written. One more tap sends it, and the reply "
