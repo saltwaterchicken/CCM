@@ -657,7 +657,7 @@ nothing new is decided about where metadata lives:
   shows the selection's keywords: × takes one off, a dim one is only on some of them (click to give
   it to all), and up to 12 recent keywords (the photographer's own, from `My Keywords.txt`) add in one click. Tiles show a tag and a count; the large view lists them.
   Same case-insensitive matching everywhere: `camp` and `Camp` are one keyword.
-- **Two kinds, kept apart (asked 2026-10-30, built 2026-10-30, not yet tried on the Mac):** the
+- **Two kinds, kept apart (asked 2026-10-30, built 2026-10-30, confirmed on the Mac 2026-10-30):** the
   job's keywords (Summer Camp, the year) in the settings file, set in the Job panel or the
   tutorial's new "Keywords on every photo" step (with + year and + Summer Camp buttons); the
   photographer's own, used from the grid now and then (names, places), in
@@ -669,8 +669,8 @@ nothing new is decided about where metadata lives:
 - **Load Folder** reads them back from the sidecars.
 - **Server:** keywords ride up with the sidecars in Sync With Server. As with stars, a sidecar
   already on the write-once server can't be updated, so keyword before the first Sync.
-- **Bigger bar, shown and hidden, filling in (asked 2026-10-30, built 2026-10-30, not yet tried on
-  the Mac):** the photographer found the bar's type and the Recent buttons too small to read and
+- **Bigger bar, shown and hidden, filling in (asked 2026-10-30, built 2026-10-30, confirmed on the
+  Mac 2026-10-30, arrows included):** the photographer found the bar's type and the Recent buttons too small to read and
   click on a high-res or small screen, and wanted ⌘K to show and hide the bar rather than only
   put the keys in it. ⌘K (Photos › Show/Hide Keywords) now shows and hides it (remembered,
   `keywordBarShown` in the app's defaults; × on the bar hides it too); shown with photos selected,
