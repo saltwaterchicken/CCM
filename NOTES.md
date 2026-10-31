@@ -1056,7 +1056,7 @@ built with uncommitted changes), also sent with Live Tech Support. The logo: put
 which the About box shows. Logo added 2026-10-27: Capture Camp Media's orange CC with "PHOTO / FILM /
 CONTENT" (1024 x 1024, clear background).
 
-## Phone and Watch notifications (asked 2026-10-28, built 2026-10-28, not yet tried on the Mac)
+## Phone and Watch notifications (asked 2026-10-28, built 2026-10-28, confirmed on the Mac and iPhone 2026-10-30)
 
 ntfy (https://ntfy.sh, free): one JSON POST per alert with URLSession, no new dependencies
 (`PhoneNotifications.swift`). Off until the settings file has a topic:
@@ -1076,3 +1076,6 @@ With Server finishes (per card counts). Problems go at priority 4 with a warning
 send is only logged; nothing waits for it. File › Send Test Notification (on when a topic is set)
 says whether ntfy took it. The Watch shows them when the iPhone's ntfy notifications are mirrored
 (Watch app › Notifications › ntfy). Help answer "notifications" added.
+If a phone lists the messages in ntfy but gives no alerts (seen 2026-10-30 on the photographer's
+current iPhone, while the old one alerted), delete and reinstall ntfy and subscribe again: that fixed
+it. The topic is in the photographer's main Settings.plist only, never in the repo.
