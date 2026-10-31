@@ -95,7 +95,7 @@ struct TutorialView: View {
             showMe(.destination)
         case .backup:
             title("The backup on the server")
-            para("Choose the folder on the server (the Synology) where cards are backed up. Each file is sent there from the "
+            para("Choose the folder on the Server where cards are backed up. Each file is sent there from the "
                  + "copy you just made, in the background, so a slow server never holds up the card.")
             para("The light in the Server panel turns green when the server is mounted, Wi-Fi is off and the network cable is "
                  + "in. Red only warns: if a card wasn't backed up, Sync With Server catches it up later.")
@@ -171,7 +171,7 @@ struct TutorialView: View {
         let words = settings.settings.metadata.keywords
         title("Keywords on every photo")
         para("Keywords for the whole job, like the camp's name, the season and the year, go on every photo and clip as it "
-             + "lands, so they're there in Lightroom and on the Synology without typing them again. They're saved in the "
+             + "lands, so they're there in Lightroom and on the Server without typing them again. They're saved in the "
              + "settings file, so a project settings file can have its own.")
         JobKeywordsField(model: settings)
             .font(.title3)

@@ -28,7 +28,7 @@ final class ServerBackupTests: XCTestCase {
         process.waitUntilExit()
     }
 
-    /// Like the photographers' accounts on the Synology: new files and folders
+    /// Like the photographers' accounts on the server: new files and folders
     /// can be made, but nothing can be renamed, deleted or have its details changed.
     private func makeCreateOnly(_ folder: URL) throws {
         try chmod(["+a", "everyone deny delete_child,directory_inherit", folder.path])
