@@ -174,7 +174,7 @@ final class GridModel {
     func add(_ landed: LandedShot, session: UUID, cardName: String, folder: URL?) {
         if session != self.session { begin(session, cardName: cardName, folder: folder) }
         grid.add(landed)
-        if rating.checksOnLanding, landed.check == nil, landed.stars == nil, landed.shot.isRatable { check([landed.shot]) }
+        if rating.checksOnLanding, landed.check == nil, landed.stars == nil, landed.shot.isPhoto { check([landed.shot]) }
     }
 
     /// Checks the photos nobody has rated and the checks haven't seen (the
@@ -344,7 +344,7 @@ final class GridModel {
         for shot in [next, previous].compactMap({ $0 }) {
             Task(priority: .utility) { _ = await big.thumbnail(for: shot) }
         }
-        if actualSize, let next, next.isRatable {
+        if actualSize, let next, next.isPhoto {
             Task(priority: .utility) { _ = await actualPixels(next) }
         }
     }
@@ -397,7 +397,7 @@ final class GridModel {
     func view(_ id: String? = nil, actualSize: Bool = false) {
         if let id, grid.focus != id { grid.click(id) }
         guard let focus = grid.focus, let shot = grid.shot(focus) else { return }
-        self.actualSize = actualSize && shot.isRatable
+        self.actualSize = actualSize && shot.isPhoto
         playWhenShown = actualSize && shot.kind == .video
         isViewing = true
     }
@@ -1139,7 +1139,7 @@ struct TileView: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .foregroundStyle(.secondary)
-            if shot.isRatable {
+            if shot.takesStars {
                 StarsView(stars: stars, byApp: check?.stars != nil && check?.stars == stars)
                     .help(check.map { "Checked: score \(Int($0.score.rounded()))"
                         + ($0.stars != nil ? ", stars given by the app" : ", rated since") } ?? "")
@@ -1312,7 +1312,7 @@ struct LargeView: View {
                 clip.togglePlay()
                 return .handled
             }
-            if shot?.isRatable == true { model.actualSize.toggle() }
+            if shot?.isPhoto == true { model.actualSize.toggle() }
             if !model.actualSize { offset = .zero }
             return .handled
         }
@@ -1373,7 +1373,7 @@ struct LargeView: View {
         .onDisappear { clip?.stop() }
         // Every pixel, only when asked for. The same spot stays in view from photo to photo.
         .task(id: "\(shot?.id ?? "")-\(model.actualSize)") {
-            guard model.actualSize, let shot, shot.isRatable, actualFor != shot.id else { return }
+            guard model.actualSize, let shot, shot.isPhoto, actualFor != shot.id else { return }
             loadingActual = true
             let made = await model.actualPixels(shot)
             if !Task.isCancelled {
@@ -1390,7 +1390,7 @@ struct LargeView: View {
         HStack(spacing: 12) {
             if let shot {
                 Text(shot.baseName).font(.headline)
-                if shot.isRatable {
+                if shot.takesStars {
                     let check = model.check(of: shot.id)
                     StarsView(stars: model.grid.stars[shot.id], byApp: check?.stars != nil && check?.stars == model.grid.stars[shot.id])
                     if model.isBurstSharpest(shot.id) { BurstChip() }
@@ -1415,7 +1415,7 @@ struct LargeView: View {
                 if let index = model.grid.visible.firstIndex(where: { $0.id == shot.id }) {
                     Text("\(index + 1) of \(model.grid.visible.count)").foregroundStyle(.secondary)
                 }
-                if model.actualSize && shot.isRatable { Text("100%").font(.caption.bold()).foregroundStyle(.yellow) }
+                if model.actualSize && shot.isPhoto { Text("100%").font(.caption.bold()).foregroundStyle(.yellow) }
             }
             Spacer()
             Text(shot?.kind == .video
@@ -1452,7 +1452,7 @@ struct LargeView: View {
 
     /// Clicked in the fitted picture: show that spot at 100%.
     private func zoom(at point: CGPoint, in view: CGSize) {
-        guard let fitted, shot?.isRatable == true else { return }
+        guard let fitted, shot?.isPhoto == true else { return }
         let area = CGSize(width: view.width, height: view.height - 88)
         let ratio = min(area.width / CGFloat(fitted.image.width), area.height / CGFloat(fitted.image.height))
         let shown = CGSize(width: CGFloat(fitted.image.width) * ratio, height: CGFloat(fitted.image.height) * ratio)

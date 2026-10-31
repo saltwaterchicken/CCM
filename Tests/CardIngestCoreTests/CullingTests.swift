@@ -16,7 +16,7 @@ final class CullingTests: XCTestCase {
         let names = ["ES_0001.CR3", "ES_0002.CR3", "ES_0003.CR3", "ES_0004.MP4", "ES_0005.CR3"]
         for (i, name) in names.enumerated() {
             let one = shot(name)
-            grid.add(LandedShot(shot: one, stars: one.isRatable ? 1 : nil, position: i))
+            grid.add(LandedShot(shot: one, stars: one.isPhoto ? 1 : nil, position: i))
         }
         return grid
     }
@@ -69,7 +69,7 @@ final class CullingTests: XCTestCase {
         XCTAssertNil(empty.focus)
     }
 
-    func testANumberRatesAndMovesOnToTheNextPhoto() {
+    func testANumberRatesAndMovesOnToTheNextShot() {
         var grid = grid()
         grid.click(p2)
         XCTAssertEqual(grid.rate(4).map(\.id), [p2])
@@ -77,7 +77,10 @@ final class CullingTests: XCTestCase {
         XCTAssertEqual(grid.selected, [p3])
         grid.rate(0)
         XCTAssertEqual(grid.stars[p3], 0)
-        XCTAssertEqual(grid.selected, [p5], "Skips the clip")
+        XCTAssertEqual(grid.selected, [clip], "Clips take stars too")
+        grid.rate(3)
+        XCTAssertEqual(grid.stars[clip], 3)
+        XCTAssertEqual(grid.selected, [p5])
         grid.rate(2)
         XCTAssertEqual(grid.stars[p5], 2)
         XCTAssertEqual(grid.selected, [p5], "The last photo stays selected")
@@ -88,18 +91,22 @@ final class CullingTests: XCTestCase {
         grid.click(p1)
         grid.click(clip, shift: true)
         let written = grid.rate(5)
-        XCTAssertEqual(written.map(\.id), [p1, p2, p3], "Videos get no star")
-        XCTAssertEqual([p1, p2, p3].map { grid.stars[$0] }, [5, 5, 5])
-        XCTAssertNil(grid.stars[clip])
+        XCTAssertEqual(written.map(\.id), [p1, p2, p3, clip], "The clip too")
+        XCTAssertEqual([p1, p2, p3, clip].map { grid.stars[$0] }, [5, 5, 5, 5])
         XCTAssertEqual(grid.selected, [p1, p2, p3, clip])
     }
 
-    func testRatingAClipAloneDoesNothing() {
+    func testAClipIsRatedLikeAPhoto() {
         var grid = grid()
         grid.click(clip)
-        XCTAssertEqual(grid.rate(3), [])
-        XCTAssertNil(grid.stars[clip])
-        XCTAssertEqual(grid.selected, [p5], "Moves on to the next photo")
+        XCTAssertEqual(grid.rate(3).map(\.id), [clip])
+        XCTAssertEqual(grid.stars[clip], 3)
+        XCTAssertEqual(grid.selected, [p5], "Moves on to the next shot")
+        grid.filter = .atLeast(3)
+        XCTAssertEqual(grid.visible.map(\.id), [clip], "A rated clip shows by its stars")
+        grid.filter = .appFlagged
+        grid.click(clip)
+        XCTAssertEqual(grid.visible.map(\.id), [], "The app never checks a clip")
     }
 
     func testStarsStayInRangeAndSelectAll() {
@@ -123,7 +130,7 @@ final class CullingTests: XCTestCase {
         return grid
     }
 
-    func testFilterShowsByStarsAndHidesClipsUnlessAll() {
+    func testFilterShowsByStarsAndHidesUnratedClipsUnlessAll() {
         var grid = ratedGrid()
         XCTAssertEqual(grid.visible.map(\.id), [p1, p2, p3, clip, p5])
         grid.filter = .atLeast(1)

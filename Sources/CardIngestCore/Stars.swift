@@ -91,10 +91,12 @@ public enum Stars {
     /// in any destination, else the rating inside the photo (the RAW of a
     /// RAW+JPEG pair). A JPEG or HEIC keeps a 0 as it is, since Lightroom and
     /// Capture One write 0s there; inside a RAW only the camera writes, and its
-    /// 0 means "not rated". Nil for videos and unrated photos.
+    /// 0 means "not rated". A clip's stars are only ever in its sidecar. Nil for
+    /// unrated photos and clips.
     public static func found(for shot: Shot) -> Int? {
-        guard shot.isRatable else { return nil }
+        guard shot.takesStars else { return nil }
         if let stars = sidecars(of: shot).lazy.compactMap({ read(xmp: $0) }).first { return stars }
+        guard shot.isPhoto else { return nil }
         let inside = shot.primary.destinations.lazy.compactMap(inCamera).first
         return shot.kind == .raw && inside == 0 ? nil : inside
     }
@@ -120,7 +122,7 @@ public enum Stars {
     /// then on the stars are theirs: the stars the checks gave are dropped
     /// from the marker (its reason and score stay, for the record).
     public static func set(_ stars: Int, on shot: Shot) throws {
-        guard shot.isRatable else { return }
+        guard shot.takesStars else { return }
         for (url, raw) in zip(sidecars(of: shot), raws(of: shot)) {
             try write(stars, toXMP: url, raw: raw, removing: [AutoRating.starsField])
         }
@@ -159,7 +161,7 @@ public enum StarsError: Error, LocalizedError, Equatable {
 /// A shot whose files are all in, ready for the grid.
 public struct LandedShot: Sendable {
     public let shot: Shot
-    /// The stars it already had; nil for videos and unrated photos.
+    /// The stars it already had; nil for unrated photos and clips.
     public let stars: Int?
     /// 0 for the first shot of the Copy to land, then 1, 2 ...
     public let position: Int

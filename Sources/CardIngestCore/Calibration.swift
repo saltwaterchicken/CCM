@@ -69,7 +69,7 @@ public enum Calibration {
     /// they stand for "looked at and left as it is").
     public static func photos(in folder: URL, fileTypes: FileTypes, includingAppStars: Bool = false) throws -> [LandedShot] {
         try ImportedFolder.shots(in: folder, backupRoot: nil, fileTypes: fileTypes)
-            .filter { $0.shot.isRatable && (includingAppStars || $0.check?.stars == nil) }.map { landed in
+            .filter { $0.shot.isPhoto && (includingAppStars || $0.check?.stars == nil) }.map { landed in
             guard landed.stars == nil, let file = landed.shot.primary.destinations.first,
                   let stars = captureOneStars(for: file) else { return landed }
             return LandedShot(shot: landed.shot, stars: stars, position: landed.position, check: landed.check)

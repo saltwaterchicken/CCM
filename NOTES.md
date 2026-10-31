@@ -220,7 +220,8 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   (A third note there, the tutorial saying "NAS, Server, or Backup Drive" instead of Synology, was
   settled 2026-10-30 as "Server".)
 **Next up (photographer, 2026-10-31; nothing built yet):**
-  1. Keywords on video clips, as photos have them.
+  1. Keywords on video clips, as photos have them. Turned out to be stars: clips took keywords
+     already, but had no stars and 0 to 5 did nothing. Built 2026-10-31 (see "Stars on clips").
   2. **Built 2026-10-31, to try on the Mac (test step 24):** drag a folder from Finder onto the
      app's Dock icon to load it, the same as Load Folder… for a previous import. The app says it
      opens folders (`CFBundleDocumentTypes`, `public.folder`, rank None so it never becomes the
@@ -473,7 +474,7 @@ set by hand. The checks will mark the shots they've looked at, so "checked, fail
 underexposed, or a blinking face. So a 0 always means "the app flagged this". The auto-rating
 milestones only ever move a photo from 1 down to 0, never touch a star set by hand, and keep every
 threshold in Settings. Exposure is new (not in the brief) and joins the sharpness milestone.
-Videos get no star.
+Videos get no star. (Changed 2026-10-31: clips take stars too, see "Stars on clips" under Keywords.)
 
 What the photographer sees and does:
 
@@ -710,6 +711,14 @@ nothing new is decided about where metadata lives:
   job's keywords as they land, more from the grid, read back by Load Folder, sent up by Sync With
   Server like any sidecar. The clip itself is never written to (`Shot.takesKeywords`). Lightroom
   Classic keeps a clip's metadata in such a sidecar; whether it reads ours is to be checked.
+- **Stars on clips (asked 2026-10-31, built 2026-10-31, not yet tried on the Mac):** the photographer
+  found clips had no stars under the tile and 0 to 5 did nothing. Clips are now rated like photos:
+  grey or orange stars on the tile and in the large view, 0 to 5 in both, moving on to the next
+  shot, clip or photo, and shown by the star filters. Stars go in the clip's own sidecar beside its
+  keywords (`xmp:Rating`, no digest); the clip is never written to. Load Folder reads them back.
+  Nothing lands with a star, and the checks never look at a clip, so a clip is never "Flagged by
+  app" nor in calibration. In code, `Shot.isPhoto` (checks, 100%) and `Shot.takesStars` (photos and
+  clips) replace `isRatable`. Whether Lightroom reads a clip's sidecar is still to check.
 - **What the Synology shows (photographer, 2026-10-30):** keywords on the JPEGs exported from
   Lightroom (written inside the JPEG), not on the RAWs: Synology Photos doesn't read `.xmp`
   sidecars. Clip sidecars won't show there either; keywords inside MP4/MOV for the Synology is

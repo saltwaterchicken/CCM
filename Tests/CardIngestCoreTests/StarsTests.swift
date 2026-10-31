@@ -169,6 +169,24 @@ final class StarsTests: XCTestCase {
         }
     }
 
+    func testAClipsStarsGoInItsOwnSidecarAndLoadFolderReadsThem() throws {
+        try put("DCIM/100CANON/MVI_0005.MP4", bytes(5000, 4))
+        let movie = try Data(contentsOf: card.appendingPathComponent("DCIM/100CANON/MVI_0005.MP4"))
+        let (plan, _, shots) = try importCard()
+        let clip = try shot(shots, endingIn: "0005")
+        XCTAssertNil(Stars.found(for: clip), "Unrated until the photographer rates it")
+        try Stars.set(4, on: clip)
+        XCTAssertEqual(Stars.found(for: clip), 4)
+        for folder in plan.folders {
+            XCTAssertEqual(try xmpNames(in: folder), [clip.baseName + ".xmp"])
+            XCTAssertEqual(Stars.read(xmp: folder.appendingPathComponent(clip.xmpName)), 4)
+            XCTAssertEqual(try Data(contentsOf: folder.appendingPathComponent(clip.primary.newName)), movie,
+                           "The clip itself is never written to")
+        }
+        let loaded = try ImportedFolder.shots(in: plan.folders[0], backupRoot: nil, fileTypes: settings.fileTypes)
+        XCTAssertEqual(loaded.map(\.stars), [4])
+    }
+
     func testRatingTheShotWritesItsSidecarWithTheRAWsDigest() throws {
         try put("DCIM/100CANON/IMG_0001.CR3", RawXMPTests.cr3(xmp: RawXMPTests.block))
         try put("DCIM/100CANON/IMG_0001.JPG", bytes(1000, 2))

@@ -23,13 +23,14 @@ public enum StarFilter: Hashable, Sendable {
         }
     }
 
-    /// Videos and unrated photos have no stars, so they only show with All.
+    /// Unrated photos and clips have no stars, so they only show with All.
+    /// Clips are never checked, so never flagged by the app.
     func shows(_ shot: Shot, stars: Int?, check: AutoCheck?) -> Bool {
         switch self {
         case .all: true
-        case let .atLeast(n): shot.isRatable && (stars ?? -1) >= n
-        case .flagged: shot.isRatable && stars == 0
-        case .appFlagged: shot.isRatable && stars == 0 && check?.isFlagged == true
+        case let .atLeast(n): shot.takesStars && (stars ?? -1) >= n
+        case .flagged: shot.takesStars && stars == 0
+        case .appFlagged: shot.isPhoto && stars == 0 && check?.isFlagged == true
         }
     }
 }
@@ -94,7 +95,7 @@ public struct CullGrid: Equatable, Sendable {
 
     /// Photos the checks haven't looked at and nobody has rated: what a Check would do.
     public var unchecked: [Shot] {
-        shots.filter { $0.isRatable && stars[$0.id] == nil && checks[$0.id] == nil }
+        shots.filter { $0.isPhoto && stars[$0.id] == nil && checks[$0.id] == nil }
     }
 
     /// The checks' result for a shot, unless it was rated meanwhile (its
@@ -188,9 +189,9 @@ public struct CullGrid: Equatable, Sendable {
         if focus == nil || !selected.contains(focus!) { focus = shots.first?.id }
     }
 
-    /// Sets the stars of the selected photos (videos have none) and returns
-    /// those shots, whose sidecars the caller then writes. With one photo
-    /// selected, moves on to the next photo, skipping videos, so a card can be
+    /// Sets the stars of the selected photos and clips and returns those
+    /// shots, whose sidecars the caller then writes. With one selected, moves
+    /// on to the next photo or clip, so a card can be
     /// rated with the number keys alone. A photo rated out of the filter
     /// (0 with "★1+" on) disappears; the next photo shown is selected instead,
     /// or the one before it at the end.
@@ -198,7 +199,7 @@ public struct CullGrid: Equatable, Sendable {
     public mutating func rate(_ stars: Int) -> [Shot] {
         let stars = min(5, max(0, stars))
         let before = visible
-        let targets = before.filter { selected.contains($0.id) && $0.isRatable }
+        let targets = before.filter { selected.contains($0.id) && $0.takesStars }
         for shot in targets {
             self.stars[shot.id] = stars
             // Theirs now, not the app's.
@@ -208,7 +209,7 @@ public struct CullGrid: Equatable, Sendable {
         let after = visible
         let shown = Set(after.map(\.id))
         if selected.count == 1 || !shown.contains(focus) {
-            let next = before[(current + 1)...].first { shown.contains($0.id) && $0.isRatable }
+            let next = before[(current + 1)...].first { shown.contains($0.id) && $0.takesStars }
                 ?? (shown.contains(focus) ? nil : before[..<current].last { shown.contains($0.id) })
             if let next { select(next.id) }
         }

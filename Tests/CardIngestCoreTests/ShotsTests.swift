@@ -22,7 +22,7 @@ final class ShotsTests: XCTestCase {
         XCTAssertEqual(pair.primary.newName, "2026-10-14-ES_1234.CR3")
         XCTAssertEqual(pair.kind, .raw)
         XCTAssertEqual(pair.badge, "RAW+JPG")
-        XCTAssertTrue(pair.isRatable)
+        XCTAssertTrue(pair.isPhoto)
         // The camera's own sidecar holds the stars.
         XCTAssertEqual(pair.xmpName, "2026-10-14-ES_1234.xmp")
 
@@ -48,7 +48,7 @@ final class ShotsTests: XCTestCase {
         XCTAssertEqual(list.shots.count, 1)
         XCTAssertEqual(list.shots[0].kind, .video)
         XCTAssertNil(list.shots[0].badge, "A thumbnail sidecar isn't a second picture")
-        XCTAssertFalse(list.shots[0].isRatable)
+        XCTAssertFalse(list.shots[0].isPhoto)
     }
 
     func testNamesDifferingOnlyInCaseAreTheSameShotButClashSuffixesAreNot() {
@@ -93,7 +93,7 @@ final class ShotsTests: XCTestCase {
         XCTAssertEqual(shots.count, 4)
         XCTAssertEqual(shots.map(\.badge), shots.map { $0.kind == .raw ? "RAW+JPG" : nil })
         XCTAssertEqual(shots.filter { $0.kind == .raw }.count, 2, "IMG_0001 and its -2 twin from 101TEST")
-        XCTAssertEqual(shots.filter(\.isRatable).count, 3)
+        XCTAssertEqual(shots.filter(\.isPhoto).count, 3)
         XCTAssertEqual(shots.first { $0.kind == .video }?.files.count, 2)
         // Built live or from the finished report, the shots are the same.
         XCTAssertEqual(ShotList(fileTypes: fileTypes, files: report.files), live.list)

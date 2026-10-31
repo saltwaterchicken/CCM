@@ -231,8 +231,8 @@ public enum Help {
         HelpAnswer("rate", "How do I rate photos?",
                    "Click a photo in the grid, then press 0 to 5. With one photo selected it moves on to the next. Arrows move "
                    + "around, ⌘A selects all. Double-click or press Space for a large view, Space again for 100% to check focus, "
-                   + "Esc to go back.",
-                   keywords: ["keys", "keyboard", "cull", "zoom", "100%"], target: .starFilter),
+                   + "Esc to go back. Clips are rated the same way; their stars go in a .xmp of their own beside the clip.",
+                   keywords: ["keys", "keyboard", "cull", "zoom", "100%", "clip", "video"], target: .starFilter),
         HelpAnswer("keywords", "How do I add keywords?",
                    "Type the job's keywords in Keywords in the Job panel, with commas between (Camp, 2026, Summer): every photo "
                    + "gets them as it lands. For a few photos, select them in the grid, press K, type keywords with commas between and "

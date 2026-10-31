@@ -20,11 +20,15 @@ public struct Shot: Equatable, Sendable, Identifiable {
     /// Mac drives usually ignore case, so the id does too.
     public var id: String { baseName.lowercased() }
 
-    /// Videos get no star.
-    public var isRatable: Bool { kind == .raw || kind == .photo }
+    /// A still picture: RAW, JPEG or HEIC. Only photos are checked for sharpness
+    /// and exposure, and only they have a 100% view.
+    public var isPhoto: Bool { kind == .raw || kind == .photo }
 
-    /// Photos and clips take keywords, in a sidecar named after the shot.
-    public var takesKeywords: Bool { isRatable || kind == .video }
+    /// Photos and clips take stars, in a sidecar named after the shot.
+    public var takesStars: Bool { isPhoto || kind == .video }
+
+    /// Photos and clips take keywords, in the same sidecar as their stars.
+    public var takesKeywords: Bool { takesStars }
 
     /// The sidecar that holds the shot's stars: the `.xmp` that came off the
     /// card if there is one (its rating is updated inside it), otherwise a new

@@ -91,7 +91,7 @@ public enum AutoRating {
 
     /// The check recorded for a shot, from its sidecar in the destination or backup.
     public static func check(of shot: Shot) -> AutoCheck? {
-        guard shot.isRatable else { return nil }
+        guard shot.isPhoto else { return nil }
         return Stars.sidecars(of: shot).lazy.compactMap { check(in: $0) }.first
     }
 
@@ -101,7 +101,7 @@ public enum AutoRating {
     /// editor, 0 included) before or while it was being checked. Throws when
     /// it couldn't be read or checked, so it's never taken for a keeper.
     public static func rate(_ shot: Shot, limits: RatingSettings, now: Date = Date()) throws -> AutoCheck? {
-        guard shot.isRatable, check(of: shot) == nil, Stars.found(for: shot) == nil,
+        guard shot.isPhoto, check(of: shot) == nil, Stars.found(for: shot) == nil,
               let url = shot.primary.destinations.first else { return nil }
         guard let score = try QualityCheck.score(url) else { throw AutoRatingError.unreadable(shot.primary.newName) }
         let problems = limits.problems(score)
