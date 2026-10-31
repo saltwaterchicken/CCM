@@ -176,6 +176,16 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   Since then a line under the label count says what each right-click or Learn from Labels moved, or
   "No change: the limits already follow your labels" (Save stays dimmed when nothing differs from
   the saved limits, which looked like a fault).
+**To talk about (photographer, noted in Claude Desktop, copied here 2026-10-30; nothing changed yet):**
+  1. Calibration labels that adjust up and down instead of only "Too dark" / "Too light":
+     labelling is awkward now because the flagging is already done and the window only shows
+     the photos a limit would flag.
+  2. Why the calibration window's large view, and how focus is checked there, differs from the
+     grid's: it's a separate, simpler view (`CalibrationPhotoView`): one 2400-pixel preview fitted
+     to the window, no 100% on Space or click, no arrows to the next photo, Label menu and Close
+     only. Not for a reason: it was built quickly for the calibration window.
+  (A third note there, the tutorial saying "NAS, Server, or Backup Drive" instead of Synology, was
+  settled 2026-10-30 as "Server".)
 - [ ] Step 3 (built, committed 2026-10-26; to confirm on the Mac, test step 19): Check each shot as it lands and on Load Folder (Check button): 1 star to keepers, 0
   plus a private "checked by Card Ingest" marker, scores and reason for outtakes; never a shot that
   already has stars or that's rated while it's checked. App stars look different from hand ones,
