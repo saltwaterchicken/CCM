@@ -52,7 +52,7 @@ public struct CullGrid: Equatable, Sendable {
     public private(set) var stars: [String: Int] = [:]
     /// What the auto-rating checks found, for the shots they've looked at.
     public private(set) var checks: [String: AutoCheck] = [:]
-    /// Each photo's keywords, for the ones that have any.
+    /// Each photo's or clip's keywords, for the ones that have any.
     public private(set) var keywords: [String: [String]] = [:]
     public private(set) var selected: Set<String> = []
     /// The shot the keys act from: the last one clicked or moved to.
@@ -181,15 +181,15 @@ public struct CullGrid: Equatable, Sendable {
         return targets
     }
 
-    /// The selected photos (clips take no keywords), in the order shown.
-    public var selectedPhotos: [Shot] {
-        visible.filter { selected.contains($0.id) && $0.isRatable }
+    /// The selected photos and clips, which take keywords, in the order shown.
+    public var selectedForKeywords: [Shot] {
+        visible.filter { selected.contains($0.id) && $0.takesKeywords }
     }
 
     /// The keywords of the selected photos, in the order first met, each with
     /// whether every one of them has it (else only some do).
     public var selectionKeywords: [SelectionKeyword] {
-        let photos = selectedPhotos
+        let photos = selectedForKeywords
         var found: [String] = []
         for photo in photos { found = Keywords.merged(found, adding: keywords[photo.id] ?? []) }
         return found.map { word in
@@ -205,7 +205,7 @@ public struct CullGrid: Equatable, Sendable {
     @discardableResult
     public mutating func addKeywords(_ words: [String]) -> [Shot] {
         guard !words.isEmpty else { return [] }
-        return selectedPhotos.filter { photo in
+        return selectedForKeywords.filter { photo in
             let before = keywords[photo.id] ?? []
             let after = Keywords.merged(before, adding: words)
             guard after != before else { return false }
@@ -217,7 +217,7 @@ public struct CullGrid: Equatable, Sendable {
     /// Takes a keyword off every selected photo that has it, and returns those photos.
     @discardableResult
     public mutating func removeKeyword(_ word: String) -> [Shot] {
-        selectedPhotos.filter { photo in
+        selectedForKeywords.filter { photo in
             let before = keywords[photo.id] ?? []
             let after = Keywords.removing(word, from: before)
             guard after != before else { return false }

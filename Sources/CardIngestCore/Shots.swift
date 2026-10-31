@@ -23,6 +23,9 @@ public struct Shot: Equatable, Sendable, Identifiable {
     /// Videos get no star.
     public var isRatable: Bool { kind == .raw || kind == .photo }
 
+    /// Photos and clips take keywords, in a sidecar named after the shot.
+    public var takesKeywords: Bool { isRatable || kind == .video }
+
     /// The sidecar that holds the shot's stars: the `.xmp` that came off the
     /// card if there is one (its rating is updated inside it), otherwise a new
     /// one named after the shot.

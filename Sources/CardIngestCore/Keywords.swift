@@ -4,7 +4,8 @@ import ImageIO
 /// Keywords, kept as the standard `dc:subject` list in the same `.xmp`
 /// sidecar as the stars, so Lightroom, Bridge and Photo Mechanic all read
 /// them. As with stars, no photo is ever rewritten, and nothing on the card is
-/// touched. Clips get none for now. Lightroom ignores sidecars for JPEG-only
+/// touched. Clips get a sidecar of their own (C0001.MP4 gets C0001.xmp), as
+/// Lightroom keeps a clip's metadata. Lightroom ignores sidecars for JPEG-only
 /// and HEIC shots, the same known gap as their stars.
 public enum Keywords {
     /// The keywords in a sidecar, in the order they're listed; none when it
@@ -15,15 +16,15 @@ public enum Keywords {
         return keywords(in: metadata)
     }
 
-    /// A shot's keywords: those in its sidecar in any destination. None for clips.
+    /// A shot's keywords: those in its sidecar in any destination.
     public static func found(for shot: Shot) -> [String] {
-        guard shot.isRatable else { return [] }
+        guard shot.takesKeywords else { return [] }
         return Stars.sidecars(of: shot).lazy.map { read(xmp: $0) }.first { !$0.isEmpty } ?? []
     }
 
     /// Adds keywords to a shot's sidecar in every destination, making the
     /// sidecar if there isn't one. A keyword it already has, in any case, isn't
-    /// added twice. Clips are left alone.
+    /// added twice.
     public static func add(_ words: [String], to shot: Shot) throws {
         try change(shot) { merged($0, adding: words) }
     }
@@ -34,7 +35,7 @@ public enum Keywords {
     }
 
     private static func change(_ shot: Shot, _ edit: ([String]) -> [String]) throws {
-        guard shot.isRatable else { return }
+        guard shot.takesKeywords else { return }
         for (url, raw) in zip(Stars.sidecars(of: shot), Stars.raws(of: shot)) {
             let existing = read(xmp: url)
             let changed = edit(existing)

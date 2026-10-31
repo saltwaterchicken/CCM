@@ -417,12 +417,12 @@ final class GridModel {
     func toggleKeywordBar() {
         keywordBarShown.toggle()
         UserDefaults.standard.set(keywordBarShown, forKey: Self.keywordBarShownKey)
-        if keywordBarShown, !grid.selectedPhotos.isEmpty { keywordFieldWantsFocus = true }
+        if keywordBarShown, !grid.selectedForKeywords.isEmpty { keywordFieldWantsFocus = true }
     }
 
     /// K in the grid: shows the bar if it's hidden, and the field takes the keys.
     func typeKeywords() {
-        guard !grid.selectedPhotos.isEmpty else { return }
+        guard !grid.selectedForKeywords.isEmpty else { return }
         if !keywordBarShown {
             keywordBarShown = true
             UserDefaults.standard.set(true, forKey: Self.keywordBarShownKey)
@@ -570,7 +570,7 @@ struct CullingView: View {
                 }
                 // K: type keywords for the selection, as in Photo Mechanic's quick keywording.
                 .onKeyPress(characters: CharacterSet(charactersIn: "kK")) { press in
-                    guard !press.modifiers.contains(.command), !model.grid.selectedPhotos.isEmpty else { return .ignored }
+                    guard !press.modifiers.contains(.command), !model.grid.selectedForKeywords.isEmpty else { return .ignored }
                     model.typeKeywords()
                     return .handled
                 }
@@ -689,12 +689,13 @@ struct CullingView: View {
     }
 }
 
-/// Under the grid: the selected photos' keywords, a field to add more, and
+/// Under the grid: the selected photos' and clips' keywords, a field to add more, and
 /// the ones used lately, in type big enough to read and click on any screen.
 /// Return adds what's typed and gives the keys back to the grid, so culling
 /// carries on; Esc gives them back without adding. A keyword used before
 /// fills itself in as it's typed: Tab, a comma or → takes it, typing on
-/// replaces it. ⌘K shows and hides the bar.
+/// replaces it. The arrows still move in the grid while typing (← → only
+/// while the field is empty). ⌘K shows and hides the bar.
 struct KeywordBar: View {
     var model: GridModel
     /// Back to the grid.
@@ -702,7 +703,7 @@ struct KeywordBar: View {
     @State private var text = ""
 
     var body: some View {
-        let photos = model.grid.selectedPhotos
+        let photos = model.grid.selectedForKeywords
         let onSelection = model.grid.selectionKeywords
         let recent = model.recentKeywords.filter { word in
             !onSelection.contains { $0.onAll && $0.keyword.caseInsensitiveCompare(word) == .orderedSame }
@@ -714,12 +715,15 @@ struct KeywordBar: View {
                     .foregroundStyle(.secondary)
                 KeywordField(text: $text,
                              placeholder: photos.isEmpty ? "Select photos, then press K to type keywords"
-                                 : "Add to \(photos.count) \(photos.count == 1 ? "photo" : "photos"), commas between, then Return",
+                                 : "Add to the \(photos.count) selected, commas between, then Return",
                              enabled: !photos.isEmpty,
                              suggestions: model.knownKeywords,
                              wantsFocus: Binding(get: { model.keywordFieldWantsFocus },
                                                  set: { model.keywordFieldWantsFocus = $0 }),
                              onSubmit: add,
+                             onMove: { step in
+                                 if abs(step) == 1 { model.move(by: step) } else { model.moveRow(by: step / 2) }
+                             },
                              onCancel: {
                                  text = ""
                                  done()
@@ -738,8 +742,7 @@ struct KeywordBar: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
                     if photos.isEmpty {
-                        Text(model.grid.selected.isEmpty ? "Nothing selected" : "Clips don't take keywords yet")
-                            .foregroundStyle(.tertiary)
+                        Text("Nothing selected").foregroundStyle(.tertiary)
                     }
                     ForEach(onSelection, id: \.self) { item in chip(item) }
                     if !photos.isEmpty, !recent.isEmpty {
@@ -809,6 +812,8 @@ struct KeywordField: NSViewRepresentable {
     var suggestions: [String]
     @Binding var wantsFocus: Bool
     var onSubmit: (String) -> Void
+    /// The arrows, passed on to the grid: -1 and 1 left and right, -2 and 2 a row up and down.
+    var onMove: (Int) -> Void
     var onCancel: () -> Void
 
     func makeNSView(context: Context) -> NSTextField {
@@ -887,6 +892,20 @@ struct KeywordField: NSViewRepresentable {
                 pending = nil
                 field.window?.makeFirstResponder(nil)
                 parent.onCancel()
+                return true
+            // ↑ ↓ always move in the grid, the field being one line; ← → too
+            // while it's empty, and move in the text once something's typed.
+            case #selector(NSResponder.moveUp(_:)):
+                parent.onMove(-2)
+                return true
+            case #selector(NSResponder.moveDown(_:)):
+                parent.onMove(2)
+                return true
+            case #selector(NSResponder.moveLeft(_:)) where field.stringValue.isEmpty:
+                parent.onMove(-1)
+                return true
+            case #selector(NSResponder.moveRight(_:)) where field.stringValue.isEmpty:
+                parent.onMove(1)
                 return true
             default:
                 return false

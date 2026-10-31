@@ -639,7 +639,16 @@ nothing new is decided about where metadata lives:
   written to; nothing on the card is touched. A RAW+JPEG pair shares its RAW's sidecar.
 - **JPEG-only and HEIC:** a `.xmp` sidecar too, as their hand-given stars. Same known gap:
   Lightroom ignores sidecars for them (Photo Mechanic and Bridge read them).
-- **Clips:** none yet. Keywords inside MP4/MOV for the Synology is the parked Milestone 4 test.
+- **Clips (asked 2026-10-30, built 2026-10-30, not yet tried on the Mac):** a sidecar of their own,
+  named after the shot (`C0001.MP4` gets `C0001.xmp`), with keywords and no stars or digest; the
+  job's keywords as they land, more from the grid, read back by Load Folder, sent up by Sync With
+  Server like any sidecar. The clip itself is never written to (`Shot.takesKeywords`). Lightroom
+  Classic keeps a clip's metadata in such a sidecar; whether it reads ours is to be checked.
+- **What the Synology shows (photographer, 2026-10-30):** keywords on the JPEGs exported from
+  Lightroom (written inside the JPEG), not on the RAWs: Synology Photos doesn't read `.xmp`
+  sidecars. Clip sidecars won't show there either; keywords inside MP4/MOV for the Synology is
+  still the parked Milestone 4 test (it means writing into the copies, so their checksums no longer
+  match the card's).
 - **Job keywords:** the settings file's `metadata.keywords` (an array; it already existed, unused),
   now the Job panel's "Keywords" field, typed with commas between. Every photo gets them as it lands
   (`LiveShots(keywords:)`), added to whatever its sidecar already has, the card's own `.xmp`
@@ -657,7 +666,9 @@ nothing new is decided about where metadata lives:
   click on a high-res or small screen, and wanted ⌘K to show and hide the bar rather than only
   put the keys in it. ⌘K (Photos › Show/Hide Keywords) now shows and hides it (remembered,
   `keywordBarShown` in the app's defaults; × on the bar hides it too); shown with photos selected,
-  the field takes the keys. K still opens it and types. The field is 17 pt, the chips and Recent
+  the field takes the keys. K still opens it and types. While typing, ↑ ↓ move a row in the grid and
+  ← → move left and right while the field is empty (photographer, 2026-10-30), so the selection
+  can change without leaving the field. The field is 17 pt, the chips and Recent
   buttons body-size capsules with room to click. A keyword used before fills itself in as typed,
   the rest selected (Lightroom's way): typing on replaces it, Tab, a comma or → keeps it, Delete
   drops it, Return adds all. Filled in from the recent ones (now up to 500 kept, 12 shown), the

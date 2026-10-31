@@ -2,7 +2,7 @@ import XCTest
 @testable import CardIngestCore
 
 /// Keywords in .xmp sidecars: the job's on every photo as it lands, and more
-/// added or taken off from the grid. Clips and the card are never touched.
+/// added or taken off from the grid, clips included. No photo, clip or card file is touched.
 final class KeywordsTests: XCTestCase {
     private var base: URL!
     private var card: URL { base.appendingPathComponent("CARD", isDirectory: true) }
@@ -106,14 +106,20 @@ final class KeywordsTests: XCTestCase {
         let jpeg = try Data(contentsOf: card.appendingPathComponent("DCIM/100CANON/IMG_0002.JPG"))
         let (plan, shots, landed) = try importCard(keywords: ["Camp", "2026", "Summer"])
 
-        XCTAssertEqual(landed.map(\.keywords), [["Camp", "2026", "Summer"], ["Camp", "2026", "Summer"], []],
-                       "The pair and the JPEG get them; the clip doesn't")
+        XCTAssertEqual(landed.map(\.keywords), Array(repeating: ["Camp", "2026", "Summer"], count: 3),
+                       "The pair, the JPEG and the clip all get them")
         XCTAssertEqual(landed.map(\.stars), [nil, nil, nil], "Keywords don't rate anything")
         XCTAssertEqual(shots.sidecarProblems, [])
         let pair = try shot(shots, endingIn: "0001"), single = try shot(shots, endingIn: "0002")
+        let clip = try shot(shots, endingIn: "0005")
+        let movie = try Data(contentsOf: card.appendingPathComponent("DCIM/100CANON/MVI_0005.MP4"))
         for folder in plan.folders {
             let sidecars = try fm.contentsOfDirectory(atPath: folder.path).filter { $0.lowercased().hasSuffix(".xmp") }.sorted()
-            XCTAssertEqual(sidecars, [pair.xmpName, single.xmpName].sorted(), "None for the clip")
+            XCTAssertEqual(sidecars, [pair.xmpName, single.xmpName, clip.xmpName].sorted(), "The clip's beside it")
+            XCTAssertEqual(clip.xmpName, clip.baseName + ".xmp")
+            XCTAssertEqual(Keywords.read(xmp: folder.appendingPathComponent(clip.xmpName)), ["Camp", "2026", "Summer"])
+            XCTAssertEqual(try Data(contentsOf: folder.appendingPathComponent(clip.primary.newName)), movie,
+                           "The clip itself is never written to")
             XCTAssertEqual(Keywords.read(xmp: folder.appendingPathComponent(pair.xmpName)), ["Camp", "2026", "Summer"])
             // Still the RAW's digest, so Lightroom reads the sidecar.
             let text = try String(contentsOf: folder.appendingPathComponent(pair.xmpName), encoding: .utf8)
@@ -161,17 +167,18 @@ final class KeywordsTests: XCTestCase {
             XCTAssertEqual(Stars.read(xmp: sidecar), 3, "Stars are kept")
         }
         XCTAssertEqual(Keywords.found(for: raw), ["Canoe", "Lake", "Sunset"])
-        XCTAssertEqual(Keywords.found(for: clip), [])
+        XCTAssertEqual(Keywords.found(for: clip), ["Canoe"])
 
         try Keywords.remove(["LAKE"], from: raw)
         for folder in plan.folders {
             XCTAssertEqual(Keywords.read(xmp: folder.appendingPathComponent(raw.xmpName)), ["Canoe", "Sunset"])
-            XCTAssertFalse(try fm.contentsOfDirectory(atPath: folder.path).contains(clip.baseName + ".xmp"))
+            XCTAssertEqual(Keywords.read(xmp: folder.appendingPathComponent(clip.baseName + ".xmp")), ["Canoe"])
+            XCTAssertNil(Stars.read(xmp: folder.appendingPathComponent(clip.baseName + ".xmp")), "Clips take no stars")
         }
 
         // Back another day with Load Folder, the keywords are there.
         let loaded = try ImportedFolder.shots(in: plan.folders[0], backupRoot: nil, fileTypes: settings.fileTypes)
-        XCTAssertEqual(loaded.map(\.keywords), [["Canoe", "Sunset"], []])
+        XCTAssertEqual(loaded.map(\.keywords), [["Canoe", "Sunset"], ["Canoe"]])
     }
 
     func testAnInterruptedCopyStillFindsItsFolderAfterKeywordsChangedASidecar() throws {
@@ -212,13 +219,13 @@ final class CullGridKeywordsTests: XCTestCase {
         XCTAssertEqual(grid.addKeywords(["Lake"]), [], "Nothing selected")
         grid.click("es_0001")
         grid.click("es_0003", shift: true)
-        XCTAssertEqual(grid.selectedPhotos.map(\.id), ["es_0001", "es_0002"], "The clip takes none")
+        XCTAssertEqual(grid.selectedForKeywords.map(\.id), ["es_0001", "es_0002", "es_0003"], "The clip too")
         XCTAssertEqual(grid.selectionKeywords, [SelectionKeyword(keyword: "Camp", onAll: false)])
 
-        XCTAssertEqual(grid.addKeywords(["camp", "Lake"]).map(\.id), ["es_0001", "es_0002"])
+        XCTAssertEqual(grid.addKeywords(["camp", "Lake"]).map(\.id), ["es_0001", "es_0002", "es_0003"])
         XCTAssertEqual(grid.keywords["es_0001"], ["Camp", "Lake"])
         XCTAssertEqual(grid.keywords["es_0002"], ["camp", "Lake"])
-        XCTAssertNil(grid.keywords["es_0003"])
+        XCTAssertEqual(grid.keywords["es_0003"], ["camp", "Lake"])
         XCTAssertEqual(grid.selectionKeywords, [SelectionKeyword(keyword: "Camp", onAll: true),
                                                 SelectionKeyword(keyword: "Lake", onAll: true)])
         XCTAssertEqual(grid.addKeywords(["Lake"]), [], "Already there: nothing to write")

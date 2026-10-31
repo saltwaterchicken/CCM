@@ -165,7 +165,7 @@ public struct LandedShot: Sendable {
     public let position: Int
     /// What the auto-rating checks found, when they've looked at it.
     public let check: AutoCheck?
-    /// The keywords in its sidecar; none for clips.
+    /// The keywords in its sidecar.
     public let keywords: [String]
 
     public init(shot: Shot, stars: Int?, position: Int, check: AutoCheck? = nil, keywords: [String] = []) {

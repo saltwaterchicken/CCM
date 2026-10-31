@@ -239,7 +239,8 @@ public enum Help {
                    + "press Return (a keyword used before fills itself in: Tab or a comma takes it); the grid takes the keys back so you can carry on rating. The bar under the grid "
                    + "shows the selection's keywords: × takes one off, a dim one is only on some (click it to add it to all), and "
                    + "Recent adds one you used lately in one click. ⌘K shows and hides the bar. Keywords go in the same .xmp sidecar as the stars, which "
-                   + "Lightroom, Bridge and Photo Mechanic read; the photos themselves are never changed. Clips don't take keywords yet.",
+                   + "Lightroom, Bridge and Photo Mechanic read; the photos themselves are never changed. Clips take keywords too, in a "
+                   + ".xmp of their own beside the clip. The arrows still move in the grid while you type.",
                    keywords: ["keyword", "tag", "tags", "metadata", "subject"], target: .keywords),
         HelpAnswer("lightroom", "My stars don't show in Lightroom",
                    "Stars for RAW photos are in the .xmp sidecar next to each file, which Lightroom reads when it imports. For photos "
