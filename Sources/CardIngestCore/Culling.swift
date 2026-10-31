@@ -49,6 +49,10 @@ public struct CullGrid: Equatable, Sendable {
     public var filter: StarFilter = .all {
         didSet { keepSelectionVisible() }
     }
+    /// Shows the shots in this order instead of the order they landed, lowest
+    /// first (calibrating, by score); shots without one go last, in landing
+    /// order. Nil for landing order. The arrows follow what's shown.
+    public var order: [String: Double]?
     public private(set) var stars: [String: Int] = [:]
     /// What the auto-rating checks found, for the shots they've looked at.
     public private(set) var checks: [String: AutoCheck] = [:]
@@ -69,9 +73,18 @@ public struct CullGrid: Equatable, Sendable {
         shots.first { $0.id == id }
     }
 
-    /// The shots the filter shows, in landing order.
+    /// The shots the filter shows, in landing order or in `order`.
     public var visible: [Shot] {
-        shots.filter { filter.shows($0, stars: stars[$0.id], check: checks[$0.id]) }
+        let shown = shots.filter { filter.shows($0, stars: stars[$0.id], check: checks[$0.id]) }
+        guard let order else { return shown }
+        return shown.enumerated().sorted { a, b in
+            switch (order[a.element.id], order[b.element.id]) {
+            case let (x?, y?) where x != y: x < y
+            case (_?, nil): true
+            case (nil, _?): false
+            default: a.offset < b.offset
+            }
+        }.map(\.element)
     }
 
     /// How many the checks left at 0 that nobody has rated since.

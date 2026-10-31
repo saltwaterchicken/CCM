@@ -218,7 +218,7 @@ public struct MetadataTemplate: Codable, Equatable, Sendable {
 
 /// Auto-rating: checking each photo's sharpness and exposure. The limits are
 /// starting points, set from 34,000 camp photos (Milestone 6); each
-/// photographer tunes them in the calibration window. A photo falls short
+/// photographer tunes them by calibrating in the grid. A photo falls short
 /// when its score is under a sharpness limit, its blown or black share is
 /// over an exposure limit, or its subject is darker or brighter than the brightness limits.
 public struct RatingSettings: Codable, Equatable, Sendable {

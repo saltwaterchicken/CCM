@@ -264,7 +264,7 @@ public enum Help {
                    keywords: ["yellow", "colour", "color", "auto"], target: .flaggedByApp),
         HelpAnswer("flagged", "What does \"Flagged by app\" show?",
                    "Only the photos the check left at 0 for being soft or badly exposed, each with its reason. Rate one you'd keep "
-                   + "and it drops out. If too many good ones are there, Calibrate… beside it shows what limits would have kept them.",
+                   + "and it drops out. If too many good ones are there, Calibrate… beside it lets you tell the app where it's wrong.",
                    keywords: ["flag", "0", "zero", "reason", "auto"], target: .flaggedByApp),
         HelpAnswer("auto-rating", "How do I turn auto-rating on or off?",
                    "Tick or untick \"Rate sharpness and exposure as each photo lands\" in the Job panel. When on, each photo with no "
@@ -272,10 +272,14 @@ public enum Help {
                    + "off, can be checked with the Check button above the grid.",
                    keywords: ["sharpness", "exposure", "automatic", "check"], target: .autoRating),
         HelpAnswer("calibrate", "Too many good photos are flagged (or bad ones missed)",
-                   "Open Calibrate… from the Job panel and score a folder you've already culled. Each slider shows at once how many "
-                   + "of your keepers it would flag. Right-click a photo to say what's wrong with it (Too Dark, Too Soft…) or that it "
-                   + "Looks Fine, and the limits move to follow; the labels add up over the summer. Save to Settings keeps them.",
-                   keywords: ["calibrate", "limit", "slider", "label", "dark", "soft", "bright", "wrong", "learn"], target: .autoRating),
+                   "Calibrate on a card you've culled: Calibrate… in the Job panel (or Photos › Calibrate on Another Card…). The grid "
+                   + "then shows every photo with the orange chips the limits would give it, and the sliders take the place of the Job "
+                   + "panel. Where a chip is wrong, right-click the photo (or use Label in the large view, at 100% to judge focus): "
+                   + "Looks Fine on a flagged one, or what's wrong with one that isn't (Too Dark, Face Too Soft…). The limits move to "
+                   + "follow straight away, never so far that they'd flag more than 1 in 100 of your keepers, and your disagreements "
+                   + "add up over the summer. Sort by score to see the borderline ones together, or in shooting order to compare "
+                   + "frames. Save to Settings keeps the limits; Done Calibrating goes back.",
+                   keywords: ["calibrate", "limit", "slider", "label", "dark", "soft", "bright", "wrong", "learn", "disagree", "train"], target: .autoRating),
         HelpAnswer("load", "How do I get back to an earlier card?",
                    "Load Folder… above the grid (or File › Load Folder…, ⌘O) opens a card folder from an earlier import with its "
                    + "stars, without the card: after "

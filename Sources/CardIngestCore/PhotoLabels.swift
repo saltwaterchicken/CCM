@@ -1,7 +1,7 @@
 import Foundation
 
-/// What the photographer says about a photo in the calibration window, by
-/// right-clicking it. Each one but "fine" asks for photos like it to be
+/// What the photographer says about a photo while calibrating in the grid, by
+/// right-clicking it: where they disagree with the chips. Each one but "fine" asks for photos like it to be
 /// flagged; "fine" asks for it never to be.
 public enum PhotoLabel: String, Codable, Sendable, CaseIterable, Comparable {
     case imageTooDark, subjectTooDark, imageTooLight, subjectTooLight, imageTooSoft, faceTooSoft, fine

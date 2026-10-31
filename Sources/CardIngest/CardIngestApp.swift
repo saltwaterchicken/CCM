@@ -48,13 +48,6 @@ struct CardIngestApp: App {
             CardCommands(settings: model, watcher: watcher)
             HelpCommands(help: help, license: license, watcher: watcher)
         }
-        Window("Calibrate Auto-Rating", id: "calibration") {
-            CalibrationView(settings: model, grid: watcher.grid)
-                .frame(minWidth: 1000, minHeight: 640)
-                .background(Theme.window)
-                .groupBoxStyle(PanelStyle())
-                .preferredColorScheme(.dark)
-        }
         Window("Card Ingest Help", id: "help") {
             HelpView(settings: model, watcher: watcher)
                 .frame(minWidth: 460, minHeight: 520)
@@ -201,14 +194,19 @@ struct ContentView: View {
         HStack(alignment: .top, spacing: 16) {
             ScrollViewReader { proxy in
                 ScrollView {
-                    controls
+                    // Calibrating: the limits in place of the cards and the Job panel.
+                    if let calibration = watcher.grid.calibration {
+                        CalibrationPanel(settings: model, model: calibration, grid: watcher.grid)
+                    } else {
+                        controls
+                    }
                 }
                 .onChange(of: help.request) {
                     if let target = help.showing { withAnimation { proxy.scrollTo(target, anchor: .center) } }
                 }
             }
             .frame(width: 480)
-            CullingView(model: watcher.grid)
+            CullingView(model: watcher.grid, settings: model)
         }
         .padding(16)
         .safeAreaInset(edge: .top, spacing: 0) {
@@ -234,7 +232,7 @@ struct ContentView: View {
                 .helpSpot(.cards)
 
             GroupBox("Job") {
-                JobPanel(model: model)
+                JobPanel(model: model, grid: watcher.grid)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(4)
             }
@@ -279,7 +277,8 @@ struct ContentView: View {
 /// to the settings file.
 struct JobPanel: View {
     @Bindable var model: SettingsModel
-    @Environment(\.openWindow) private var openWindow
+    /// Calibrate… works on the card in the grid.
+    var grid: GridModel
 
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
@@ -411,7 +410,8 @@ struct JobPanel: View {
                                 .monospacedDigit()
                                 .fixedSize(horizontal: false, vertical: true)
                             Spacer()
-                            Button("Calibrate…") { openWindow(id: "calibration") }
+                            Button("Calibrate…") { grid.calibrate(settingsURL: model.fileURL) }
+                                .help("Calibrates on the card in the grid, or asks for an earlier card first")
                         }
                         .padding(.leading, 20)
                     }

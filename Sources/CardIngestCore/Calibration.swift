@@ -4,7 +4,8 @@ import Foundation
 public struct ScoredShot: Sendable, Identifiable {
     public let shot: Shot
     /// Its stars in the folder; unrated counts as 0, and rejected (-1) stays -1.
-    public let stars: Int
+    /// Changes when it's rated in the grid while calibrating.
+    public var stars: Int
     public let score: QualityScore
     /// Flagged by the checks, then starred by the photographer: the mistakes
     /// worth calibrating on while the card is fresh.
@@ -19,6 +20,10 @@ public struct ScoredShot: Sendable, Identifiable {
         self.rescued = rescued
         self.taken = taken
     }
+
+    /// The number its sharpness limit is compared with: the face score, else
+    /// the sharpest area's. What "by score" sorts on, softest first.
+    public var sharpness: Double { score.faceScore ?? score.areaSharpness }
 
     /// The sharpest frame of each burst among `scored`.
     public static func burstSharpest(_ scored: [ScoredShot]) -> Set<String> {
@@ -53,7 +58,7 @@ public struct CalibrationReport: Equatable, Sendable {
     public var outtakeShare: Double { outtakes > 0 ? Double(flaggedOuttakes.count) / Double(outtakes) : 0 }
 }
 
-/// The calibration window's arithmetic: score a culled folder once, then see
+/// Calibrating's arithmetic: score a culled folder once, then see
 /// at once how any limits compare with the photographer's own stars.
 public enum Calibration {
     /// The photos in a folder, with the stars in their sidecars (or inside a

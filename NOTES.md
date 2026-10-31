@@ -173,7 +173,8 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   face's score, else the area's), `cardingest:Taken`, so Load Folder needs no extra reading. Not
   needed on cards copied before (photographer): photos checked before 2026-10-30 have no Taken
   and are left out. Only checked photos take part (`Bursts.swift`, `CullGrid.burstSharpest`).
-  **Calibration rework, agreed 2026-10-30, to build after the burst chip:** mainly for cards
+  **Calibration rework, agreed 2026-10-30, built 2026-10-30 on branch `claude/calibrate-in-grid`, not
+  yet tried on the Mac:** mainly for cards
   copied earlier (Load Folder, then calibrate), revisited over the summer; it scores every photo
   afresh, so any earlier card works and shows the burst chip too. Calibrate in the main
   grid and its large view (100%, arrows) instead of the separate window; every photo shown, with
@@ -182,6 +183,16 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   fine", on another "should be flagged" with a reason; disagreements apply live (nothing saved
   until Save to Settings) and build up across cards like labels; the 1% cap stays; a toggle
   between shooting order and score order, keeping the selected photo in view; stars never train.
+  How it's built: Calibrate… (Job panel, the Flagged by app filter, Photos › Calibrate on <card> /
+  Calibrate on Another Card…) puts the grid in calibrating mode (`GridModel.calibration`, a
+  `CalibrationModel` in `CalibrationView.swift`): the card's folder scored afresh, every photo,
+  the app's own stars included; the side panel (`CalibrationPanel`) takes the left column's place
+  with the sliders, the counts and Save; tiles and the large view take their orange chips from the
+  limits being tried, show disagreements as blue chips, and the large view adds the scores and a
+  Label menu. Disagreeing is the labels as before (same file, same learning, same 1% cap), applied
+  live. Rating while calibrating updates the keepers and outtakes. The order toggle sets
+  `CullGrid.order` (by the score the sharpness limit is compared with, softest first); the arrows
+  follow it. A new Copy or Load Folder ends calibrating. The separate window is gone.
   **Labels that refine the limits (2026-10-27, asked by the photographer; confirmed on the Mac
   2026-10-27):** right-click a photo in
   the calibration window (or Label in the large view): Image Too Dark / Subject Too Dark / Image
@@ -1043,14 +1054,17 @@ Suggestions so far, not yet decided. Edit freely.
     goes to 100%. Back in the grid, move the pointer slowly across a clip's tile without clicking: the
     picture follows the pointer through the clip, a thin line along the bottom and the time in the
     corner show where, and moving off puts the first frame back.
-18. Calibrating auto-rating (2026-10-26). In the Job panel, the Auto-rating row reads "Faces 50 · No
-    face 30 · White 80% · Black 95%". Click Calibrate…: a second window opens. Choose Folder… and pick
-    a culled job with its stars saved to the files (e.g. a card folder from `Look at`): a bar counts
-    the photos as they're checked, then the summary (photos, keepers, outtakes). The grid shows the
-    keepers these limits would flag, softest first; click one to see it large (Esc closes). Switch to
-    "Outtakes it would flag": they should look soft. Drag Faces up: both counts rise as you drag.
-    Suggest: the keepers figure goes to about 1%. Save to Settings: "Saved in Settings.plist", and the
-    Job panel row shows the new numbers. Nothing in the folder changes.
+18. Calibrating (reworked 2026-10-30). Load Folder… a card you've culled (stars saved to the files),
+    then Calibrate… in the Job panel: the left column becomes the Calibrating panel with a bar
+    counting the photos as they're scored, then the sliders and the counts. Every photo in the grid
+    shows the orange chips these limits would give it. Drag Soft faces: chips come and go across
+    the grid as you drag. Double-click a photo: the large view, Space for 100%, ← → to the next;
+    its bar shows the scores and a Label menu. Right-click a flagged photo you'd keep, Looks Fine:
+    a blue chip, its orange chip goes, and the panel says what moved. Right-click a soft one with
+    no chip, Face Too Soft: it gets the orange chip. Switch "By Score, Softest First": the
+    selected photo stays in view. Press 1 on a 0★ photo: the keeper count goes up. Save to
+    Settings, then Done Calibrating: the cards and Job panel are back, and the Auto-rating row
+    shows the new limits. Nothing in the folder changes but the star you gave.
 19. Auto-rating (2026-10-26; real photos, Trash unticked). Tick "Rate sharpness and exposure as each
     photo lands" in the Job panel. Run `scripts/make-fake-card.sh` on a folder of real RAWs that
     includes some soft ones and press Copy: tiles appear, then "Checking sharpness and exposure: N of

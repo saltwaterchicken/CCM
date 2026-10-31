@@ -33,8 +33,12 @@ final class GridModel {
     var fileTypes = FileTypes()
     /// The auto-rating limits, and whether shots are checked as they land.
     var rating = RatingSettings()
-    /// Set by Calibrate… in the grid: the calibration window scores this card.
-    var calibrationRequest: URL?
+    /// Calibrating the card in the grid (see CalibrationModel); nil otherwise.
+    private(set) var calibration: CalibrationModel?
+    /// While calibrating: the photos in shooting order, or by score, softest first.
+    var calibrationByScore = false {
+        didSet { sortForCalibration() }
+    }
     /// The backup folder (the server), for Sync With Server.
     var serverRoot: URL?
     /// The cards' backups, so Sync waits for this card's to finish.
@@ -264,6 +268,52 @@ final class GridModel {
         problem = nil
         self.cardName = cardName
         self.folder = folder
+        // Another card in the grid: calibrating this one is over.
+        stopCalibrating()
+    }
+
+    /// Calibrate…: scores the card in the grid and shows every photo with
+    /// the chips the limits would give it, the limits in the side panel.
+    func startCalibrating(settingsURL: URL) {
+        guard let folder, rating.available else { return }
+        if isViewing { closeView() }
+        calibration?.stop()
+        calibration = CalibrationModel(folder: folder, limits: rating, settingsURL: settingsURL)
+        filter = .all
+        sortForCalibration()
+    }
+
+    /// Calibrate… in the Job panel and the Photos menu: the card in the grid,
+    /// or an earlier card chosen now.
+    func calibrate(settingsURL: URL) {
+        if folder == nil, !chooseFolderToLoad() { return }
+        startCalibrating(settingsURL: settingsURL)
+    }
+
+    /// Photos › Calibrate on Another Card…
+    func calibrateAnotherCard(settingsURL: URL) {
+        if chooseFolderToLoad() { startCalibrating(settingsURL: settingsURL) }
+    }
+
+    func stopCalibrating() {
+        guard calibration != nil else { return }
+        calibration?.stop()
+        calibration = nil
+        grid.order = nil
+    }
+
+    /// By score once the scores are in; until then, and in shooting order, as they landed.
+    func sortForCalibration() {
+        guard let calibration, calibrationByScore else { return grid.order = nil }
+        grid.order = calibration.byID.mapValues(\.sharpness)
+    }
+
+    /// The orange chips a shot shows: what the limits being tried would flag
+    /// while calibrating, else what the checks flagged and nobody's rated since.
+    func problems(of id: String) -> [QualityProblem] {
+        if let calibration { return calibration.problems(id) }
+        guard let check = check(of: id), check.isFlagged, grid.stars[id] == 0 else { return [] }
+        return check.problems
     }
 
     /// The shot's 100% picture, from the two kept or made now.
@@ -317,9 +367,11 @@ final class GridModel {
         if !rating.available, grid.filter == .appFlagged { grid.filter = .all }
     }
 
-    /// The sharpest frame of a burst, while auto-rating is available.
+    /// The sharpest frame of a burst, while auto-rating is available. While
+    /// calibrating, from the scores just taken, so earlier cards show it too.
     func isBurstSharpest(_ id: String) -> Bool {
-        rating.available && grid.burstSharpest.contains(id)
+        guard rating.available else { return false }
+        return calibration?.burstSharpest.contains(id) ?? grid.burstSharpest.contains(id)
     }
 
     /// What the checks found for a shot, as the grid shows it: nothing when
@@ -489,6 +541,7 @@ final class GridModel {
     func rate(_ stars: Int) {
         let shots = grid.rate(stars)
         guard !shots.isEmpty else { return }
+        calibration?.setStars(stars, on: shots.map(\.id))
         writes.async {
             for shot in shots {
                 do {
@@ -506,8 +559,9 @@ final class GridModel {
 /// 0 to 5 rate; the arrows move.
 struct CullingView: View {
     var model: GridModel
+    /// The settings file in use: calibrating keeps its disagreements beside it.
+    var settings: SettingsModel
     @FocusState private var focused: Bool
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -527,6 +581,8 @@ struct CullingView: View {
                             ForEach(model.grid.visible) { shot in
                                 TileView(shot: shot, stars: model.grid.stars[shot.id], check: model.check(of: shot.id),
                                          keywords: model.grid.keywords[shot.id] ?? [],
+                                         problems: model.problems(of: shot.id),
+                                         disagreements: model.calibration?.labels(for: shot.id) ?? [],
                                          isBurstSharpest: model.isBurstSharpest(shot.id),
                                          isSelected: model.grid.selected.contains(shot.id), cache: model.cache)
                                     .id(shot.id)
@@ -538,6 +594,13 @@ struct CullingView: View {
                                     .simultaneousGesture(TapGesture(count: 2).onEnded { model.view(shot.id) })
                                     // Control-click or right-click: the shot's files (RAW, JPEG, sidecar) selected in Finder.
                                     .contextMenu {
+                                        if let calibration = model.calibration, let photo = calibration.byID[shot.id] {
+                                            Text(calibration.problems(shot.id).isEmpty ? "Should be flagged:" : "Flagged, but:")
+                                            LabelMenuItems(photo: photo, labels: calibration.labels(for: shot.id)) {
+                                                calibration.toggle($0, on: shot.id)
+                                            }
+                                            Divider()
+                                        }
                                         Button("Reveal in Finder") {
                                             NSWorkspace.shared.activateFileViewerSelecting(shot.files.compactMap(\.destinations.first))
                                         }
@@ -552,6 +615,14 @@ struct CullingView: View {
                     } action: { if model.columns != $0 { model.columns = $0 } }
                     .onChange(of: model.grid.focus) { _, id in
                         if let id { withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(id) } }
+                    }
+                    // Sorted the other way: the photo being looked at stays in view.
+                    .onChange(of: model.calibrationByScore) {
+                        if let id = model.grid.focus { proxy.scrollTo(id, anchor: .center) }
+                    }
+                    .onChange(of: model.calibration?.phase) {
+                        model.sortForCalibration()
+                        if let id = model.grid.focus { proxy.scrollTo(id, anchor: .center) }
                     }
                     // Back from the large view: the keys work on the grid again straight away.
                     .onChange(of: model.isViewing) { _, viewing in
@@ -649,7 +720,15 @@ struct CullingView: View {
                     .pickerStyle(.segmented)
                     .fixedSize()
                     .helpSpot(.starFilter)
-                    if model.rating.available, !model.grid.checks.isEmpty || model.isChecking {
+                    if model.calibration != nil {
+                        Picker("Order", selection: Binding(get: { model.calibrationByScore }, set: { model.calibrationByScore = $0 })) {
+                            Text("Shooting Order").tag(false)
+                            Text("By Score, Softest First").tag(true)
+                        }
+                        .pickerStyle(.segmented)
+                        .fixedSize()
+                        .help("Shooting order shows each photo beside the frames taken with it; by score puts the borderline ones together")
+                    } else if model.rating.available, !model.grid.checks.isEmpty || model.isChecking {
                         Toggle(isOn: Binding(get: { model.filter == .appFlagged },
                                              set: { model.filter = $0 ? .appFlagged : .all })) {
                             Label("Flagged by app (\(model.grid.flaggedByApp))", systemImage: "exclamationmark.triangle")
@@ -659,11 +738,8 @@ struct CullingView: View {
                               + "Rating one takes it out.")
                         .helpSpot(.flaggedByApp)
                         if model.filter == .appFlagged {
-                            Button("Calibrate…") {
-                                model.calibrationRequest = model.folder
-                                openWindow(id: "calibration")
-                            }
-                            .help("Rate the ones you'd keep first; the calibration window then shows what limits would have kept them")
+                            Button("Calibrate…") { model.startCalibrating(settingsURL: settings.fileURL) }
+                                .help("Shows every photo with the chips the limits would give it, to disagree where they're wrong")
                         }
                     }
                     Spacer()
@@ -957,6 +1033,10 @@ struct TileView: View {
     let check: AutoCheck?
     /// Shown as a tag and a count on the picture.
     let keywords: [String]
+    /// Why it's flagged: orange chips.
+    var problems: [QualityProblem] = []
+    /// While calibrating, where the photographer disagreed: blue chips.
+    var disagreements: [PhotoLabel] = []
     /// The sharpest frame of a burst: a green chip.
     var isBurstSharpest = false
     let isSelected: Bool
@@ -1003,11 +1083,13 @@ struct TileView: View {
                 if let badge = shot.badge { tag(badge).padding(4) }
             }
             .overlay(alignment: .topTrailing) {
-                let flagged = check.map { $0.isFlagged && stars == 0 } ?? false
-                if flagged || isBurstSharpest {
-                    HStack(spacing: 3) {
-                        if isBurstSharpest { BurstChip() }
-                        if flagged, let check { ForEach(check.problems, id: \.self) { CalibrationChip(text: $0.label) } }
+                if !problems.isEmpty || isBurstSharpest || !disagreements.isEmpty {
+                    VStack(alignment: .trailing, spacing: 3) {
+                        HStack(spacing: 3) {
+                            if isBurstSharpest { BurstChip() }
+                            ForEach(problems, id: \.self) { CalibrationChip(text: $0.label) }
+                        }
+                        ForEach(disagreements, id: \.self) { CalibrationChip(text: $0.title, color: .cyan) }
                     }
                     .padding(4)
                 }
@@ -1312,8 +1394,17 @@ struct LargeView: View {
                     let check = model.check(of: shot.id)
                     StarsView(stars: model.grid.stars[shot.id], byApp: check?.stars != nil && check?.stars == model.grid.stars[shot.id])
                     if model.isBurstSharpest(shot.id) { BurstChip() }
-                    if let check, check.isFlagged, model.grid.stars[shot.id] == 0 {
-                        ForEach(check.problems, id: \.self) { CalibrationChip(text: $0.label) }
+                    ForEach(model.problems(of: shot.id), id: \.self) { CalibrationChip(text: $0.label) }
+                    if let calibration = model.calibration, let photo = calibration.byID[shot.id] {
+                        ForEach(calibration.labels(for: shot.id), id: \.self) { CalibrationChip(text: $0.title, color: .cyan) }
+                        Text(ScoreText.details(photo)).font(.caption).monospacedDigit().foregroundStyle(.secondary)
+                        Menu("Label") {
+                            LabelMenuItems(photo: photo, labels: calibration.labels(for: shot.id)) {
+                                calibration.toggle($0, on: shot.id)
+                            }
+                        }
+                        .fixedSize()
+                        .help("Where the chips are wrong: Looks Fine on a flagged photo, or what's wrong with one that isn't")
                     }
                 }
                 if let words = model.grid.keywords[shot.id] {

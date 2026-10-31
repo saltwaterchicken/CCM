@@ -6,7 +6,6 @@ import SwiftUI
 struct CardCommands: Commands {
     var settings: SettingsModel
     var watcher: CardWatcher
-    @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
@@ -61,12 +60,14 @@ struct CardCommands: Commands {
                 }
                 .disabled(!hasPhotos || grid.isChecking || grid.uncheckedCount == 0)
                 Divider()
-                Button("Calibrate Auto-Rating…") { openWindow(id: "calibration") }
-                Button("Calibrate on This Card…") {
-                    grid.calibrationRequest = grid.folder
-                    openWindow(id: "calibration")
+                if grid.calibration != nil {
+                    Button("Done Calibrating") { grid.stopCalibrating() }
+                } else {
+                    Button(grid.folder.map { "Calibrate on \($0.lastPathComponent)" } ?? "Calibrate…") {
+                        grid.calibrate(settingsURL: settings.fileURL)
+                    }
                 }
-                .disabled(grid.folder == nil)
+                Button("Calibrate on Another Card…") { grid.calibrateAnotherCard(settingsURL: settings.fileURL) }
             }
             Divider()
             Button("Sync With Server") { grid.compareWithServer() }

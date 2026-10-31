@@ -91,4 +91,24 @@ final class BurstsTests: XCTestCase {
         XCTAssertFalse(old.subjectIsFace)
         XCTAssertNil(old.taken)
     }
+
+    func testTheGridCanShowAnotherOrderAndTheArrowsFollowIt() {
+        func shot(_ name: String) -> Shot {
+            let file = CopiedFile(newName: name, originalPath: name, size: 1, originalModified: nil, checksum: "0",
+                                  destinations: [URL(fileURLWithPath: "/Main/" + name)], alreadyThere: false)
+            return Shot(baseName: (name as NSString).deletingPathExtension, files: [file], primary: file, kind: .raw, badge: nil)
+        }
+        var grid = CullGrid()
+        grid.add(contentsOf: ["A_1.CR3", "A_2.CR3", "A_3.CR3", "A_4.CR3"].enumerated().map {
+            LandedShot(shot: shot($1), stars: nil, position: $0)
+        })
+        grid.order = ["a_1": 50, "a_2": 10, "a_3": 30]
+        XCTAssertEqual(grid.visible.map(\.id), ["a_2", "a_3", "a_1", "a_4"], "Lowest first; no score goes last")
+        grid.click("a_3")
+        grid.move(by: 1)
+        XCTAssertEqual(grid.focus, "a_1", "The arrows follow the order shown")
+        grid.order = nil
+        XCTAssertEqual(grid.visible.map(\.id), ["a_1", "a_2", "a_3", "a_4"])
+        XCTAssertEqual(grid.focus, "a_1", "The photo stays selected")
+    }
 }
