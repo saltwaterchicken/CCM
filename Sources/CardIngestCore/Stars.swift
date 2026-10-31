@@ -5,9 +5,9 @@ import ImageIO
 /// sidecar next to its copies, so Lightroom, Bridge and Photo Mechanic all see
 /// them. RAW files are never rewritten. Only the sidecars in the destination
 /// and backup are written, never anything on the card. Every RAW gets a
-/// sidecar as it lands, so a folder of 350 RAWs holds 700 files and the
-/// sidecar is there for keywords later; it carries only a rating the shot
-/// already had (the camera's), else none.
+/// sidecar as it lands, so a folder of 350 RAWs holds 700 files; it carries
+/// only a rating the shot already had (the camera's), else none, plus the
+/// job's keywords (see Keywords).
 public enum Stars {
     /// The stars in a sidecar, or nil when it has none (or doesn't exist).
     public static func read(xmp url: URL) -> Int? {
@@ -33,9 +33,9 @@ public enum Stars {
     /// the RAW's embedded-XMP digest, without which Lightroom ignores the
     /// sidecar's stars (see RawXMP).
     /// `extra` adds other fields (the auto-rating marker) and `removing`
-    /// takes fields out.
+    /// takes fields out. `keywords`, when given, replaces the keyword list.
     public static func write(_ stars: Int?, toXMP url: URL, raw: URL? = nil, now: Date = Date(),
-                             extra: [String: String] = [:], removing: [String] = []) throws {
+                             extra: [String: String] = [:], removing: [String] = [], keywords: [String]? = nil) throws {
         var metadata = CGImageMetadataCreateMutable()
         if let data = try? Data(contentsOf: url) {
             guard let existing = CGImageMetadataCreateFromXMPData(data as CFData),
@@ -60,6 +60,9 @@ public enum Stars {
             guard CGImageMetadataSetValueWithPath(metadata, nil, path as CFString, value as CFString) else {
                 throw StarsError.couldNotWrite(url.lastPathComponent)
             }
+        }
+        if let keywords, !Keywords.set(keywords, in: metadata) {
+            throw StarsError.couldNotWrite(url.lastPathComponent)
         }
         guard let xmp = CGImageMetadataCreateXMPData(metadata, nil) else {
             throw StarsError.couldNotWrite(url.lastPathComponent)
@@ -99,14 +102,18 @@ public enum Stars {
     /// Gives a RAW shot that just landed its sidecar in each destination that
     /// has none, holding the rating set in the camera if there is one (the
     /// camera's 0 means unrated, so it's left out). A sidecar copied from the
-    /// card is kept as it is. JPEG, HEIC and video get nothing.
-    public static func giveSidecar(to shot: Shot) throws {
-        guard shot.kind == .raw else { return }
-        let stars = found(for: shot).flatMap { $0 == 0 ? nil : $0 }
-        for (url, raw) in zip(sidecars(of: shot), raws(of: shot))
-        where !FileManager.default.fileExists(atPath: url.path) {
-            try write(stars, toXMP: url, raw: raw)
+    /// card is kept as it is. JPEG, HEIC and video get nothing, unless the job
+    /// has keywords: those go in every photo's sidecar (the card's included,
+    /// added to what's there), so a JPEG-only or HEIC shot then gets one too.
+    public static func giveSidecar(to shot: Shot, keywords: [String] = []) throws {
+        if shot.kind == .raw {
+            let stars = found(for: shot).flatMap { $0 == 0 ? nil : $0 }
+            for (url, raw) in zip(sidecars(of: shot), raws(of: shot))
+            where !FileManager.default.fileExists(atPath: url.path) {
+                try write(stars, toXMP: url, raw: raw, keywords: keywords)
+            }
         }
+        if !keywords.isEmpty { try Keywords.add(keywords, to: shot) }
     }
 
     /// Sets the photographer's stars on a shot, in every destination. From
@@ -158,12 +165,15 @@ public struct LandedShot: Sendable {
     public let position: Int
     /// What the auto-rating checks found, when they've looked at it.
     public let check: AutoCheck?
+    /// The keywords in its sidecar; none for clips.
+    public let keywords: [String]
 
-    public init(shot: Shot, stars: Int?, position: Int, check: AutoCheck? = nil) {
+    public init(shot: Shot, stars: Int?, position: Int, check: AutoCheck? = nil, keywords: [String] = []) {
         self.shot = shot
         self.stars = stars
         self.position = position
         self.check = check
+        self.keywords = keywords
     }
 }
 
@@ -175,10 +185,13 @@ public final class LiveShots: @unchecked Sendable {
     private var expected: [String: Int]
     private var completed = 0
     private var problems: [String] = []
+    private let keywords: [String]
 
     /// - Parameter planned: everything this Copy will bring in, so a shot is
     ///   shown only once its last file (often the camera's own `.xmp`) is in.
-    public init(planned: [PlannedFile], fileTypes: FileTypes) {
+    /// - Parameter keywords: the job's keywords, for every photo's sidecar.
+    public init(planned: [PlannedFile], fileTypes: FileTypes, keywords: [String] = []) {
+        self.keywords = keywords
         list = ShotList(fileTypes: fileTypes)
         expected = Dictionary(planned.map { (($0.newName as NSString).deletingPathExtension.lowercased(), 1) },
                               uniquingKeysWith: +)
@@ -190,9 +203,9 @@ public final class LiveShots: @unchecked Sendable {
     }
 
     /// Adds a verified copy to its shot. When that was the shot's last file,
-    /// gives a RAW its sidecar and returns the shot for the grid with the stars
-    /// it came with (its card sidecar's or the camera's), a 0 counting as
-    /// unrated since cameras write 0 for that.
+    /// gives a RAW its sidecar (and every photo the job's keywords) and returns
+    /// the shot for the grid with the stars it came with (its card sidecar's or
+    /// the camera's), a 0 counting as unrated since cameras write 0 for that.
     public func complete(_ file: CopiedFile) -> LandedShot? {
         lock.withLock {
             let index = list.add(file)
@@ -200,12 +213,12 @@ public final class LiveShots: @unchecked Sendable {
             guard shot.files.count == expected[shot.id, default: 1] else { return nil }
             completed += 1
             do {
-                try Stars.giveSidecar(to: shot)
+                try Stars.giveSidecar(to: shot, keywords: keywords)
             } catch {
                 problems.append(error.localizedDescription)
             }
             let stars = Stars.found(for: shot).flatMap { $0 == 0 ? nil : $0 }
-            return LandedShot(shot: shot, stars: stars, position: completed - 1)
+            return LandedShot(shot: shot, stars: stars, position: completed - 1, keywords: Keywords.found(for: shot))
         }
     }
 

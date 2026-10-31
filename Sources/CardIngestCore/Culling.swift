@@ -40,6 +40,8 @@ public enum StarFilter: Hashable, Sendable {
 /// selected move on to the next photo; left and right arrows move along.
 /// Writing the stars to the sidecars is the caller's job (see `rate`). With a
 /// filter on, clicks, keys and Select All act only on the shots it shows.
+/// Keywords work the same way: added to or taken off the selected photos, the
+/// caller writing the sidecars (see `addKeywords`).
 public struct CullGrid: Equatable, Sendable {
     /// Every shot of the Copy, in the order they landed.
     public private(set) var shots: [Shot] = []
@@ -50,6 +52,8 @@ public struct CullGrid: Equatable, Sendable {
     public private(set) var stars: [String: Int] = [:]
     /// What the auto-rating checks found, for the shots they've looked at.
     public private(set) var checks: [String: AutoCheck] = [:]
+    /// Each photo's keywords, for the ones that have any.
+    public private(set) var keywords: [String: [String]] = [:]
     public private(set) var selected: Set<String> = []
     /// The shot the keys act from: the last one clicked or moved to.
     public private(set) var focus: String?
@@ -104,6 +108,7 @@ public struct CullGrid: Equatable, Sendable {
         let id = landed.shot.id
         if let stars = landed.stars { self.stars[id] = stars }
         if let check = landed.check { checks[id] = check }
+        if !landed.keywords.isEmpty { keywords[id] = landed.keywords }
         if let existing = shots.firstIndex(where: { $0.id == id }) {
             shots[existing] = landed.shot
             return
@@ -176,6 +181,51 @@ public struct CullGrid: Equatable, Sendable {
         return targets
     }
 
+    /// The selected photos (clips take no keywords), in the order shown.
+    public var selectedPhotos: [Shot] {
+        visible.filter { selected.contains($0.id) && $0.isRatable }
+    }
+
+    /// The keywords of the selected photos, in the order first met, each with
+    /// whether every one of them has it (else only some do).
+    public var selectionKeywords: [SelectionKeyword] {
+        let photos = selectedPhotos
+        var found: [String] = []
+        for photo in photos { found = Keywords.merged(found, adding: keywords[photo.id] ?? []) }
+        return found.map { word in
+            SelectionKeyword(keyword: word, onAll: photos.allSatisfy { photo in
+                (keywords[photo.id] ?? []).contains { Keywords.same($0, word) }
+            })
+        }
+    }
+
+    /// Adds keywords to every selected photo and returns the photos that
+    /// didn't have them all yet, whose sidecars the caller then writes. The
+    /// selection stays as it is, so more can be added.
+    @discardableResult
+    public mutating func addKeywords(_ words: [String]) -> [Shot] {
+        guard !words.isEmpty else { return [] }
+        return selectedPhotos.filter { photo in
+            let before = keywords[photo.id] ?? []
+            let after = Keywords.merged(before, adding: words)
+            guard after != before else { return false }
+            keywords[photo.id] = after
+            return true
+        }
+    }
+
+    /// Takes a keyword off every selected photo that has it, and returns those photos.
+    @discardableResult
+    public mutating func removeKeyword(_ word: String) -> [Shot] {
+        selectedPhotos.filter { photo in
+            let before = keywords[photo.id] ?? []
+            let after = Keywords.removing(word, from: before)
+            guard after != before else { return false }
+            keywords[photo.id] = after.isEmpty ? nil : after
+            return true
+        }
+    }
+
     /// Drops hidden shots from the selection; the focus moves to a shown one.
     private mutating func keepSelectionVisible() {
         let shown = Set(visible.map(\.id))
@@ -193,10 +243,17 @@ public struct CullGrid: Equatable, Sendable {
     }
 }
 
+/// A keyword on the selected photos, for the keyword bar.
+public struct SelectionKeyword: Equatable, Hashable, Sendable {
+    public let keyword: String
+    /// Every selected photo has it; otherwise only some do.
+    public let onAll: Bool
+}
+
 /// A card folder from an earlier import, back in the grid: after a crash, or
 /// to carry on culling another day, without putting the card back in.
 public enum ImportedFolder {
-    /// The folder's shots, in name order, with the stars from their sidecars
+    /// The folder's shots, in name order, with the stars and keywords from their sidecars
     /// (or, for a JPEG or HEIC with no RAW and no sidecar, embedded in it).
     /// When the backup has a folder of the same name, its copies are included,
     /// so stars changed now are saved in both, as during a Copy.
@@ -221,7 +278,8 @@ public enum ImportedFolder {
         // A sidecar with no picture of its own isn't a shot.
         let shots = ShotList(fileTypes: fileTypes, files: files).shots.filter { $0.kind != .sidecar && $0.kind != .other }
         return shots.enumerated().map { index, shot in
-            LandedShot(shot: shot, stars: Stars.found(for: shot), position: index, check: AutoRating.check(of: shot))
+            LandedShot(shot: shot, stars: Stars.found(for: shot), position: index, check: AutoRating.check(of: shot),
+                       keywords: Keywords.found(for: shot))
         }
     }
 }

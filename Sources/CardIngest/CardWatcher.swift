@@ -211,7 +211,7 @@ final class CardWatcher {
                 if plan.nothingNew { return (plan, nil, []) }
                 let job = Self.startBackup(plan, root: settings.backupRootURL, cardName: name, backups: backups)
                 // Each shot gets its sidecar and goes on the grid as soon as its last file is verified.
-                let shots = LiveShots(planned: plan.files, fileTypes: settings.fileTypes)
+                let shots = LiveShots(planned: plan.files, fileTypes: settings.fileTypes, keywords: settings.metadata.keywords)
                 let report: CopyReport
                 do {
                     report = try CardCopier.copy(
