@@ -222,7 +222,8 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
 **Next up (photographer, 2026-10-31; nothing built yet):**
   1. Keywords on video clips, as photos have them. Turned out to be stars: clips took keywords
      already, but had no stars and 0 to 5 did nothing. Built and confirmed 2026-10-31 (see "Stars on
-     clips"). Photo Mechanic reads them, the Synology doesn't (2026-11-01).
+     clips"). Photo Mechanic reads them, the Synology doesn't (2026-11-01). **Next: the test of
+     "Metadata inside clips"**, then Save to Clips.
   2. **Built 2026-10-31, to try on the Mac (test step 24):** drag a folder from Finder onto the
      app's Dock icon to load it, the same as Load Folder… for a previous import. The app says it
      opens folders (`CFBundleDocumentTypes`, `public.folder`, rank None so it never becomes the
@@ -721,11 +722,35 @@ nothing new is decided about where metadata lives:
   app" nor in calibration. In code, `Shot.isPhoto` (checks, 100%) and `Shot.takesStars` (photos and
   clips) replace `isRatable`. Whether Lightroom reads a clip's sidecar is still to check.
   **Tested by the photographer 2026-11-01:** Photo Mechanic reads a clip's stars and keywords from
-  its sidecar; the Synology doesn't, as with the RAWs' sidecars (2026-10-30). Lightroom and Bridge
-  on clips not tried yet. Not decided: whether the Synology needs them. If so, stars and keywords
-  inside the MP4/MOV is the parked Milestone 4 question (writing into a copy changes its checksum
-  against the card), and it's untested whether the Synology reads them from inside a clip at all:
-  rate a duplicate clip in Bridge, then put it on the Synology, to find out with no app changes.
+  its sidecar; the Synology doesn't, as with the RAWs' sidecars (2026-10-30). So clips aren't
+  finished: see "Metadata inside clips".
+- **Metadata inside clips (asked 2026-11-01; nothing built in the app, test copies waiting on the
+  Synology and Premiere):** the two workflows differ (photographer). Stills are checksummed, culled
+  and first keyworded, go on to an image editor, and reach the Synology as JPEGs that carry their
+  metadata, so sidecars are enough. Video gets rated and keyworded with no editor and no conversion;
+  Lightroom isn't part of it. Keywords must be inside the clip, readable on the Synology and ideally
+  in Premiere Pro. Proposed by the photographer: after looking through the card, a "Save to Clips"
+  button embeds the metadata in the least obtrusive way, so the checksum at import still holds.
+  **Test copies, 2026-11-01:** `~/Desktop/NAS Metadata Test/Embedded Test`, five clips from the
+  Bridge folder with `xmp:Rating` 3, `dc:subject` cardtest and cardtest2026, `dc:description`
+  "cardtest caption". As in the "Leaning" above, no re-saving: MP4 gets a top-level `uuid` XMP box at
+  the end of the file (+2.6 KB); MOV gets `moov/udta/XMP_`, using the `free` space after `moov` when
+  there is some (Nikon, Premiere: file size unchanged), else growing `moov` when it's last (iPhone).
+  Premiere's own `XMP_` was added to, not replaced. Checked: `mdat` bytes identical (SHA-256) on all
+  five; same tracks and length, still playable, and a frame decodes, in AVFoundation. Not covered:
+  a MOV whose `moov` is followed by `mdat` with no room (`moov` would have to move to the end).
+  **To settle when building:**
+  1. **The write-once server is the main problem:** the clip goes up as soon as it's copied, and
+     can't be replaced, so a later save never reaches the Synology. Proposed: clips wait on the Mac
+     until Save to Clips, then go up with their metadata, with a line saying how many clips aren't
+     on the Server yet. The card is in the Trash by then (decided 2026-10-27), so until the save
+     there's one copy plus the card's Trash. Clips already on the server: the admin deletes them
+     first, as with re-edited work.
+  2. Clearing a card: `CardClearer` wants a clip the same size as the card's, so an MP4 with metadata
+     would stop counting as a safe copy when the card goes back in. Sync: a different size is
+     "can't update" (`ServerSync`). Copy picking up: `ImportPlanner`, `CardCopier`.
+  3. The receipt keeps the card's checksum and adds the file's after saving (proposed 2026-10-24).
+  4. Saving twice: replace our own block rather than add another. MXF, MTS and AVI stay on sidecars.
 - **What the Synology shows (photographer, 2026-10-30):** keywords on the JPEGs exported from
   Lightroom (written inside the JPEG), not on the RAWs: Synology Photos doesn't read `.xmp`
   sidecars. Clip sidecars won't show there either; keywords inside MP4/MOV for the Synology is
