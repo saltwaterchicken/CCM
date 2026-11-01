@@ -743,6 +743,11 @@ nothing new is decided about where metadata lives:
   not checked yet. Not building Save to Clips on this form. An earlier note says metadata written by
   Bridge did show on the Synology, so next: tag the untouched clips in the Desktop folder's `Bridge`
   subfolder in Bridge, confirm whether those show, and compare the bytes with ours.
+  **Premiere, 2026-11-01 (photographer): all five Embedded Test clips show their keywords and stars
+  in Premiere Pro,** MP4 and MOV alike. So this form works for Premiere. The Synology still shows
+  nothing from them. The `Bridge` and `PhotoMechanic` folders showed nothing anywhere, but checked on
+  disk they were never tagged (original sizes and dates, no `.xmp`, no metadata inside), so they say
+  nothing about Bridge: whether Bridge's tags reach the Synology is still untested.
   **To settle when building:**
   1. **The write-once server is the main problem:** the clip goes up as soon as it's copied, and
      can't be replaced, so a later save never reaches the Synology. Proposed: clips wait on the Mac
