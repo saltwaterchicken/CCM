@@ -724,7 +724,7 @@ nothing new is decided about where metadata lives:
   **Tested by the photographer 2026-11-01:** Photo Mechanic reads a clip's stars and keywords from
   its sidecar; the Synology doesn't, as with the RAWs' sidecars (2026-10-30). So clips aren't
   finished: see "Metadata inside clips".
-- **Metadata inside clips (asked 2026-11-01; nothing built in the app; works in Premiere, not
+- **Metadata inside clips (asked 2026-11-01; built 2026-11-01 as Save to Clips; works in Premiere, not
   possible on the Synology):** the two workflows differ (photographer). Stills are checksummed, culled
   and first keyworded, go on to an image editor, and reach the Synology as JPEGs that carry their
   metadata, so sidecars are enough. Video gets rated and keyworded with no editor and no conversion;
@@ -793,20 +793,11 @@ nothing new is decided about where metadata lives:
   - **Not done:** the card's checksum isn't re-checked against the clip before writing; no Stop while saving.
   Tested: 273+ unit tests with real clips made in the test (MP4, MOV, index first and full), and the five
   Desktop samples: media identical, play, read back. The app's block is serialized by ImageIO, unlike the
-  hand-written one Premiere read, so `~/Desktop/NAS Metadata Test/App Test` (`apptest`, 3 stars) is
-  there to confirm in Premiere. To rerun: `CLIP_SAMPLES` and `CLIP_SAMPLES_OUT` with `swift test`.
-  **To settle when building:**
-  1. **The write-once server is the main problem:** the clip goes up as soon as it's copied, and
-     can't be replaced, so a later save never reaches the Synology. Proposed: clips wait on the Mac
-     until Save to Clips, then go up with their metadata, with a line saying how many clips aren't
-     on the Server yet. The card is in the Trash by then (decided 2026-10-27), so until the save
-     there's one copy plus the card's Trash. Clips already on the server: the admin deletes them
-     first, as with re-edited work.
-  2. Clearing a card: `CardClearer` wants a clip the same size as the card's, so an MP4 with metadata
-     would stop counting as a safe copy when the card goes back in. Sync: a different size is
-     "can't update" (`ServerSync`). Copy picking up: `ImportPlanner`, `CardCopier`.
-  3. The receipt keeps the card's checksum and adds the file's after saving (proposed 2026-10-24).
-  4. Saving twice: replace our own block rather than add another. MXF, MTS and AVI stay on sidecars.
+  hand-written one Premiere read first. **Confirmed in Premiere (photographer, 2026-11-01):** the app's
+  own block reads, stars and keywords, on the `~/Desktop/NAS Metadata Test/App Test` clips. Those were
+  made by running the app's code on copies; pressing the button, holding during a real Copy, a real
+  upload and the second Mac are still test step 25. To rerun: `CLIP_SAMPLES` and `CLIP_SAMPLES_OUT`
+  with `swift test`.
 - **What the Synology shows (photographer, 2026-10-30):** keywords on the JPEGs exported from
   Lightroom (written inside the JPEG), not on the RAWs: Synology Photos doesn't read `.xmp`
   sidecars. Clip sidecars won't show there either; keywords inside MP4/MOV for the Synology is
