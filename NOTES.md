@@ -748,6 +748,12 @@ nothing new is decided about where metadata lives:
   nothing from them. The `Bridge` and `PhotoMechanic` folders showed nothing anywhere, but checked on
   disk they were never tagged (original sizes and dates, no `.xmp`, no metadata inside), so they say
   nothing about Bridge: whether Bridge's tags reach the Synology is still untested.
+  Premiere Pro 2026 also wrote into the Embedded Test `IMG_7605.MOV` itself (12:16 and 12:17 on
+  2026-11-01; the second recorded as a change to Camera Move, "Zoom Out"), in the same `XMP_`, inside
+  its padding so the size didn't change, keeping our stars, keywords and caption. So Adobe's own code
+  accepts the block, and that clip is now a sample of Adobe-written XMP to try on the Synology. It
+  also means Premiere can change a clip after import, so a clip opened there may stop matching any
+  checksum we keep.
   **To settle when building:**
   1. **The write-once server is the main problem:** the clip goes up as soon as it's copied, and
      can't be replaced, so a later save never reaches the Synology. Proposed: clips wait on the Mac
