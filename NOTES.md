@@ -739,6 +739,10 @@ nothing new is decided about where metadata lives:
   Premiere's own `XMP_` was added to, not replaced. Checked: `mdat` bytes identical (SHA-256) on all
   five; same tracks and length, still playable, and a frame decodes, in AVFoundation. Not covered:
   a MOV whose `moov` is followed by `mdat` with no room (`moov` would have to move to the end).
+  **Result on the Synology, 2026-11-01 (photographer): nothing showed on any of the five.** Premiere
+  not checked yet. Not building Save to Clips on this form. An earlier note says metadata written by
+  Bridge did show on the Synology, so next: tag the untouched clips in the Desktop folder's `Bridge`
+  subfolder in Bridge, confirm whether those show, and compare the bytes with ours.
   **To settle when building:**
   1. **The write-once server is the main problem:** the clip goes up as soon as it's copied, and
      can't be replaced, so a later save never reaches the Synology. Proposed: clips wait on the Mac
