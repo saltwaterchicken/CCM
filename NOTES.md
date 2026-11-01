@@ -761,8 +761,13 @@ nothing new is decided about where metadata lives:
   **Settled 2026-11-01 (photographer):** tested it: the Synology keeps what's set in Synology Photos
   inside itself, not in the file, and showed nothing written into a clip by us, Premiere or Bridge.
   So keywords inside clips can't reach the Synology; **Premiere is the target** for clip metadata.
-  Save to Clips is still wanted for that, not built yet; to decide first: where Premiere opens clips
-  from (the Mac's copy or the server's), since the server's copy can't be changed once it's up.
+  Save to Clips is still wanted for that, not built yet.
+  **How clips reach Premiere (photographer, 2026-11-01):** tagged on ingest, uploaded to the server,
+  downloaded to a different Mac (the second, third or fourth), imported into Premiere there and
+  worked on. So the server's copy is the one that matters, and it can't change once it's up: the
+  metadata has to be in the clip before it goes up. Clips must wait on the ingest Mac until Save to
+  Clips, and Sync With Server's catch-up mustn't send an unsaved clip. To decide: what happens to
+  the card's clips until then, and how to keep a forgotten save from going unnoticed.
   **To settle when building:**
   1. **The write-once server is the main problem:** the clip goes up as soon as it's copied, and
      can't be replaced, so a later save never reaches the Synology. Proposed: clips wait on the Mac
