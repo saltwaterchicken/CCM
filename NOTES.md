@@ -222,8 +222,8 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
 **Next up (photographer, 2026-10-31; nothing built yet):**
   1. Keywords on video clips, as photos have them. Turned out to be stars: clips took keywords
      already, but had no stars and 0 to 5 did nothing. Built and confirmed 2026-10-31 (see "Stars on
-     clips"). Photo Mechanic reads them, the Synology doesn't (2026-11-01). **Next: the test of
-     "Metadata inside clips"**, then Save to Clips.
+     clips"). Photo Mechanic reads them, the Synology doesn't (2026-11-01). **Next: Save to Clips,
+     for Premiere** (see "Metadata inside clips"; the Synology can't read keywords in clips).
   2. **Built 2026-10-31, to try on the Mac (test step 24):** drag a folder from Finder onto the
      app's Dock icon to load it, the same as Load Folder… for a previous import. The app says it
      opens folders (`CFBundleDocumentTypes`, `public.folder`, rank None so it never becomes the
@@ -724,8 +724,8 @@ nothing new is decided about where metadata lives:
   **Tested by the photographer 2026-11-01:** Photo Mechanic reads a clip's stars and keywords from
   its sidecar; the Synology doesn't, as with the RAWs' sidecars (2026-10-30). So clips aren't
   finished: see "Metadata inside clips".
-- **Metadata inside clips (asked 2026-11-01; nothing built in the app, test copies waiting on the
-  Synology and Premiere):** the two workflows differ (photographer). Stills are checksummed, culled
+- **Metadata inside clips (asked 2026-11-01; nothing built in the app; works in Premiere, not
+  possible on the Synology):** the two workflows differ (photographer). Stills are checksummed, culled
   and first keyworded, go on to an image editor, and reach the Synology as JPEGs that carry their
   metadata, so sidecars are enough. Video gets rated and keyworded with no editor and no conversion;
   Lightroom isn't part of it. Keywords must be inside the clip, readable on the Synology and ideally
@@ -758,6 +758,11 @@ nothing new is decided about where metadata lives:
   Bridge showed anything. Next, the photographer's idea: rate and keyword a clip inside Synology
   Photos, download it, and compare it with the original, to see whether the Synology writes into the
   file at all or only keeps tags in its own database.
+  **Settled 2026-11-01 (photographer):** tested it: the Synology keeps what's set in Synology Photos
+  inside itself, not in the file, and showed nothing written into a clip by us, Premiere or Bridge.
+  So keywords inside clips can't reach the Synology; **Premiere is the target** for clip metadata.
+  Save to Clips is still wanted for that, not built yet; to decide first: where Premiere opens clips
+  from (the Mac's copy or the server's), since the server's copy can't be changed once it's up.
   **To settle when building:**
   1. **The write-once server is the main problem:** the clip goes up as soon as it's copied, and
      can't be replaced, so a later save never reaches the Synology. Proposed: clips wait on the Mac
