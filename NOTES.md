@@ -754,6 +754,10 @@ nothing new is decided about where metadata lives:
   accepts the block, and that clip is now a sample of Adobe-written XMP to try on the Synology. It
   also means Premiere can change a clip after import, so a clip opened there may stop matching any
   checksum we keep.
+  **Synology again, 2026-11-01 (photographer):** neither the Premiere-saved clip nor a clip tagged in
+  Bridge showed anything. Next, the photographer's idea: rate and keyword a clip inside Synology
+  Photos, download it, and compare it with the original, to see whether the Synology writes into the
+  file at all or only keeps tags in its own database.
   **To settle when building:**
   1. **The write-once server is the main problem:** the clip goes up as soon as it's copied, and
      can't be replaced, so a later save never reaches the Synology. Proposed: clips wait on the Mac
