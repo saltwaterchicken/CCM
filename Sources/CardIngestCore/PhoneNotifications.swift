@@ -77,6 +77,13 @@ public struct PhoneNotification: Equatable, Sendable {
         PhoneNotification(title: "Copy failed: \(cardName)", message: reason, isProblem: true)
     }
 
+    /// A card's clips have been waiting for Save to Clips for a day.
+    public static func clipsWaiting(folder: String, clips: Int) -> PhoneNotification {
+        PhoneNotification(title: "Clips not on the server: \(folder)",
+                          message: "\(count(clips, "clip")) still waiting. Load the card and press Save to Clips to send them.",
+                          isProblem: true)
+    }
+
     /// A card's backup, running beside the copy, finished.
     public static func backupDone(folder: String, sent: Int, alreadyThere: Int, queued: Int,
                                   problems: Int, wentAway: Bool) -> PhoneNotification {

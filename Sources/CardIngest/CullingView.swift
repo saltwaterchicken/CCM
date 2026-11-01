@@ -92,13 +92,14 @@ final class GridModel {
         let folders = syncReady
         guard licensed, !folders.isEmpty, let root = serverRoot else { return }
         let waiting = backupsRunning
+        let types = fileTypes
         sync = .comparing
         Task {
             let result = await Task.detached(priority: .userInitiated) { () -> Result<[ServerSync.Plan], Error> in
                 switch BackupVolume.check(root) {
                 case .server, .localDrive:
                     return Result {
-                        try folders.map { try ServerSync.plan(local: $0, server: root.appendingPathComponent($0.lastPathComponent, isDirectory: true)) }
+                        try folders.map { try ServerSync.plan(local: $0, server: root.appendingPathComponent($0.lastPathComponent, isDirectory: true), fileTypes: types) }
                     }
                 default: return .failure(SyncProblem.notConnected)
                 }
@@ -239,6 +240,7 @@ final class GridModel {
             let shots = try ImportedFolder.shots(in: folder, backupRoot: nil, fileTypes: fileTypes)
             begin(UUID(), cardName: "Loaded", folder: folder)
             grid.add(contentsOf: shots)
+            savedClips = Set(SavedClips.load(from: folder)?.rows.map { ($0.name.lowercased() as NSString).deletingPathExtension } ?? [])
             if shots.isEmpty { problem = "No photos or clips in \(folder.lastPathComponent)." }
         } catch {
             problem = "Couldn't load \(folder.lastPathComponent): \(error.localizedDescription)"
@@ -268,6 +270,8 @@ final class GridModel {
         problem = nil
         self.cardName = cardName
         self.folder = folder
+        savedClips = []
+        clipSave = .idle
         // Another card in the grid: calibrating this one is over.
         stopCalibrating()
     }
@@ -365,6 +369,12 @@ final class GridModel {
         serverRoot = settings.backupRootURL
         notifier = PhoneNotifier(settings.notifications)
         if !rating.available, grid.filter == .appFlagged { grid.filter = .all }
+        refreshWaitingClips()
+        if waitingTimer == nil {
+            waitingTimer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { self?.refreshWaitingClips() }
+            }
+        }
     }
 
     /// The sharpest frame of a burst, while auto-rating is available. While
@@ -503,6 +513,85 @@ final class GridModel {
         return KeywordHistory.moveIn(older)
     }
 
+    // MARK: Save to Clips
+
+    enum ClipSave: Equatable {
+        case idle
+        case saving(done: Int, total: Int)
+        case done(ClipSaver.Outcome)
+    }
+
+    var clipSave = ClipSave.idle
+    /// The clips of the card in the grid that are saved and unchanged since.
+    private var savedClips: Set<String> = []
+    /// Every card with clips waiting, for the Server panel.
+    var waitingClips: [SavedClips.Waiting] = []
+    private var waitingTimer: Timer?
+    private static let clipsAlertedKey = "clipsWaitingAlerted"
+
+    /// The clips Save to Clips would save, in the order they landed.
+    var clipsToSave: [Shot] { grid.shots.filter { $0.kind == .video && !savedClips.contains($0.id) } }
+
+    var canSaveToClips: Bool {
+        if case .saving = clipSave { return false }
+        return licensed && folder != nil && !clipsToSave.isEmpty
+    }
+
+    /// Changed since it was saved, so the button offers it again.
+    private func needSavingAgain(_ shots: [Shot]) {
+        savedClips.subtract(shots.filter { $0.kind == .video }.map(\.id))
+    }
+
+    /// Writes the stars and keywords into the card's clips and sends them to
+    /// the server, once told that can't be undone there.
+    func saveToClips() {
+        guard canSaveToClips, let folder else { return }
+        let clips = clipsToSave
+        let alert = NSAlert()
+        alert.messageText = "Save to \(clips.count) \(clips.count == 1 ? "clip" : "clips")?"
+        alert.informativeText = "Writes the stars and keywords inside each clip, then sends it to the Server, where it can't be changed afterwards. "
+            + "The picture and sound aren't touched."
+        alert.addButton(withTitle: "Save to Clips")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let root = serverRoot
+        let total = clips.count
+        clipSave = .saving(done: 0, total: total)
+        Task {
+            // After the stars' queue, so what's just been rated is in the sidecars it reads.
+            let outcome = await withCheckedContinuation { (done: CheckedContinuation<ClipSaver.Outcome, Never>) in
+                writes.async {
+                    done.resume(returning: ClipSaver.save(clips, in: folder, root: root, progress: { count in
+                        Task { @MainActor [weak self] in
+                            if case .saving = self?.clipSave { self?.clipSave = .saving(done: count, total: total) }
+                        }
+                    }))
+                }
+            }
+            guard self.folder == folder else { return refreshWaitingClips() }
+            savedClips = Set(SavedClips.load(from: folder)?.rows.map { ($0.name.lowercased() as NSString).deletingPathExtension } ?? [])
+            clipSave = .done(outcome)
+            refreshWaitingClips()
+        }
+    }
+
+    /// Looks for cards with clips waiting, and tells the phone once about any
+    /// that have waited a day.
+    func refreshWaitingClips() {
+        let root = destinationRoot
+        let types = fileTypes
+        Task {
+            let cards = await Task.detached(priority: .utility) { SavedClips.waitingCards(in: root, fileTypes: types) }.value
+            waitingClips = cards
+            var alerted = UserDefaults.standard.stringArray(forKey: Self.clipsAlertedKey) ?? []
+            for card in cards where Date().timeIntervalSince(card.since) >= 24 * 3600 && !alerted.contains(card.folder.lastPathComponent) {
+                notifier.send(.clipsWaiting(folder: card.folder.lastPathComponent, clips: card.clips))
+                alerted.append(card.folder.lastPathComponent)
+            }
+            UserDefaults.standard.set(alerted, forKey: Self.clipsAlertedKey)
+        }
+    }
+
     /// Adds keywords to the selected photos' sidecars, on the stars' queue so
     /// changes to one sidecar are written in the order they were made.
     func addKeywords(_ words: [String]) {
@@ -515,12 +604,14 @@ final class GridModel {
             problem = "Couldn't save My Keywords.txt: \(error.localizedDescription)"
         }
         let shots = grid.addKeywords(words)
+        needSavingAgain(shots)
         writeKeywords(shots) { try Keywords.add(words, to: $0) }
     }
 
     /// Takes a keyword off the selected photos.
     func removeKeyword(_ word: String) {
         let shots = grid.removeKeyword(word)
+        needSavingAgain(shots)
         writeKeywords(shots) { try Keywords.remove([word], from: $0) }
     }
 
@@ -541,6 +632,7 @@ final class GridModel {
     func rate(_ stars: Int) {
         let shots = grid.rate(stars)
         guard !shots.isEmpty else { return }
+        needSavingAgain(shots)
         calibration?.setStars(stars, on: shots.map(\.id))
         writes.async {
             for shot in shots {
@@ -743,6 +835,12 @@ struct CullingView: View {
                         }
                     }
                     Spacer()
+                    if !model.grid.shots.filter({ $0.kind == .video }).isEmpty {
+                        Button("Save to Clips") { model.saveToClips() }
+                            .disabled(!model.canSaveToClips)
+                            .help("Writes the stars and keywords inside each clip, where Premiere Pro reads them, "
+                                  + "then sends it to the Server. Press it once you've been through the card's clips.")
+                    }
                     let count = model.grid.toOpen.count
                     Button("Open \(count) in \(model.applicationName)") { model.openInApplication() }
                         .disabled(count == 0)
@@ -777,6 +875,7 @@ struct CullingView: View {
                 }
                 .frame(height: 24, alignment: .leading)
             }
+            ClipSaveStatus(model: model)
             if let problem = model.problem {
                 Label(problem, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
             }
@@ -785,6 +884,43 @@ struct CullingView: View {
 
     private func chooseFolder() {
         if model.chooseFolderToLoad() { focused = true }
+    }
+}
+
+/// What Save to Clips is doing, or did.
+struct ClipSaveStatus: View {
+    var model: GridModel
+
+    var body: some View {
+        switch model.clipSave {
+        case .idle:
+            EmptyView()
+        case let .saving(done, total):
+            HStack(spacing: 6) {
+                ProgressView(value: Double(done), total: Double(max(total, 1))).frame(width: 160)
+                Text("Saving to clips and sending to the Server: \(done) of \(total)").foregroundStyle(.secondary).monospacedDigit()
+            }
+        case let .done(outcome):
+            VStack(alignment: .leading, spacing: 2) {
+                if outcome.saved > 0 {
+                    Label(summary(outcome), systemImage: "checkmark.seal.fill").foregroundStyle(.green)
+                }
+                if outcome.waitingForServer > 0 {
+                    Text("The Server isn't connected: Sync With Server will send \(outcome.waitingForServer) once it is.")
+                        .foregroundStyle(.orange)
+                }
+                ForEach(outcome.problems.prefix(5), id: \.self) { line in
+                    Label(line, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if outcome.problems.count > 5 { Text("and \(outcome.problems.count - 5) more").foregroundStyle(.orange) }
+            }
+        }
+    }
+
+    private func summary(_ outcome: ClipSaver.Outcome) -> String {
+        "Saved \(outcome.saved) \(outcome.saved == 1 ? "clip" : "clips")"
+            + (outcome.sent > 0 ? ", \(outcome.sent) sent to the Server and checked." : ".")
     }
 }
 

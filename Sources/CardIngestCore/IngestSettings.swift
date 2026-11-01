@@ -27,6 +27,10 @@ public struct IngestSettings: Codable, Equatable, Sendable {
     public var confirmTrashForFirstCards: Int
     /// Eject the card once it's copied (and trashed, if that's on).
     public var ejectWhenDone: Bool
+    /// For the extremely cautious: a card's clips stay on it, out of the Trash,
+    /// until Save to Clips has put them on the server. Off, they go with the
+    /// rest. Only changed by editing the settings file.
+    public var keepClipsOnCardUntilOnServer: Bool
     /// The app the grid's Open button sends photos to: its name ("Adobe
     /// Lightroom Classic"), bundle id (com.adobe.LightroomClassicCC7) or full
     /// path. Only changed by editing the settings file.
@@ -53,6 +57,7 @@ public struct IngestSettings: Codable, Equatable, Sendable {
         trashAfterVerify: Bool = true,
         confirmTrashForFirstCards: Int = 3,
         ejectWhenDone: Bool = true,
+        keepClipsOnCardUntilOnServer: Bool = false,
         openWith: String = "Adobe Lightroom Classic",
         fileTypes: FileTypes = FileTypes(),
         metadata: MetadataTemplate = MetadataTemplate(),
@@ -71,6 +76,7 @@ public struct IngestSettings: Codable, Equatable, Sendable {
         self.trashAfterVerify = trashAfterVerify
         self.confirmTrashForFirstCards = confirmTrashForFirstCards
         self.ejectWhenDone = ejectWhenDone
+        self.keepClipsOnCardUntilOnServer = keepClipsOnCardUntilOnServer
         self.openWith = openWith
         self.fileTypes = fileTypes
         self.metadata = metadata
@@ -98,6 +104,7 @@ public struct IngestSettings: Codable, Equatable, Sendable {
         trashAfterVerify = try c.decodeIfPresent(Bool.self, forKey: .trashAfterVerify) ?? d.trashAfterVerify
         confirmTrashForFirstCards = try c.decodeIfPresent(Int.self, forKey: .confirmTrashForFirstCards) ?? d.confirmTrashForFirstCards
         ejectWhenDone = try c.decodeIfPresent(Bool.self, forKey: .ejectWhenDone) ?? d.ejectWhenDone
+        keepClipsOnCardUntilOnServer = try c.decodeIfPresent(Bool.self, forKey: .keepClipsOnCardUntilOnServer) ?? d.keepClipsOnCardUntilOnServer
         openWith = try c.decodeIfPresent(String.self, forKey: .openWith) ?? d.openWith
         fileTypes = try c.decodeIfPresent(FileTypes.self, forKey: .fileTypes) ?? d.fileTypes
         metadata = try c.decodeIfPresent(MetadataTemplate.self, forKey: .metadata) ?? d.metadata

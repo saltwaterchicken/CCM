@@ -45,7 +45,8 @@ public enum CardClearer {
     /// The card files whose copies are safe: every file this copy verified,
     /// plus files an earlier import brought in whose copy is still in its card
     /// folder at the same size (an `.xmp` just has to be there, since stars
-    /// change it). A file whose copy was deleted stays on the card.
+    /// change it, and a clip may be the size Save to Clips left it). A file
+    /// whose copy was deleted stays on the card.
     public static func safelyCopied(report: CopyReport?, check: CardCheck) -> [CardFile] {
         let verified = Set(report?.files.map(\.originalPath) ?? [])
         let fm = FileManager.default
@@ -53,8 +54,29 @@ public enum CardClearer {
             let copy = imported.folder.appendingPathComponent(imported.newName)
             guard let size = (try? fm.attributesOfItem(atPath: copy.path)[.size]) as? Int64 else { return false }
             return size == imported.file.size || Stars.isSidecar(imported.newName)
+                || SavedClips.load(from: imported.folder)?.row(imported.newName)?.size == size
         }.map(\.file)
         return check.newFiles.filter { verified.contains($0.relativePath) } + earlier
+    }
+
+    /// `keepClipsOnCardUntilOnServer`: the files without the clips that aren't
+    /// on the server yet, the same size as this Mac's. With no server set, every clip stays.
+    public static func withoutClipsNotOnServer(_ files: [CardFile], report: CopyReport?, check: CardCheck,
+                                               fileTypes: FileTypes, root: URL?) -> [CardFile] {
+        let fm = FileManager.default
+        var copies: [String: URL] = [:]
+        for file in report?.files ?? [] { copies[file.originalPath] = file.destinations.first }
+        for imported in check.alreadyImported {
+            copies[imported.file.relativePath] = imported.folder.appendingPathComponent(imported.newName)
+        }
+        return files.filter { file in
+            guard fileTypes.kind(of: file.relativePath) == .video else { return true }
+            guard let root, let copy = copies[file.relativePath],
+                  let here = (try? fm.attributesOfItem(atPath: copy.path))?[.size] as? Int64 else { return false }
+            let there = root.appendingPathComponent(copy.deletingLastPathComponent().lastPathComponent, isDirectory: true)
+                .appendingPathComponent(copy.lastPathComponent)
+            return (try? fm.attributesOfItem(atPath: there.path))?[.size] as? Int64 == here
+        }
     }
 
     /// Moves each file to the card's Trash, first checking it's still the file

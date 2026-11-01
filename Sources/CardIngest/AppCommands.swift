@@ -43,6 +43,8 @@ struct CardCommands: Commands {
             let count = grid.grid.toOpen.count
             Button("Adjust Raw Images") { grid.openInApplication() }
                 .disabled(!hasPhotos || count == 0)
+            Button("Save to Clips") { grid.saveToClips() }
+                .disabled(!grid.canSaveToClips)
             Button(grid.keywordBarShown ? "Hide Keywords" : "Show Keywords") {
                 grid.closeView()
                 grid.toggleKeywordBar()

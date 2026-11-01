@@ -244,6 +244,16 @@ public enum Help {
                    + "Lightroom, Bridge and Photo Mechanic read; the photos themselves are never changed. Clips take keywords too, in a "
                    + ".xmp of their own beside the clip. The arrows still move in the grid while you type.",
                    keywords: ["keyword", "tag", "tags", "metadata", "subject", "my keywords", "autofill", "recent"], target: .keywords),
+        HelpAnswer("save-to-clips", "How do clips get their stars and keywords into Premiere?",
+                   "With a backup folder set, clips wait on this Mac when a card is copied; photos go to the Server as usual. Rate and "
+                   + "keyword the clips in the grid, then press Save to Clips: it writes the stars and keywords inside each clip, where "
+                   + "Premiere Pro reads them, then sends it to the Server. The picture and sound aren't touched, and a clip with "
+                   + "nothing to add goes as it is. Do it before the clips go up, as the Server's copy can't be changed afterwards. "
+                   + "The Server panel lists cards with clips still waiting, and your phone is told after a day. Synology Photos doesn't "
+                   + "show keywords from inside a clip. MXF, MTS and AVI can't hold them, so they stay in the .xmp beside the clip. "
+                   + "Clips clear from the card with everything else; to keep them on the card until they're on the Server, set "
+                   + "keepClipsOnCardUntilOnServer to true in the settings file.",
+                   keywords: ["premiere", "video", "clip", "embed", "save to clips", "server", "waiting", "keepclipsoncarduntilonserver"], target: .keywords),
         HelpAnswer("burst", "What does the green Subject Sharpest chip mean?",
                    "It marks the sharpest frame of a burst: three or more frames, each taken within a second of the one before. "
                    + "Frames with a face are judged on the largest face, as that's most likely the subject; a "

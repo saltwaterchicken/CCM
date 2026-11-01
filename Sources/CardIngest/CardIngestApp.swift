@@ -255,6 +255,7 @@ struct ContentView: View {
                             .helpSpot(.syncWithServer)
                     }
                     SyncStatusView(model: watcher.grid)
+                    WaitingClipsView(model: watcher.grid)
                     if !watcher.backups.isEmpty { BackupsView(backups: watcher.backups) }
                 }
                 .padding(4)
@@ -642,6 +643,10 @@ struct CardsView: View {
                 Text(kept).foregroundStyle(.secondary)
             } else {
                 Text("Nothing on the card was changed.").foregroundStyle(.secondary)
+            }
+            if finished.clipsKept > 0 {
+                Text("\(finished.clipsKept) \(finished.clipsKept == 1 ? "clip stays" : "clips stay") on the card until on the Server. "
+                     + "Put the card back in after Save to Clips to clear them.").foregroundStyle(.secondary)
             }
             if let problem = finished.ejectProblem {
                 Label(problem, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)

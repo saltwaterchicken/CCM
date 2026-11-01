@@ -172,7 +172,7 @@ public enum ImportPlanner {
         let bases = Set(planned.map { ($0.newName.lowercased() as NSString).deletingPathExtension })
         return entries.allSatisfy { url in
             let name = url.lastPathComponent
-            if Receipt.isReceipt(name) { return true }
+            if Receipt.isReceipt(name) || name == SavedClips.fileName { return true }
             // A sidecar holding the stars of one of this card's shots.
             if Stars.isSidecar(name) && bases.contains((name.lowercased() as NSString).deletingPathExtension) { return true }
             guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),

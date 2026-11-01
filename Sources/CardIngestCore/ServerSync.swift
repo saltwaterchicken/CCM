@@ -30,6 +30,8 @@ public enum ServerSync {
         public var unchanged = 0
         /// On the server but different from this Mac's, and newer here: can't be updated.
         public var cantUpdate: [String] = []
+        /// Clips waiting for Save to Clips, left out so they don't go up untagged for good.
+        public var heldClips = 0
 
         /// Counts for the summary, by kind.
         public var addedSidecars: Int { adds.count { Stars.isSidecar($0.path) } }
@@ -45,13 +47,23 @@ public enum ServerSync {
     }
 
     /// Compares the card's folder here with its folder on the server. Only reads.
-    public static func plan(local: URL, server: URL) throws -> Plan {
+    public static func plan(local: URL, server: URL, fileTypes: FileTypes = FileTypes()) throws -> Plan {
         let fm = FileManager.default
         var plan = Plan(localFolder: local, serverFolder: server)
+        let held = SavedClips.waiting(in: local, fileTypes: fileTypes)
+        let heldBases = Set(held.map { ($0.lowercased() as NSString).deletingPathExtension })
         for path in try files(in: local) {
+            // Kept on this Mac, like the receipt the server gets its own of.
+            if path == SavedClips.fileName { continue }
             let here = local.appendingPathComponent(path)
             let there = server.appendingPathComponent(path)
             guard let theirs = try? fm.attributesOfItem(atPath: there.path) else {
+                if held.contains(path) {
+                    plan.heldClips += 1
+                    continue
+                }
+                // A waiting clip's sidecar goes up with it: once it's up, it can't change.
+                if Stars.isSidecar(path), heldBases.contains((path.lowercased() as NSString).deletingPathExtension) { continue }
                 plan.adds.append(Item(path: path, local: here, server: there))
                 continue
             }

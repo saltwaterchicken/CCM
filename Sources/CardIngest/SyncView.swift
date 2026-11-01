@@ -42,6 +42,31 @@ struct SyncButton: View {
     }
 }
 
+/// Cards with clips waiting for Save to Clips, which aren't on the server until
+/// it's pressed. Load brings the card back to the grid to do it.
+struct WaitingClipsView: View {
+    var model: GridModel
+
+    var body: some View {
+        if !model.waitingClips.isEmpty {
+            VStack(alignment: .leading, spacing: 3) {
+                ForEach(model.waitingClips, id: \.folder) { card in
+                    HStack {
+                        Label("\(card.clips) \(card.clips == 1 ? "clip" : "clips") from \(card.folder.lastPathComponent) not on the Server yet: press Save to Clips",
+                              systemImage: "film")
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer()
+                        if model.folder?.standardizedFileURL != card.folder.standardizedFileURL {
+                            Button("Load") { model.load(card.folder) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// What Sync With Server is doing.
 struct SyncStatusView: View {
     var model: GridModel
@@ -155,10 +180,10 @@ struct SyncConfirmView: View {
     private func card(_ plan: ServerSync.Plan) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(plan.localFolder.lastPathComponent).font(.headline)
-            if plan.isEmpty {
+            if plan.isEmpty, plan.heldClips == 0 {
                 Label("The server already has everything from this card.", systemImage: "checkmark.seal.fill")
                     .foregroundStyle(.green)
-            } else {
+            } else if !plan.isEmpty {
                 Text("Adds \(plan.adds.count) \(plan.adds.count == 1 ? "file" : "files"):")
                 VStack(alignment: .leading, spacing: 2) {
                     if plan.addedOriginals > 0 { Text("• \(plan.addedOriginals) photos, clips and receipts the backup didn't send") }
@@ -169,6 +194,10 @@ struct SyncConfirmView: View {
             }
             if plan.unchanged > 0 {
                 Text("Already on the server: \(plan.unchanged).").foregroundStyle(.secondary)
+            }
+            if plan.heldClips > 0 {
+                Label("Not sending \(plan.heldClips) \(plan.heldClips == 1 ? "clip" : "clips"): waiting for Save to Clips.", systemImage: "film")
+                    .foregroundStyle(.orange)
             }
             if !plan.cantUpdate.isEmpty {
                 Label("Can't update \(plan.cantUpdate.count) \(plan.cantUpdate.count == 1 ? "file" : "files"): already on the server "

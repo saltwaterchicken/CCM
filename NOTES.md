@@ -222,8 +222,8 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
 **Next up (photographer, 2026-10-31; nothing built yet):**
   1. Keywords on video clips, as photos have them. Turned out to be stars: clips took keywords
      already, but had no stars and 0 to 5 did nothing. Built and confirmed 2026-10-31 (see "Stars on
-     clips"). Photo Mechanic reads them, the Synology doesn't (2026-11-01). **Next: Save to Clips,
-     for Premiere** (see "Metadata inside clips"; the Synology can't read keywords in clips).
+     clips"). Photo Mechanic reads them, the Synology doesn't (2026-11-01). **Next: try Save to Clips on
+     the Mac, test step 25** (see "Metadata inside clips"; the Synology can't read keywords in clips).
   2. **Built 2026-10-31, to try on the Mac (test step 24):** drag a folder from Finder onto the
      app's Dock icon to load it, the same as Load Folder… for a previous import. The app says it
      opens folders (`CFBundleDocumentTypes`, `public.folder`, rank None so it never becomes the
@@ -765,9 +765,36 @@ nothing new is decided about where metadata lives:
   **How clips reach Premiere (photographer, 2026-11-01):** tagged on ingest, uploaded to the server,
   downloaded to a different Mac (the second, third or fourth), imported into Premiere there and
   worked on. So the server's copy is the one that matters, and it can't change once it's up: the
-  metadata has to be in the clip before it goes up. Clips must wait on the ingest Mac until Save to
-  Clips, and Sync With Server's catch-up mustn't send an unsaved clip. To decide: what happens to
-  the card's clips until then, and how to keep a forgotten save from going unnoticed.
+  metadata has to be in the clip before it goes up.
+  **Save to Clips, decided and built 2026-11-01; not yet tried on the Mac (test step 25):**
+  photographer's calls: clips clear from the card as usual; `keepClipsOnCardUntilOnServer` (settings
+  file, false by default) keeps them on the card until on the server, for the very cautious with
+  plenty of cards; reminders: a line in the Server panel and one phone alert after a day.
+  - **Holding:** with a backup folder set, a card's clips (and any `.xmp` from the card for them) aren't
+    sent as they land; `Saved Clips.csv` is made in the card folder on the first one. It lists each
+    saved clip's name, size and checksum after saving; the receipt keeps the card's. No such file (cards
+    copied before, or no backup folder) means nothing is held, so old cards behave as they did and
+    don't nag. Kept on this Mac, not sent. The server's receipt lists only what the backup sent.
+  - **Save to Clips** (button by Open, Photos menu; asks first): `ClipSaver`, for every clip in the grid
+    not yet saved, writes stars and keywords in (`ClipMetadata`), records it, then sends it and its
+    sidecar through the write-once copier. A clip with nothing to add goes untouched. Server away:
+    saved, and Sync sends it. Refused while the card's folder has no receipt (copy unfinished).
+    Rating or keywording a saved clip offers it again; if it's already up, the server's copy is reported,
+    not replaced. That offer isn't remembered across Load Folder.
+  - **`ClipMetadata`:** works on a clone (`.name.saving`), compares every `mdat` before and after, reads
+    the block back, then renames over the clip, keeping its modified date. Keywords add to any inside on
+    the first save, replace after. A layout it can't add to (cut short, a box with no length, stray bytes
+    at the end) goes up as it is, with a note, as it must still reach the server. MXF, MTS and AVI: sidecars.
+  - **Sync** leaves out waiting clips and their sidecars and says how many (`Plan.heldClips`).
+    **Clearing:** a saved clip at its saved size counts as a safe copy (`CardClearer`).
+  - **Reminders:** `SavedClips.waitingCards` scans the destination at launch, after a copy or save, and
+    hourly; the panel has a Load button per card; alerts once per card (`clipsWaitingAlerted` in
+    defaults), only while the app is open.
+  - **Not done:** the card's checksum isn't re-checked against the clip before writing; no Stop while saving.
+  Tested: 273+ unit tests with real clips made in the test (MP4, MOV, index first and full), and the five
+  Desktop samples: media identical, play, read back. The app's block is serialized by ImageIO, unlike the
+  hand-written one Premiere read, so `~/Desktop/NAS Metadata Test/App Test` (`apptest`, 3 stars) is
+  there to confirm in Premiere. To rerun: `CLIP_SAMPLES` and `CLIP_SAMPLES_OUT` with `swift test`.
   **To settle when building:**
   1. **The write-once server is the main problem:** the clip goes up as soon as it's copied, and
      can't be replaced, so a later save never reaches the Synology. Proposed: clips wait on the Mac
@@ -1208,6 +1235,16 @@ Suggestions so far, not yet decided. Edit freely.
     window (no second window). A file dragged on does nothing. Then Photos menu: the item reads
     "Adjust Raw Images" whatever is selected; give it a shortcut in System Settings › Keyboard ›
     Keyboard Shortcuts › App Shortcuts and check the shortcut sends the selection to Lightroom.
+
+25. Save to Clips (2026-11-01; card with a few clips and photos, backup folder set, Trash unticked at
+    first). Press Copy: photos go to the Server, clips don't; the Server panel says "N clips from … not on
+    the Server yet". Rate and keyword a clip, leave another alone. Sync With Server: it says it isn't sending
+    them. Press Save to Clips (it asks first): progress, then "Saved N clips, N sent to the Server and
+    checked"; the line goes. On another Mac, download from the Server and import into Premiere: the
+    stars and keywords show; the untagged clip is unchanged. Put the card back in with Trash ticked: the
+    clips clear too. Then set `keepClipsOnCardUntilOnServer` to true, copy a card with clips: they stay on the
+    card and the summary says so; after Save to Clips, put it back in and they clear. Reminder: leave a
+    card unsaved for a day with the app open, and the phone is told once.
 
 ## License keys (asked 2026-10-27, built 2026-10-27, confirmed on the Mac 2026-10-27: a key from the tool unlocked it)
 

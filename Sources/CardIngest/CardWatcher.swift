@@ -26,6 +26,8 @@ struct Finished: Identifiable, Sendable {
     var trash: TrashResult?
     /// Why the originals stayed on the card, when trashing is on but didn't happen.
     var keptOnCard: String?
+    /// Clips left on the card by `keepClipsOnCardUntilOnServer`.
+    var clipsKept = 0
     var ejectProblem: String?
     /// RAW sidecars that couldn't be written; the copies themselves are fine.
     var sidecarProblems: [String] = []
@@ -218,6 +220,10 @@ final class CardWatcher {
                 let job = Self.startBackup(plan, root: settings.backupRootURL, cardName: name, backups: backups)
                 // Each shot gets its sidecar and goes on the grid as soon as its last file is verified.
                 let shots = LiveShots(planned: plan.files, fileTypes: settings.fileTypes, keywords: settings.metadata.keywords)
+                // With a server, clips wait for Save to Clips: its copy can't change once it's up.
+                let heldBases = settings.backupRootURL == nil ? [] : Set(plan.files.map(\.newName)
+                    .filter { settings.fileTypes.kind(of: $0) == .video }
+                    .map { ($0.lowercased() as NSString).deletingPathExtension })
                 let report: CopyReport
                 do {
                     report = try CardCopier.copy(
@@ -232,7 +238,11 @@ final class CardWatcher {
                             }
                         },
                         fileVerified: { file in
-                            job?.send(file)
+                            if heldBases.contains((file.newName.lowercased() as NSString).deletingPathExtension) {
+                                if let folder = plan.folders.first { try? SavedClips.startHolding(in: folder) }
+                            } else {
+                                job?.send(file)
+                            }
                             guard let landed = shots.complete(file) else { return }
                             let folder = plan.folders.first
                             Task { @MainActor in grid.add(landed, session: session, cardName: name, folder: folder) }
@@ -254,6 +264,7 @@ final class CardWatcher {
                     if report != nil {
                         self.onImported(plan)
                         self.checkHistory(url)
+                        self.grid.refreshWaitingClips()
                     }
                     var finished = Finished(cardName: name, report: report, check: plan.check)
                     finished.sidecarProblems = sidecarProblems
@@ -331,7 +342,13 @@ final class CardWatcher {
             finished.keptOnCard = refusal
             return finish(url, finished)
         }
-        let files = CardClearer.safelyCopied(report: finished.report, check: finished.check)
+        var files = CardClearer.safelyCopied(report: finished.report, check: finished.check)
+        if settings.keepClipsOnCardUntilOnServer {
+            let clearing = CardClearer.withoutClipsNotOnServer(files, report: finished.report, check: finished.check,
+                                                               fileTypes: settings.fileTypes, root: settings.backupRootURL)
+            finished.clipsKept = files.count - clearing.count
+            files = clearing
+        }
         if files.isEmpty { return finish(url, finished) }
         if settings.confirmTrashForFirstCards > 0 {
             copyStates[url] = .askTrash(finished, files: files)
