@@ -44,7 +44,7 @@ public enum ClipMetadata {
     /// The stars and keywords inside a clip.
     public static func read(from url: URL) -> (stars: Int?, keywords: [String]) {
         guard let reader = try? FileHandle(forReadingFrom: url), let data = try? existingBlock(in: reader),
-              let metadata = CGImageMetadataCreateFromXMPData(data as CFData) else { return (nil, []) }
+              let metadata = parsed(data) else { return (nil, []) }
         defer { try? reader.close() }
         return (Stars.rating(in: metadata), Keywords.keywords(in: metadata))
     }
@@ -124,10 +124,18 @@ public enum ClipMetadata {
         }
     }
 
+    /// Without the packet wrapper and padding, as ImageIO doesn't read them on every macOS.
+    private static func parsed(_ block: Data) -> CGImageMetadata? {
+        guard let start = block.range(of: Data("<x:xmpmeta".utf8)),
+              let end = block.range(of: Data("</x:xmpmeta>".utf8)) else {
+            return CGImageMetadataCreateFromXMPData(block as CFData)
+        }
+        return CGImageMetadataCreateFromXMPData(Data(block[start.lowerBound..<end.upperBound]) as CFData)
+    }
+
     private static func merged(_ existing: Data?, stars: Int?, keywords: [String], replacing: Bool, name: String) throws -> Block {
         var metadata = CGImageMetadataCreateMutable()
-        if let existing, let parsed = CGImageMetadataCreateFromXMPData(existing as CFData),
-           let copy = CGImageMetadataCreateMutableCopy(parsed) {
+        if let existing, let found = parsed(existing), let copy = CGImageMetadataCreateMutableCopy(found) {
             metadata = copy
         }
         let words = replacing ? keywords : Keywords.merged(Keywords.keywords(in: metadata), adding: keywords)
