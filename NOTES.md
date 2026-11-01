@@ -791,10 +791,9 @@ nothing new is decided about where metadata lives:
     hourly; the panel has a Load button per card; alerts once per card (`clipsWaitingAlerted` in
     defaults), only while the app is open.
   - **Not done:** the card's checksum isn't re-checked against the clip before writing; no Stop while saving.
-  - **CI on macOS 15 (2026-11-01):** clips failed to read back there (`didntReadBack`, so left unchanged and
-    unsent) while macOS 27 passes. Trying: parse only `<x:xmpmeta>...</x:xmpmeta>`, without the packet wrapper
-    and padding (unproved cause). `testPrintWhatImageIOReads` is temporary: it prints each form for the CI
-    log; remove it once CI is green.
+  - **macOS 15 (CI, 2026-11-01):** clips wouldn't read back there (`didntReadBack`: left unchanged, not
+    sent) though macOS 27 passed. Fixed by parsing only `<x:xmpmeta>...</x:xmpmeta>`, without the packet
+    wrapper and padding; CI green on `289cbab`. macOS 14 is untested.
   Tested: 273+ unit tests with real clips made in the test (MP4, MOV, index first and full), and the five
   Desktop samples: media identical, play, read back. The app's block is serialized by ImageIO, unlike the
   hand-written one Premiere read first. **Confirmed in Premiere (photographer, 2026-11-01):** the app's

@@ -1,5 +1,4 @@
 import AVFoundation
-import ImageIO
 import XCTest
 @testable import CardIngestCore
 
@@ -111,27 +110,6 @@ final class ClipMetadataTests: XCTestCase {
         try data.write(to: url)
         XCTAssertThrowsError(try ClipMetadata.embed(stars: 3, keywords: ["Camp"], into: url))
         XCTAssertEqual(try Data(contentsOf: url), data)
-    }
-
-    /// Temporary: what this macOS's ImageIO makes of each form of the block, for the CI log.
-    func testPrintWhatImageIOReads() {
-        let metadata = CGImageMetadataCreateMutable()
-        let set = CGImageMetadataSetValueWithPath(metadata, nil, "xmp:Rating" as CFString, "3" as CFString)
-        let words = Keywords.set(["Camp"], in: metadata)
-        let raw = (CGImageMetadataCreateXMPData(metadata, nil) as Data?) ?? Data()
-        print("IMAGEIO set=\(set) keywords=\(words) raw=[\(String(decoding: raw, as: UTF8.self))]")
-        guard let from = raw.range(of: Data("<x:xmpmeta".utf8)), let to = raw.range(of: Data("</x:xmpmeta>".utf8)) else {
-            return print("IMAGEIO no xmpmeta in raw")
-        }
-        let xml = Data(raw[from.lowerBound..<to.upperBound])
-        let head = Data("<?xpacket begin=\"\u{FEFF}\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n".utf8), tail = Data("\n<?xpacket end=\"w\"?>".utf8)
-        let forms: [(String, Data)] = [("raw", raw), ("xml", xml), ("wrapped", head + xml + tail),
-                                       ("padded", head + xml + Data(repeating: 0x20, count: 2048) + tail),
-                                       ("xmlPadded", xml + Data(repeating: 0x20, count: 2048))]
-        for (name, data) in forms {
-            let found = CGImageMetadataCreateFromXMPData(data as CFData)
-            print("IMAGEIO \(name): parsed=\(found != nil) stars=\(found.flatMap { Stars.rating(in: $0) } as Any) keywords=\(found.map { Keywords.keywords(in: $0) } as Any)")
-        }
     }
 
     func testOnlyMP4AndQuickTimeCanHoldIt() {
