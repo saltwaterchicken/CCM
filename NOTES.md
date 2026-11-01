@@ -293,6 +293,16 @@ Milestone 2's metadata waits on the template. Built and tested on disk images; n
 - [ ] Step 2: Card log (every card: date, name, file count, destination, verified, trashed). The brief
   lists it under Milestone 6.
 
+**Milestone 8: Why the old Server showed stars and keywords.** Asked 2026-11-01; due by June 2027; nothing
+done yet, and it waits until the photographer has access to that server again. In previous summers,
+users got Synology Photos to read and display stars and keywords. This summer's tests showed nothing
+written inside a clip by us, Premiere or Bridge, and tags set in Synology Photos stay inside the
+Synology, not in the file; only JPEGs exported from Lightroom show keywords. So find out what was
+different on that server. To check there: which files showed them (photos, JPEGs or clips), the
+Synology Photos and DSM versions and settings, any indexing or conversion step, and how users added the
+stars and keywords (in Synology Photos itself would mean they were never in the files). May reopen
+"premiere is as good as we might get" for clips, and with it Save to Clips.
+
 ## Decisions
 
 - **Project layout:** a Swift package (`Package.swift`) with two parts. `CardIngestCore` holds
