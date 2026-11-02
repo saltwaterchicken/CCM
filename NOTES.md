@@ -1029,8 +1029,13 @@ straight to the settings file in use, as the Job panel does. Initials (`Initials
 letters just before `{iseq}` in the folder name are the initials; typing new ones replaces them
 where they stand alone outside the tokens, in both the folder name and the rename pattern, with a
 live preview of the next folder and a file name. A folder name with nothing before `{iseq}` says
-to edit it in the Job panel. To see it again as a first run: `defaults delete
-com.capturecampmemories.cardingest setupTutorialSeen`.
+to edit it in the Job panel. To see it again as a first run: `scripts/reset-app.sh` (asked 2026-11-02;
+tried on a throwaway preferences domain, not yet on the real app). It quits the app politely, keeps a copy
+in `~/Library/Application Support/Card Ingest Resets/<date-time>`, clears the preferences and moves
+`Settings.plist` and `My Keywords.txt` aside. The license key and keyboard shortcuts stay unless
+`--license`; `--restore [folder name]` puts a copy back. Deleting the preferences file in Finder doesn't
+work: cfprefsd writes it back from memory (seen 2026-11-02: `setupTutorialSeen` survived, so no tutorial,
+while `Settings.plist`, an ordinary file, did reset, and the ntfy topic with it).
 
 **Alerts on your phone step (asked 2026-10-30, built 2026-10-30, not yet tried on the Mac):** after
 "When a card is done". A QR code for ntfy's App Store page (CoreImage, scanned with the iPhone's
