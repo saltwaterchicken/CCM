@@ -79,20 +79,21 @@ public enum CardVerdict: Equatable, Sendable {
 /// own drives, network volumes, and drives holding the destination or backup.
 /// So does an external drive that's neither, if it has a camera's folders:
 /// CFexpress and XQD cards in a PCIe or Thunderbolt reader report as fixed and
-/// not ejectable, exactly as a Thunderbolt SSD does.
+/// not ejectable, exactly as a Thunderbolt SSD does. A card with no such folders
+/// (Blackmagic, RED) counts once the photographer has chosen it, for as long as it's in.
 /// Everything else in the app goes through this, so the rule lives in one spot.
 public enum CardRules {
-    /// - Parameter protectedFolders: the destination and backup folders. A volume
-    ///   that holds either of them is never a card.
-    public static func verdict(for volume: VolumeInfo, protectedFolders: [URL]) -> CardVerdict {
+    /// - Parameters:
+    ///   - protectedFolders: the destination and backup folders. A volume that
+    ///     holds either of them is never a card.
+    ///   - chosenAsCard: the photographer pressed Use as Card. It only answers
+    ///     "no camera folders"; everything else still rules a drive out.
+    public static func verdict(for volume: VolumeInfo, protectedFolders: [URL], chosenAsCard: Bool = false) -> CardVerdict {
         if volume.isRootFileSystem { return .ignored("This is the Mac's startup drive.") }
         if !volume.isLocal { return .ignored("This is a network volume.") }
         // A Mac's built-in SD slot reports its cards as internal, so "internal"
         // only rules a drive out when the media isn't removable.
         if volume.isInternal && !volume.isRemovable { return .ignored("This is an internal drive.") }
-        if !volume.isRemovable && !volume.isEjectable && !volume.hasDCIM && !volume.hasVideoFolder {
-            return .ignored("This external drive has no camera folders (DCIM or a camera's video folder).")
-        }
         let volumePath = volume.url.standardizedFileURL.path
         for folder in protectedFolders {
             let path = folder.standardizedFileURL.path
@@ -100,7 +101,17 @@ public enum CardRules {
                 return .ignored("This drive holds your destination or backup folder.")
             }
         }
+        if !volume.isRemovable && !volume.isEjectable && !volume.hasDCIM && !volume.hasVideoFolder && !chosenAsCard {
+            return .ignored("This external drive has no camera folders (DCIM or a camera's video folder).")
+        }
         return .card
+    }
+
+    /// True for a drive left alone only because it has no camera folders, which
+    /// is all Use as Card can answer.
+    public static func canBeChosen(_ volume: VolumeInfo, protectedFolders: [URL]) -> Bool {
+        !verdict(for: volume, protectedFolders: protectedFolders).isCard
+            && verdict(for: volume, protectedFolders: protectedFolders, chosenAsCard: true).isCard
     }
 }
 

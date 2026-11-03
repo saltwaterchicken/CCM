@@ -150,8 +150,8 @@ public struct FileTypes: Codable, Equatable, Sendable {
     public init(
         raw: [String] = ["cr3", "cr2", "crw", "nef", "nrw", "arw", "srf", "sr2", "raf", "orf", "rw2", "dng", "pef", "srw", "3fr", "iiq", "x3f"],
         photo: [String] = ["jpg", "jpeg", "heic", "heif", "hif", "tif", "tiff"],
-        video: [String] = ["mp4", "mov", "mxf", "m4v", "avi", "mts", "m2ts", "crm", "braw"],
-        sidecar: [String] = ["xmp", "thm", "wav", "lrv", "xml"]
+        video: [String] = ["mp4", "mov", "mxf", "m4v", "avi", "mts", "m2ts", "crm", "braw", "r3d"],
+        sidecar: [String] = ["xmp", "thm", "wav", "lrv", "xml", "rmd"]
     ) {
         self.raw = raw
         self.photo = photo
@@ -166,6 +166,9 @@ public struct FileTypes: Codable, Equatable, Sendable {
         photo = try c.decodeIfPresent([String].self, forKey: .photo) ?? d.photo
         video = try c.decodeIfPresent([String].self, forKey: .video) ?? d.video
         sidecar = try c.decodeIfPresent([String].self, forKey: .sidecar) ?? d.sidecar
+        // Settings files saved before RED was added hold their whole lists.
+        if !video.contains("r3d") { video.append("r3d") }
+        if !sidecar.contains("rmd") { sidecar.append("rmd") }
     }
 
     /// True when the file name has one of the listed extensions.

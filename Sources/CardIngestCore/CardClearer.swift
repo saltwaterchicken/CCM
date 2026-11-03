@@ -30,13 +30,14 @@ public enum CardClearer {
     /// Only a camera card with a DCIM folder qualifies: any removable drive
     /// can be copied from, but a USB stick or backup drive is never cleared.
     public static func refusal(for volume: VolumeInfo, protectedFolders: [URL]) -> String? {
-        if !CardRules.verdict(for: volume, protectedFolders: protectedFolders).isCard {
-            return "This drive isn't a camera card, so nothing was moved to the Trash."
-        }
         // A CFexpress card in a PCIe reader and a Thunderbolt SSD look the same to
-        // macOS, so one that's neither removable nor ejectable is copied from, never cleared.
+        // macOS, so one that's neither removable nor ejectable is copied from, never
+        // cleared, even if chosen with Use as Card.
         if !volume.isRemovable && !volume.isEjectable {
             return "In this reader the Mac can't tell this card from a fixed drive, so nothing was moved to the Trash. Format it in the camera once your copies are safe."
+        }
+        if !CardRules.verdict(for: volume, protectedFolders: protectedFolders).isCard {
+            return "This drive isn't a camera card, so nothing was moved to the Trash."
         }
         if !volume.hasDCIM {
             return "This drive has no DCIM folder, so it may not be a camera card. Nothing was moved to the Trash."
@@ -45,6 +46,22 @@ public enum CardClearer {
             return "The card is locked (check the switch on its side), so nothing was moved to the Trash."
         }
         return nil
+    }
+
+    /// What to say on the card before Copy, when Trash is on but this card won't
+    /// go there; nil when it will. The same cases as `refusal`.
+    public static func notice(for volume: VolumeInfo) -> String? {
+        let why: String
+        if !volume.isRemovable && !volume.isEjectable {
+            why = "In this reader the Mac can't tell this card from a fixed drive. Format it in the camera once your copies are safe."
+        } else if !volume.hasDCIM {
+            why = "This drive has no DCIM folder, so it may not be a camera card."
+        } else if volume.isReadOnly {
+            why = "The card is locked (check the switch on its side)."
+        } else {
+            return nil
+        }
+        return "Copy only: nothing on this card will go to its Trash. " + why
     }
 
     /// The card files whose copies are safe: every file this copy verified,

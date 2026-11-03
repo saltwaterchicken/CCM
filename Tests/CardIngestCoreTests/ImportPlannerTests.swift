@@ -24,6 +24,22 @@ final class ImportPlannerTests: XCTestCase {
     /// Capture dates the fake reader hands out, by file name on the card.
     private var dates: [String: Date] = [:]
 
+    func testREDFilesKeepTheCameraNamesSoSpannedClipsStayTogether() throws {
+        XCTAssertTrue(ImportPlanner.keepsCameraName("A001_C001_0101AB_001.R3D"))
+        XCTAssertTrue(ImportPlanner.keepsCameraName("A001_C001_0101AB.rmd"))
+        XCTAssertFalse(ImportPlanner.keepsCameraName("A001_01011234_C001.braw"))
+
+        let group = { (path: String) in
+            ImportPlanner.Group(members: [CardFile(relativePath: path, size: 1)], primary: CardFile(relativePath: path, size: 1), capture: self.oct14)
+        }
+        let planned = try ImportPlanner.rename(
+            [group("A001.RDM/A001_C001.RDC/A001_C001_0101AB_001.R3D"), group("A001.RDM/A001_C001.RDC/A001_C001_0101AB_002.R3D"),
+             group("A001.RDM/A001_C001.RDC/A001_C001_0101AB.RMD"), group("DCIM/IMG_0007.JPG")],
+            pattern: "shot-{frame4}", today: today, importNumber: 1, calendar: calendar)
+        XCTAssertEqual(Set(planned.map(\.newName)),
+                       ["A001_C001_0101AB_001.R3D", "A001_C001_0101AB_002.R3D", "A001_C001_0101AB.RMD", "shot-0007.JPG"])
+    }
+
     override func setUpWithError() throws {
         base = fm.temporaryDirectory.appendingPathComponent("PlannerTests-\(UUID().uuidString)", isDirectory: true)
         try fm.createDirectory(at: card, withIntermediateDirectories: true)

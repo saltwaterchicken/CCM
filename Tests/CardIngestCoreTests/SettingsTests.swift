@@ -67,6 +67,13 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(settings.fileTypes, FileTypes())
     }
 
+    func testSettingsSavedBeforeREDStillGetIt() throws {
+        let older = "{\"raw\":[\"cr3\"],\"photo\":[\"jpg\"],\"video\":[\"mov\"],\"sidecar\":[\"xmp\"]}"
+        let types = try JSONDecoder().decode(FileTypes.self, from: Data(older.utf8))
+        XCTAssertEqual(types.video, ["mov", "r3d"])
+        XCTAssertEqual(types.sidecar, ["xmp", "rmd"])
+    }
+
     func testNewDefaults() throws {
         let settings = IngestSettings()
         XCTAssertEqual(settings.folderName, "{todayyear4}-{todaymonth0}-{todayday0}-ES{iseq}")

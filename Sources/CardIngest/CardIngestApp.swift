@@ -390,7 +390,7 @@ struct JobPanel: View {
                     if model.settings.trashAfterVerify {
                         let asks = model.settings.confirmTrashForFirstCards
                         Text((asks > 0 ? "Asks first for the next \(asks) \(asks == 1 ? "card" : "cards"). " : "")
-                             + "Only cards with a DCIM folder. They stay in the card's Trash until you format the card in the camera.")
+                             + "Only cards with a DCIM folder, in a reader the Mac sees as removable. They stay in the card's Trash until you format the card in the camera.")
                             .foregroundStyle(.secondary)
                             .padding(.leading, 20)
                     }
@@ -520,6 +520,14 @@ struct CardsView: View {
                                 } else {
                                     ProgressView().controlSize(.small)
                                 }
+                                if watcher.trashAfterVerify, let notice = CardClearer.notice(for: card.info) {
+                                    Label(notice, systemImage: "trash.slash")
+                                        .foregroundStyle(.orange)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                                if card.chosen, watcher.copyStates[card.id]?.isBusy != true {
+                                    Button("Not a Card") { watcher.notACard(card) }
+                                }
                             }
                             Spacer()
                             copyButton(card)
@@ -527,6 +535,15 @@ struct CardsView: View {
                         .padding(4)
                         copyStatus(card)
                     }
+                }
+            }
+            ForEach(watcher.couldBeCards) { volume in
+                HStack(alignment: .firstTextBaseline) {
+                    Text("\(volume.info.name) has no camera folders. If it's a Blackmagic or RED card, use it as a card.")
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer()
+                    Button("Use as Card") { watcher.useAsCard(volume) }
                 }
             }
             DisclosureGroup("Other drives left alone (\(watcher.ignored.count))", isExpanded: $showIgnored) {

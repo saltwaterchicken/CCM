@@ -5,6 +5,10 @@ import CardIngestCore
 struct DetectedVolume: Identifiable {
     var info: VolumeInfo
     var verdict: CardVerdict
+    /// Left alone only for having no camera folders, so Use as Card can answer it.
+    var canBeChosen = false
+    /// A card because the photographer chose it.
+    var chosen = false
     /// Camera files found on the card; nil until the scan finishes.
     var files: [CardFile]?
     var scanError: String?
@@ -76,7 +80,11 @@ final class StopFlag: @unchecked Sendable {
 final class CardWatcher {
     private(set) var volumes: [DetectedVolume] = []
     var cards: [DetectedVolume] { volumes.filter { $0.verdict.isCard } }
-    var ignored: [DetectedVolume] { volumes.filter { !$0.verdict.isCard } }
+    var ignored: [DetectedVolume] { volumes.filter { !$0.verdict.isCard && !$0.canBeChosen } }
+    /// External drives with no camera folders: a Blackmagic or RED card, or just a drive.
+    var couldBeCards: [DetectedVolume] { volumes.filter(\.canBeChosen) }
+    /// Drives chosen with Use as Card. Gone when the drive is, so it's asked again next time.
+    private var chosenAsCards: Set<URL> = []
 
     private(set) var copyStates: [URL: CopyState] = [:]
     private var stopFlags: [URL: StopFlag] = [:]
@@ -132,11 +140,15 @@ final class CardWatcher {
         let urls = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: nil, options: [.skipHiddenVolumes]) ?? []
         let protected = [settings.destinationRootURL] + [settings.backupRootURL].compactMap { $0 }
         let previous = Dictionary(uniqueKeysWithValues: volumes.map { ($0.id, $0) })
+        chosenAsCards.formIntersection(urls)
 
         volumes = urls.compactMap { url in
             guard let info = try? VolumeInfo.read(url) else { return nil }
-            let verdict = CardRules.verdict(for: info, protectedFolders: protected)
-            var volume = DetectedVolume(info: info, verdict: verdict)
+            let chosen = chosenAsCards.contains(url)
+            let verdict = CardRules.verdict(for: info, protectedFolders: protected, chosenAsCard: chosen)
+            var volume = DetectedVolume(info: info, verdict: verdict,
+                                        canBeChosen: CardRules.canBeChosen(info, protectedFolders: protected) && !chosen,
+                                        chosen: chosen)
             if let old = previous[url], old.verdict == verdict {
                 volume.files = old.files
                 volume.scanError = old.scanError
@@ -156,6 +168,18 @@ final class CardWatcher {
         for card in cards where card.files != nil {
             checkHistory(card.info.url)
         }
+    }
+
+    var trashAfterVerify: Bool { settings.trashAfterVerify }
+
+    func useAsCard(_ volume: DetectedVolume) {
+        chosenAsCards.insert(volume.id)
+        refresh()
+    }
+
+    func notACard(_ volume: DetectedVolume) {
+        chosenAsCards.remove(volume.id)
+        refresh()
     }
 
     /// Counts the camera files on a card in the background.

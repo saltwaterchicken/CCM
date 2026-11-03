@@ -75,6 +75,22 @@ final class CardRulesTests: XCTestCase {
         XCTAssertFalse(CardRules.verdict(for: drive, protectedFolders: home).isCard)
     }
 
+    func testUseAsCardOnlyAnswersMissingCameraFolders() {
+        let blackmagic = volume(path: "/Volumes/BMPCC", removable: false, ejectable: false, dcim: false)
+        XCTAssertTrue(CardRules.canBeChosen(blackmagic, protectedFolders: home))
+        XCTAssertEqual(CardRules.verdict(for: blackmagic, protectedFolders: home, chosenAsCard: true), .card)
+
+        // A drive holding the destination, the Mac's own drives and network drives can't be chosen.
+        XCTAssertFalse(CardRules.canBeChosen(blackmagic, protectedFolders: [URL(fileURLWithPath: "/Volumes/BMPCC/Photos")]))
+        XCTAssertFalse(CardRules.verdict(for: blackmagic, protectedFolders: [URL(fileURLWithPath: "/Volumes/BMPCC/Photos")],
+                                         chosenAsCard: true).isCard)
+        XCTAssertFalse(CardRules.canBeChosen(volume(removable: false, ejectable: false, isInternal: true, dcim: false), protectedFolders: home))
+        XCTAssertFalse(CardRules.canBeChosen(volume(path: "/", removable: false, ejectable: false, isInternal: true, root: true, dcim: false), protectedFolders: home))
+        XCTAssertFalse(CardRules.canBeChosen(volume(removable: false, ejectable: false, local: false, dcim: false), protectedFolders: home))
+        // Already a card: nothing to choose.
+        XCTAssertFalse(CardRules.canBeChosen(volume(), protectedFolders: home))
+    }
+
     func testVideoFoldersAreRead() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }

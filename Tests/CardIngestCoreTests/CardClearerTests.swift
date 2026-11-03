@@ -70,6 +70,18 @@ final class CardClearerTests: XCTestCase {
             for: volume(), protectedFolders: [URL(fileURLWithPath: "/Volumes/EOS_DIGITAL/Backup")]))
     }
 
+    func testChosenAndFixedDrivesAreNeverClearedAndSaySoBeforeCopy() {
+        // Use as Card doesn't reach the Trash: there's no way to say chosen to `refusal`.
+        let chosen = volume(removable: false, dcim: false)
+        XCTAssertTrue(CardClearer.refusal(for: chosen, protectedFolders: [])?.contains("fixed drive") == true)
+
+        XCTAssertNil(CardClearer.notice(for: volume()), "An SD card goes to its Trash, so there's nothing to say")
+        XCTAssertTrue(CardClearer.notice(for: volume(removable: false))?.hasPrefix("Copy only") == true)
+        XCTAssertTrue(CardClearer.notice(for: chosen)?.hasPrefix("Copy only") == true)
+        XCTAssertTrue(CardClearer.notice(for: volume(dcim: false))?.contains("DCIM") == true)
+        XCTAssertTrue(CardClearer.notice(for: volume(readOnly: true))?.contains("locked") == true)
+    }
+
     func testVerifiedFilesGoToTheTrashAndEverythingElseStays() throws {
         try put("DCIM/100CANON/IMG_0001.CR3")
         try put("DCIM/100CANON/IMG_0001.JPG", seed: 2)

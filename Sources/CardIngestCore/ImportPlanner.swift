@@ -142,9 +142,11 @@ public enum ImportPlanner {
         var planned: [PlannedFile] = []
         for group in groups {
             let original = (group.primary.relativePath as NSString).lastPathComponent
-            let base = try template.render(TemplateValues(today: today, importNumber: importNumber,
-                                                          capture: group.capture, originalName: original),
-                                           calendar: calendar)
+            let base = try keepsCameraName(original)
+                ? (original as NSString).deletingPathExtension
+                : template.render(TemplateValues(today: today, importNumber: importNumber,
+                                                 capture: group.capture, originalName: original),
+                                  calendar: calendar)
             var unique = base
             var n = 2
             // Mac drives usually ignore case, so IMG and img would clash.
@@ -159,6 +161,12 @@ public enum ImportPlanner {
             }
         }
         return planned.sorted { $0.newName.localizedStandardCompare($1.newName) == .orderedAscending }
+    }
+
+    /// RED splits a long clip across files named _001.R3D, _002.R3D, and the names
+    /// are what tie them together, so these keep the camera's.
+    static func keepsCameraName(_ fileName: String) -> Bool {
+        ["r3d", "rmd"].contains((fileName as NSString).pathExtension.lowercased())
     }
 
     /// True when the folder doesn't exist yet, or only holds this card's own

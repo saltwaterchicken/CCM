@@ -140,7 +140,7 @@ public enum Help {
         "rating": "star", "rat": "star", "rate": "star",
         "lr": "lightroom", "lrc": "lightroom",
         "picture": "photo", "image": "photo", "pic": "photo", "shot": "photo",
-        "sd": "card", "cf": "card", "cfexpress": "card",
+        "sd": "card",
         "blurry": "soft", "blur": "soft", "focu": "soft", "sharp": "soft", "sharpness": "soft",
         "underexpos": "dark", "underexposed": "dark", "black": "dark",
         "overexpos": "bright", "overexposed": "bright", "white": "bright", "blown": "bright", "light": "bright",
@@ -168,15 +168,31 @@ public enum Help {
                    keywords: ["import", "start", "ingest"], target: .cards),
         HelpAnswer("not-seen", "My card doesn't show up",
                    "Any removable drive counts as a card, with or without a DCIM folder. A card in a fast reader (CFexpress or XQD) can "
-                   + "look like an ordinary external drive to the Mac, so it counts once it has a camera's folders: a card "
-                   + "the camera has never formatted won't show. The app leaves alone the Mac's own drive, "
+                   + "look like an ordinary external drive to the Mac, so it counts once it has a camera's folders. A drive with "
+                   + "none (a Blackmagic or RED card, or one no camera has formatted) shows a Use as Card button instead. The app leaves alone the Mac's own drive, "
                    + "network drives, and any drive holding the destination or backup folder. Open \"Other drives left alone\" under "
                    + "the cards to see each drive it skipped and why.",
-                   keywords: ["missing", "detect", "inserted", "ignored", "usb", "cfexpress", "xqd", "compactflash", "reader", "thunderbolt"], target: .cards),
+                   keywords: ["missing", "detect", "inserted", "ignored", "usb"], target: .cards),
+        HelpAnswer("card-readers", "Why does my card say Copy only?",
+                   "The reader decides, not the card. In a USB reader or the Mac's SD slot a card reads as removable, so it copies, "
+                   + "goes to its Trash and ejects, as you've set under When done. A CFexpress or XQD card in a PCIe or Thunderbolt "
+                   + "reader looks just like a fixed drive to the Mac, so it copies and ejects but nothing goes to its Trash, in case it "
+                   + "really is a drive. The card says \"Copy only\" in orange before you start. Format it in the camera once your "
+                   + "copies are safe. A card with no DCIM folder, or a locked one, says it too.",
+                   keywords: ["cfexpress", "xqd", "compactflash", "cf", "cfast", "reader", "thunderbolt", "pcie", "orange", "stay", "stayed", "kept", "full", "not cleared"],
+                   target: .cards),
+        HelpAnswer("use-as-card", "How do I use a Blackmagic or RED card?",
+                   "These cards have no camera folders for the app to recognize, so in a PCIe or Thunderbolt reader they don't show as "
+                   + "cards by themselves. Under the cards, press Use as Card beside the drive. You press it each time the card goes "
+                   + "in, so a working drive is never taken for a card; Not a Card undoes it. They copy and eject, but nothing goes "
+                   + "to their Trash. RED files keep the camera's names, because a long clip's pieces rely on them.",
+                   keywords: ["blackmagic", "bmpcc", "braw", "red", "r3d", "komodo", "cinema", "choose", "manual", "select"],
+                   target: .cards),
         HelpAnswer("trash", "Where did the photos on my card go?",
                    "With \"Move the card's photos and videos to the card's Trash\" ticked under When done, each original goes to the "
                    + "card's own Trash once every copy is verified. Nothing is erased: they stay there until you format the card in "
-                   + "the camera, which is when the space frees up. The first 3 cards ask first. Untick the box to leave cards as they are.",
+                   + "the camera, which is when the space frees up. The first 3 cards ask first. Untick the box to leave cards as they are. "
+                   + "A card marked \"Copy only\" stays as it is either way.",
                    keywords: ["trash", "delete", "empty", "gone", "missing", "format", "space", "free"], target: .whenDone),
         HelpAnswer("eject", "Why didn't my card eject?",
                    "The card ejects after the copy (and the trash, if that's on) when \"Eject the card when finished\" is ticked. "

@@ -342,8 +342,21 @@ stars and keywords (in Synology Photos itself would mean they were never in the 
   Thunderbolt reader should read the same, and so does a Thunderbolt SSD, so such a drive now counts only with `DCIM` or
   a video folder (`VolumeInfo.videoFolders`). A Thunderbolt SSD with `DCIM` at its top therefore shows as a card
   and can be copied from, unless it holds the destination or backup. `CardClearer` still refuses to trash on any such
-  drive, keeping BRIEF's "never touch" rule, so these cards aren't cleared: whether to change that is the
-  photographer's call: keep it so, 2026-11-03. Confirmed on the Mac 2026-11-03: copied and ejected. Not covered: such a card with only files at its top (Blackmagic's .braw, RED's .RDM).
+  drive, keeping BRIEF's "never touch" rule, so these cards aren't cleared (the
+  photographer's call, 2026-11-03). Confirmed on the Mac 2026-11-03: copied and ejected.
+  **Built 2026-11-03 (test step 26). Copy only line, eject and phone alert confirmed on the Mac 2026-11-03; Use as Card not yet tried:**
+  - **Copy only:** the photographer asked to see this before copying. With Trash on, a card that won't go to its Trash
+    says so in orange in its box (`CardClearer.notice`), with the same cases as `refusal`: fixed, no DCIM, locked.
+  - **Use as Card:** an external fixed drive with no camera folders (Blackmagic, RED, or just a drive) gets a row with this
+    button above "Other drives left alone" (`CardRules.canBeChosen`). Not remembered once the drive is gone, so a working
+    drive is never taken for a card; Not a Card undoes it. Only answers "no camera folders": the Mac's drives, network
+    drives and the destination or backup drive can't be chosen. Never trashed. A USB SSD (Crucial X9) reads as fixed and not
+    ejectable on this Mac too, so it gets the row unless it holds the destination or backup.
+  - **RED:** `.r3d` (video) and `.rmd` (sidecar) added, also to settings files saved before. These keep the camera's names
+    (`ImportPlanner.keepsCameraName`), since a long clip's `_001.R3D`, `_002.R3D` are tied by name. Copied flat into the
+    card folder like everything else, without the `.RDM`/`.RDC` folders. **Untested on real RED or Blackmagic cards:** no
+    thumbnails expected for `.r3d`, and whether Premiere and REDCINE join the pieces once flat is unchecked. Low priority
+    (photographer, 2026-11-03: RED will be very rare among users, and the unchanged names will be plain to see).
   A Mac's built-in SD slot reports cards as internal but removable, so internal only rules a
   drive out when it isn't removable (found testing with a real card, 2026-10-22). Disk images
   count because they are ejectable, which is what makes the fake card work.
@@ -1051,6 +1064,29 @@ camera), then the steps to subscribe. With no topic yet, Make My Topic saves a n
 shown with Copy Topic (the clipboard, to paste into ntfy or text to oneself), Send Test
 Notification, and the reinstall tip. Next skips it.
 
+## For the app's ReadMe (photographer, 2026-11-03: "more important than ever")
+
+A ReadMe for people using the app is to be built later. Help has most of this already (`Help.swift`);
+the ReadMe should say it all too, starting with how each card behaves, which depends on the reader:
+
+| Card and reader | Shows up | Copies | Card's Trash | Ejects |
+|---|---|---|---|---|
+| SD, or anything the Mac sees as removable or ejectable | By itself | Yes | Yes, if ticked | Yes, if ticked |
+| CFexpress or XQD in a PCIe or Thunderbolt reader, with camera folders | By itself | Yes | Never; format in the camera | Yes, if ticked |
+| Blackmagic, RED or anything without camera folders, in such a reader | Press Use as Card each time | Yes | Never | Yes, if ticked |
+
+Also: the orange "Copy only" line and what it means; RED files keep the camera's names.
+
+## MXF clips: no thumbnail or scrubbing (asked 2026-11-03, diagnosed, nothing built)
+
+Canon C50 clips from the CFexpress card (`CONTENTS/CLIPS001`, 3840x2160 MXF, H.264 High 4:2:2 Intra, level 5.1) don't
+preview: `AVURLAsset` says "This media format is not supported" (-11828), with or without
+`MTRegisterProfessionalVideoWorkflowFormatReaders`; `/Library/Video/Professional Video Workflow Plug-Ins` is empty here.
+So the wrapper is the blocker, not the picture: one frame's KLV (key `...0d01030115...`, SPS/PPS in every frame, all intra),
+pulled out by hand and given to `VTDecompressionSession`, decoded correctly (looks flat and dim: log footage, no LUT).
+That one frame repeated gave 83 fps with async decoding on an M4 Max, 21 fps one at a time. Likely path, no new dependencies: read
+MXF ourselves for thumbnails and scrubbing; playback with sound (PCM tracks, `...0d01030116...`) is the bigger step.
+
 ## GUI wishlist
 
 Suggestions so far, not yet decided. Edit freely.
@@ -1261,6 +1297,13 @@ Suggestions so far, not yet decided. Edit freely.
     clips clear too. Then set `keepClipsOnCardUntilOnServer` to true, copy a card with clips: they stay on the
     card and the summary says so; after Save to Clips, put it back in and they clear. Reminder: leave a
     card unsaved for a day with the app open, and the phone is told once.
+
+26. Card types (2026-11-03). Trash ticked. **CFexpress B in the PCIe reader:** the card box says "Copy only" in
+    orange before Copy; untick Trash and the line goes. **SD card:** no such line, and it goes to its Trash as before.
+    **Blackmagic or RED card, or any external drive with no camera folders (not holding the destination):** a row with
+    Use as Card above "Other drives left alone"; press it and it becomes a card with Copy only and a Not a Card button;
+    Not a Card puts it back; take it out and put it back in and it asks again. **RED:** `.R3D` files keep their names; a
+    long clip opens whole in Premiere or REDCINE from the copied folder. Help: search "cfexpress", "blackmagic", "red card".
 
 ## License keys (asked 2026-10-27, built 2026-10-27, confirmed on the Mac 2026-10-27: a key from the tool unlocked it)
 

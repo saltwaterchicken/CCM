@@ -15,6 +15,17 @@ final class HelpTests: XCTestCase {
         XCTAssertEqual(top("whatsapp"), "support")
     }
 
+    func testCardTypesFindTheirAnswer() {
+        XCTAssertEqual(top("cfexpress"), "card-readers")
+        XCTAssertEqual(top("xqd reader"), "card-readers")
+        XCTAssertEqual(top("orange copy only"), "card-readers")
+        XCTAssertTrue(Help.search("copy only").map(\.id).contains("card-readers"))
+        XCTAssertEqual(top("trash"), "trash", "The new answers don't push out the main one")
+        XCTAssertEqual(top("blackmagic"), "use-as-card")
+        XCTAssertEqual(top("red card"), "use-as-card")
+        XCTAssertEqual(top("use as card"), "use-as-card")
+    }
+
     func testNothingTypedListsEverythingAndNonsenseFindsNothing() {
         XCTAssertEqual(Help.search("").count, Help.answers.count)
         XCTAssertEqual(Help.search("how do I").count, Help.answers.count, "Only small words")
