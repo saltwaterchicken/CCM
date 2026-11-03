@@ -60,6 +60,8 @@ final class CardClearerTests: XCTestCase {
     func testOnlyACameraCardWithDCIMThatIsntLockedIsCleared() {
         XCTAssertNil(CardClearer.refusal(for: volume(), protectedFolders: []))
         XCTAssertNotNil(CardClearer.refusal(for: volume(removable: false), protectedFolders: []))
+        // A CFexpress card in a PCIe reader counts as a card, but looks like an SSD, so isn't cleared.
+        XCTAssertTrue(CardRules.verdict(for: volume(removable: false), protectedFolders: []).isCard)
         XCTAssertEqual(CardClearer.refusal(for: volume(dcim: false), protectedFolders: []),
                        "This drive has no DCIM folder, so it may not be a camera card. Nothing was moved to the Trash.")
         XCTAssertEqual(CardClearer.refusal(for: volume(readOnly: true), protectedFolders: []),

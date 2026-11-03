@@ -4,11 +4,11 @@ import XCTest
 final class CardRulesTests: XCTestCase {
     private func volume(
         path: String = "/Volumes/EOS_DIGITAL", removable: Bool = true, ejectable: Bool = true,
-        isInternal: Bool = false, local: Bool = true, root: Bool = false, dcim: Bool = true
+        isInternal: Bool = false, local: Bool = true, root: Bool = false, dcim: Bool = true, video: Bool = false
     ) -> VolumeInfo {
         VolumeInfo(url: URL(fileURLWithPath: path, isDirectory: true), name: (path as NSString).lastPathComponent,
                    isRemovable: removable, isEjectable: ejectable, isInternal: isInternal,
-                   isLocal: local, isRootFileSystem: root, hasDCIM: dcim)
+                   isLocal: local, isRootFileSystem: root, hasDCIM: dcim, hasVideoFolder: video)
     }
 
     private let home = [URL(fileURLWithPath: "/Users/me/Pictures/Card Ingest")]
@@ -48,8 +48,41 @@ final class CardRulesTests: XCTestCase {
         XCTAssertFalse(CardRules.verdict(for: volume(local: false), protectedFolders: home).isCard)
     }
 
-    func testFixedDriveIsIgnored() {
-        XCTAssertFalse(CardRules.verdict(for: volume(removable: false, ejectable: false), protectedFolders: home).isCard)
+    // A SanDisk CFexpress Type B card in a PCIe reader read exactly like this on the Mac, 2026-11-03.
+    func testCFexpressCardInAPCIeReaderIsACard() {
+        let card = volume(path: "/Volumes/CanonA_0019", removable: false, ejectable: false)
+        XCTAssertEqual(CardRules.verdict(for: card, protectedFolders: home), .card)
+    }
+
+    func testVideoOnlyCardInAPCIeReaderIsACard() {
+        let card = volume(removable: false, ejectable: false, dcim: false, video: true)
+        XCTAssertEqual(CardRules.verdict(for: card, protectedFolders: home), .card)
+    }
+
+    func testExternalFixedDriveWithoutCameraFoldersIsIgnored() {
+        let ssd = volume(path: "/Volumes/Work SSD", removable: false, ejectable: false, dcim: false)
+        XCTAssertFalse(CardRules.verdict(for: ssd, protectedFolders: home).isCard)
+    }
+
+    func testFixedDriveHoldingTheDestinationIsIgnoredEvenWithDCIM() {
+        let ssd = volume(path: "/Volumes/Work SSD", removable: false, ejectable: false)
+        let folders = [URL(fileURLWithPath: "/Volumes/Work SSD/Photos")]
+        XCTAssertFalse(CardRules.verdict(for: ssd, protectedFolders: folders).isCard)
+    }
+
+    func testInternalFixedDriveWithDCIMIsIgnored() {
+        let drive = volume(removable: false, ejectable: false, isInternal: true)
+        XCTAssertFalse(CardRules.verdict(for: drive, protectedFolders: home).isCard)
+    }
+
+    func testVideoFoldersAreRead() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root.appendingPathComponent("PRIVATE"), withIntermediateDirectories: true)
+        XCTAssertFalse(try VolumeInfo.read(root).hasVideoFolder, "PRIVATE alone could be on any drive")
+        try FileManager.default.createDirectory(at: root.appendingPathComponent("PRIVATE/M4ROOT"), withIntermediateDirectories: true)
+        XCTAssertTrue(try VolumeInfo.read(root).hasVideoFolder)
+        XCTAssertFalse(try VolumeInfo.read(root).hasDCIM)
     }
 
     func testDriveHoldingTheDestinationOrBackupIsIgnored() {

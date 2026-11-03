@@ -167,10 +167,12 @@ public enum Help {
                    + "photo lands, so you can start rating straight away.",
                    keywords: ["import", "start", "ingest"], target: .cards),
         HelpAnswer("not-seen", "My card doesn't show up",
-                   "Any removable drive counts as a card, with or without a DCIM folder. The app leaves alone the Mac's own drive, "
+                   "Any removable drive counts as a card, with or without a DCIM folder. A card in a fast reader (CFexpress or XQD) can "
+                   + "look like an ordinary external drive to the Mac, so it counts once it has a camera's folders: a card "
+                   + "the camera has never formatted won't show. The app leaves alone the Mac's own drive, "
                    + "network drives, and any drive holding the destination or backup folder. Open \"Other drives left alone\" under "
                    + "the cards to see each drive it skipped and why.",
-                   keywords: ["missing", "detect", "inserted", "ignored", "usb"], target: .cards),
+                   keywords: ["missing", "detect", "inserted", "ignored", "usb", "cfexpress", "xqd", "compactflash", "reader", "thunderbolt"], target: .cards),
         HelpAnswer("trash", "Where did the photos on my card go?",
                    "With \"Move the card's photos and videos to the card's Trash\" ticked under When done, each original goes to the "
                    + "card's own Trash once every copy is verified. Nothing is erased: they stay there until you format the card in "

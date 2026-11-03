@@ -337,6 +337,13 @@ stars and keywords (in Synology Photos itself would mean they were never in the 
   any removable or ejectable drive, with or without a `DCIM` folder (the photographer's call,
   2026-10-22: the brief's DCIM requirement was too specific). Still never the startup drive,
   a fixed internal drive, a network volume, or a drive holding the destination or backup folder.
+  **External but fixed (found 2026-11-03, SanDisk CFexpress Type B in a PCIe reader):** macOS said
+  removable no, ejectable no, internal no, so the card was ignored. XQD and CFexpress in any PCIe or
+  Thunderbolt reader should read the same, and so does a Thunderbolt SSD, so such a drive now counts only with `DCIM` or
+  a video folder (`VolumeInfo.videoFolders`). A Thunderbolt SSD with `DCIM` at its top therefore shows as a card
+  and can be copied from, unless it holds the destination or backup. `CardClearer` still refuses to trash on any such
+  drive, keeping BRIEF's "never touch" rule, so these cards aren't cleared: whether to change that is the
+  photographer's call: keep it so, 2026-11-03. Confirmed on the Mac 2026-11-03: copied and ejected. Not covered: such a card with only files at its top (Blackmagic's .braw, RED's .RDM).
   A Mac's built-in SD slot reports cards as internal but removable, so internal only rules a
   drive out when it isn't removable (found testing with a real card, 2026-10-22). Disk images
   count because they are ejectable, which is what makes the fake card work.
@@ -1030,7 +1037,7 @@ letters just before `{iseq}` in the folder name are the initials; typing new one
 where they stand alone outside the tokens, in both the folder name and the rename pattern, with a
 live preview of the next folder and a file name. A folder name with nothing before `{iseq}` says
 to edit it in the Job panel. To see it again as a first run: `scripts/reset-app.sh` (asked 2026-11-02;
-tried on a throwaway preferences domain, not yet on the real app). It quits the app politely, keeps a copy
+confirmed on the Mac 2026-11-02). It quits the app politely, keeps a copy
 in `~/Library/Application Support/Card Ingest Resets/<date-time>`, clears the preferences and moves
 `Settings.plist` and `My Keywords.txt` aside. The license key and keyboard shortcuts stay unless
 `--license`; `--restore [folder name]` puts a copy back. Deleting the preferences file in Finder doesn't

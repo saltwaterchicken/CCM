@@ -33,6 +33,11 @@ public enum CardClearer {
         if !CardRules.verdict(for: volume, protectedFolders: protectedFolders).isCard {
             return "This drive isn't a camera card, so nothing was moved to the Trash."
         }
+        // A CFexpress card in a PCIe reader and a Thunderbolt SSD look the same to
+        // macOS, so one that's neither removable nor ejectable is copied from, never cleared.
+        if !volume.isRemovable && !volume.isEjectable {
+            return "In this reader the Mac can't tell this card from a fixed drive, so nothing was moved to the Trash. Format it in the camera once your copies are safe."
+        }
         if !volume.hasDCIM {
             return "This drive has no DCIM folder, so it may not be a camera card. Nothing was moved to the Trash."
         }

@@ -11,11 +11,13 @@ public struct VolumeInfo: Equatable, Sendable {
     public var isLocal: Bool
     public var isRootFileSystem: Bool
     public var hasDCIM: Bool
+    /// Has a folder cameras keep video in (see `videoFolders`).
+    public var hasVideoFolder: Bool
     /// True for a locked card (the switch on an SD card's side).
     public var isReadOnly: Bool
 
     public init(url: URL, name: String, isRemovable: Bool, isEjectable: Bool, isInternal: Bool,
-                isLocal: Bool, isRootFileSystem: Bool, hasDCIM: Bool, isReadOnly: Bool = false) {
+                isLocal: Bool, isRootFileSystem: Bool, hasDCIM: Bool, hasVideoFolder: Bool = false, isReadOnly: Bool = false) {
         self.url = url
         self.name = name
         self.isRemovable = isRemovable
@@ -24,8 +26,17 @@ public struct VolumeInfo: Equatable, Sendable {
         self.isLocal = isLocal
         self.isRootFileSystem = isRootFileSystem
         self.hasDCIM = hasDCIM
+        self.hasVideoFolder = hasVideoFolder
         self.isReadOnly = isReadOnly
     }
+
+    /// Where cameras that shoot video can keep it outside DCIM: Sony, Canon Cinema,
+    /// Panasonic and AVCHD. Specific paths, as "PRIVATE" or "CONTENTS" alone could
+    /// be on any drive.
+    public static let videoFolders = [
+        "PRIVATE/M4ROOT", "PRIVATE/XDROOT", "XDROOT", "PRIVATE/AVCHD", "AVCHD",
+        "CONTENTS/CLIPS001", "CONTENTS/VIDEO",
+    ]
 
     /// Reads the volume's properties from macOS.
     public static func read(_ url: URL) throws -> VolumeInfo {
@@ -34,9 +45,11 @@ public struct VolumeInfo: Equatable, Sendable {
             .volumeIsLocalKey, .volumeIsRootFileSystemKey, .volumeIsReadOnlyKey,
         ]
         let values = try url.resourceValues(forKeys: keys)
-        var isDirectory: ObjCBool = false
-        let dcim = url.appendingPathComponent("DCIM", isDirectory: true)
-        let hasDCIM = FileManager.default.fileExists(atPath: dcim.path, isDirectory: &isDirectory) && isDirectory.boolValue
+        func hasFolder(_ path: String) -> Bool {
+            var isDirectory: ObjCBool = false
+            let folder = url.appendingPathComponent(path, isDirectory: true)
+            return FileManager.default.fileExists(atPath: folder.path, isDirectory: &isDirectory) && isDirectory.boolValue
+        }
         return VolumeInfo(
             url: url,
             name: values.volumeName ?? url.lastPathComponent,
@@ -46,7 +59,8 @@ public struct VolumeInfo: Equatable, Sendable {
             isInternal: values.volumeIsInternal ?? true,
             isLocal: values.volumeIsLocal ?? false,
             isRootFileSystem: values.volumeIsRootFileSystem ?? true,
-            hasDCIM: hasDCIM,
+            hasDCIM: hasFolder("DCIM"),
+            hasVideoFolder: videoFolders.contains(where: hasFolder),
             isReadOnly: values.volumeIsReadOnly ?? false
         )
     }
@@ -63,6 +77,9 @@ public enum CardVerdict: Equatable, Sendable {
 /// The one place that decides whether a volume is a camera card. Any removable
 /// or ejectable drive counts, with or without a DCIM folder, except the Mac's
 /// own drives, network volumes, and drives holding the destination or backup.
+/// So does an external drive that's neither, if it has a camera's folders:
+/// CFexpress and XQD cards in a PCIe or Thunderbolt reader report as fixed and
+/// not ejectable, exactly as a Thunderbolt SSD does.
 /// Everything else in the app goes through this, so the rule lives in one spot.
 public enum CardRules {
     /// - Parameter protectedFolders: the destination and backup folders. A volume
@@ -73,7 +90,9 @@ public enum CardRules {
         // A Mac's built-in SD slot reports its cards as internal, so "internal"
         // only rules a drive out when the media isn't removable.
         if volume.isInternal && !volume.isRemovable { return .ignored("This is an internal drive.") }
-        if !volume.isRemovable && !volume.isEjectable { return .ignored("This drive isn't removable media.") }
+        if !volume.isRemovable && !volume.isEjectable && !volume.hasDCIM && !volume.hasVideoFolder {
+            return .ignored("This external drive has no camera folders (DCIM or a camera's video folder).")
+        }
         let volumePath = volume.url.standardizedFileURL.path
         for folder in protectedFolders {
             let path = folder.standardizedFileURL.path
