@@ -1076,16 +1076,28 @@ the ReadMe should say it all too, starting with how each card behaves, which dep
 | Blackmagic, RED or anything without camera folders, in such a reader | Press Use as Card each time | Yes | Never | Yes, if ticked |
 
 Also: the orange "Copy only" line and what it means; RED files keep the camera's names.
+MXF clips: thumbnails and scrubbing, no sound, half-second steps on Long GOP, frame by frame on Intra; log looks flat. MOV and MP4 unchanged.
 
-## MXF clips: no thumbnail or scrubbing (asked 2026-11-03, diagnosed, nothing built)
+## MXF clips: pictures without AVFoundation (asked 2026-11-03, built 2026-11-03, confirmed on the Mac 2026-11-03: test step 27)
 
-Canon C50 clips from the CFexpress card (`CONTENTS/CLIPS001`, 3840x2160 MXF, H.264 High 4:2:2 Intra, level 5.1) don't
-preview: `AVURLAsset` says "This media format is not supported" (-11828), with or without
-`MTRegisterProfessionalVideoWorkflowFormatReaders`; `/Library/Video/Professional Video Workflow Plug-Ins` is empty here.
-So the wrapper is the blocker, not the picture: one frame's KLV (key `...0d01030115...`, SPS/PPS in every frame, all intra),
-pulled out by hand and given to `VTDecompressionSession`, decoded correctly (looks flat and dim: log footage, no LUT).
-That one frame repeated gave 83 fps with async decoding on an M4 Max, 21 fps one at a time. Likely path, no new dependencies: read
-MXF ourselves for thumbnails and scrubbing; playback with sound (PCM tracks, `...0d01030116...`) is the bigger step.
+`AVURLAsset` won't open MXF ("This media format is not supported", -11828), with or without
+`MTRegisterProfessionalVideoWorkflowFormatReaders`, so these had no thumbnail or scrubbing. The Mac can decode what's inside.
+The photographer's call: no sound needed, only confirming clips by eye, and it should stay simple; `.mov` and `.mp4` must not change.
+
+- **`MXFClip` (Core):** walks the file's KLV items (about 90 ms on average to open, 208 ms at most, including the decoder),
+  finds the picture frames (key `...0d010301 15 01 05 00`) and frame rate (descriptor tag 3001), and gives frames to
+  `VTDecompressionSession`. `MXFClip.handles` is `.mxf` only; every other clip takes the old path, unchanged.
+- **Only complete frames are shown.** Of the 36 clips on the first card (Canon, 3840x2160, 23.976, H.264 4:2:2 level 5.1), 32 are
+  Long GOP (`I B B P`, complete every 12 frames, 0.5 s) and only 4 are Intra. Don't assume Intra from one frame: that was the first wrong
+  conclusion here. Asking for a frame between shows the complete one before it, so Long GOP scrubs, steps and plays in half-second
+  jumps, and the bar says so. Later complete frames have SPS/PPS with plain I slices (NAL 1), not IDR (5). Decoding the
+  frames between would need decode-order handling; not built, not asked for.
+- **App:** `ClipControls` protocol; `ClipPlayback` (AVPlayer) untouched apart from conforming, `MXFPlayback` beside it; `ClipFrames` has an
+  MXF branch for hover scrubbing. A bar note says "No sound...". MXF that isn't H.264 (MPEG-2, or one long run of video) gets no picture and a
+  message in the large view; it still copies. Log footage shows flat and dim, on purpose.
+- **Tested:** 10 tests with real H.264 made by VideoToolbox, wrapped as MXF. All 36 real clips open and give frames across their
+  length; three frames looked at by eye, correct. About 22 to 33 frames per second from anywhere in a clip on an M4 Max, so
+  Intra at 23.976 keeps up there; slower Macs untested. Only Canon files tried.
 
 ## GUI wishlist
 
@@ -1304,6 +1316,10 @@ Suggestions so far, not yet decided. Edit freely.
     Use as Card above "Other drives left alone"; press it and it becomes a card with Copy only and a Not a Card button;
     Not a Card puts it back; take it out and put it back in and it asks again. **RED:** `.R3D` files keep their names; a
     long clip opens whole in Premiere or REDCINE from the copied folder. Help: search "cfexpress", "blackmagic", "red card".
+
+27. MXF previews (2026-11-03; the folder `2026-11-03-ES021`, Load Folder…). Tiles show pictures and lengths; hover to
+    scrub. Large view: drag the bar, `,` and `.`, Space, on a 10-27 clip (Long GOP, half-second steps, bar note says so) and a 10-28 clip
+    (Intra, frame by frame). No sound. An `.mp4` or `.mov`: as before, with sound and no note.
 
 ## License keys (asked 2026-10-27, built 2026-10-27, confirmed on the Mac 2026-10-27: a key from the tool unlocked it)
 

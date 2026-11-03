@@ -1394,7 +1394,7 @@ struct LargeView: View {
     /// waiting for the 100% image to centre on it.
     @State private var zoomTarget: CGPoint?
     /// The clip showing, if the shot is one.
-    @State private var clip: ClipPlayback?
+    @State private var clip: (any ClipControls)?
     @State private var clipFor: String?
 
     private var shot: Shot? { model.grid.focus.flatMap { model.grid.shot($0) } }
@@ -1409,10 +1409,26 @@ struct LargeView: View {
                     if let fitted {
                         Image(decorative: fitted.image, scale: 1).resizable().scaledToFit().padding(.vertical, 44)
                     }
-                    ClipLayer(player: clip.player)
-                        .padding(.vertical, 44)
-                        .contentShape(Rectangle())
-                        .onTapGesture { clip.togglePlay() }
+                    if let playback = clip as? ClipPlayback {
+                        ClipLayer(player: playback.player)
+                            .padding(.vertical, 44)
+                            .contentShape(Rectangle())
+                            .onTapGesture { clip.togglePlay() }
+                    } else if let mxf = clip as? MXFPlayback {
+                        if let picture = mxf.picture {
+                            Image(decorative: picture, scale: 1)
+                                .resizable()
+                                .scaledToFit()
+                                .padding(.vertical, 44)
+                                .contentShape(Rectangle())
+                                .onTapGesture { clip.togglePlay() }
+                        }
+                        if mxf.unavailable {
+                            Text("This kind of MXF can't be previewed here yet. The copy is fine, and it opens in Premiere.")
+                                .padding()
+                                .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 6))
+                        }
+                    }
                 } else if model.actualSize, let actual, actualFor == shot?.id {
                     actualPixels(actual, in: geometry.size)
                 } else if let fitted {
@@ -1500,7 +1516,7 @@ struct LargeView: View {
             clip = nil
             clipFor = nil
             guard let shot, shot.kind == .video, let url = shot.primary.destinations.first else { return }
-            let playback = ClipPlayback(url: url)
+            let playback = makeClipControls(url: url)
             clip = playback
             clipFor = shot.id
             if model.playWhenShown { playback.togglePlay() }

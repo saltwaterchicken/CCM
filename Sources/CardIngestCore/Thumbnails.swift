@@ -46,6 +46,7 @@ public enum ThumbnailMaker {
 
     /// A frame from early in the clip, and the clip's length.
     public static func video(_ url: URL, maxPixels: Int) async -> Thumbnail? {
+        if MXFClip.handles(url) { return mxf(url, maxPixels: maxPixels) }
         let asset = AVURLAsset(url: url)
         guard let duration = try? await asset.load(.duration).seconds, duration.isFinite else { return nil }
         let generator = AVAssetImageGenerator(asset: asset)
@@ -55,6 +56,13 @@ public enum ThumbnailMaker {
         let time = CMTime(seconds: min(1, duration / 2), preferredTimescale: 600)
         guard let image = try? await generator.image(at: time).image else { return nil }
         return Thumbnail(image: image, duration: duration)
+    }
+
+    /// AVFoundation can't open MXF, so the same frame comes through `MXFClip`.
+    private static func mxf(_ url: URL, maxPixels: Int) -> Thumbnail? {
+        guard let clip = try? MXFClip(url: url, maxPixels: maxPixels),
+              let image = clip.image(frame: clip.index(at: min(1, clip.duration / 2))) else { return nil }
+        return Thumbnail(image: image, duration: clip.duration)
     }
 
     /// The shot's tile: from its RAW, JPEG or clip. If that one can't be read

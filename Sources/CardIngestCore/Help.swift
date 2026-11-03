@@ -188,6 +188,15 @@ public enum Help {
                    + "to their Trash. RED files keep the camera's names, because a long clip's pieces rely on them.",
                    keywords: ["blackmagic", "bmpcc", "braw", "red", "r3d", "komodo", "cinema", "choose", "manual", "select"],
                    target: .cards),
+        HelpAnswer("mxf", "Why is there no sound in my MXF clip?",
+                   "Macs can't open MXF clips the usual way, so the app reads their pictures itself: you see thumbnails, scrub in the "
+                   + "grid and the large view, and play them, with no sound. It's there to check clips by eye; the sound is safe in "
+                   + "the copy and plays in Premiere. Intra clips move frame by frame. Long GOP clips, which only hold a complete "
+                   + "picture now and then, move in steps (half a second on Canon), and the bar says so. Log footage looks flat and dim, as "
+                   + "it does before grading. MOV and MP4 clips play with sound as usual. An MXF that isn't H.264 (MPEG-2, for one) "
+                   + "shows no picture here yet, but copies just the same.",
+                   keywords: ["mxf", "audio", "silent", "mute", "preview", "scrub", "thumbnail", "log", "flat", "dim", "xf-avc", "canon", "gop", "choppy", "jumpy", "steps"],
+                   target: nil),
         HelpAnswer("trash", "Where did the photos on my card go?",
                    "With \"Move the card's photos and videos to the card's Trash\" ticked under When done, each original goes to the "
                    + "card's own Trash once every copy is verified. Nothing is erased: they stay there until you format the card in "

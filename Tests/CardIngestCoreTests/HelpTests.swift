@@ -22,6 +22,8 @@ final class HelpTests: XCTestCase {
         XCTAssertTrue(Help.search("copy only").map(\.id).contains("card-readers"))
         XCTAssertEqual(top("trash"), "trash", "The new answers don't push out the main one")
         XCTAssertEqual(top("blackmagic"), "use-as-card")
+        XCTAssertEqual(top("mxf"), "mxf")
+        XCTAssertEqual(top("no sound in clip"), "mxf")
         XCTAssertEqual(top("red card"), "use-as-card")
         XCTAssertEqual(top("use as card"), "use-as-card")
     }
