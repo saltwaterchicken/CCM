@@ -344,7 +344,7 @@ stars and keywords (in Synology Photos itself would mean they were never in the 
   and can be copied from, unless it holds the destination or backup. `CardClearer` still refuses to trash on any such
   drive, keeping BRIEF's "never touch" rule, so these cards aren't cleared (the
   photographer's call, 2026-11-03). Confirmed on the Mac 2026-11-03: copied and ejected.
-  **Built 2026-11-03 (test step 26). Copy only line, eject and phone alert confirmed on the Mac 2026-11-03; Use as Card not yet tried:**
+  **Built 2026-11-03 (test step 26). Copy only line, eject and phone alert confirmed on the Mac 2026-11-03; Use as Card confirmed on the Mac with a RED card, 2026-11-03:**
   - **Copy only:** the photographer asked to see this before copying. With Trash on, a card that won't go to its Trash
     says so in orange in its box (`CardClearer.notice`), with the same cases as `refusal`: fixed, no DCIM, locked.
   - **Use as Card:** an external fixed drive with no camera folders (Blackmagic, RED, or just a drive) gets a row with this
@@ -357,6 +357,10 @@ stars and keywords (in Synology Photos itself would mean they were never in the 
     card folder like everything else, without the `.RDM`/`.RDC` folders. **Untested on real RED or Blackmagic cards:** no
     thumbnails expected for `.r3d`, and whether Premiere and REDCINE join the pieces once flat is unchecked. Low priority
     (photographer, 2026-11-03: RED will be very rare among users, and the unchanged names will be plain to see).
+    **Tried 2026-11-03 on a real RED card:** no thumbnail or scrubbing, reported by the photographer. AVFoundation says "Cannot Open", Spotlight reads no
+    length or size, and a Quick Look thumbnail hung for over 60 s here. Not a fault like MXF: the wrapper isn't what's missing, and the Mac has no decoder for
+    REDCODE. The likely route is RED's own SDK, a dependency to ask about first; nothing decided. All 75 files on that card are pieces of one clip (`A008_A001_11028K_001` onward,
+    about 4 GB each), and each got its own `.xmp`. Whether Premiere joins the pieces once flat is still unchecked.
   A Mac's built-in SD slot reports cards as internal but removable, so internal only rules a
   drive out when it isn't removable (found testing with a real card, 2026-10-22). Disk images
   count because they are ejectable, which is what makes the fake card work.
@@ -1099,6 +1103,19 @@ The photographer's call: no sound needed, only confirming clips by eye, and it s
   length; three frames looked at by eye, correct. About 22 to 33 frames per second from anywhere in a clip on an M4 Max, so
   Intra at 23.976 keeps up there; slower Macs untested. Only Canon files tried.
 
+## Out of memory while copying (reported 2026-11-03, fix built 2026-11-03; confirmed on the Mac 2026-11-03 with a RED card: test step 28)
+
+"Your system has run out of application memory", then a crash, on the last video cards. Not a video problem and not MXF: any
+big card did it, video is just what's big enough. macOS's `JetsamEvent-2026-11-03-154350.ips` in `/Library/Logs/DiagnosticReports`
+shows CardIngest at 170.5 GB on this 128 GB Mac; `CardIngest_2026-11-03-204046_*.diag` shows 52 MB to 65 GB in 28 s, in the copy's write.
+
+- **Cause:** `FileHandle.read(upToCount:)` leaves each chunk in the thread's autorelease pool, which only empties when the
+  dispatch block ends, and a Copy is one block for the whole card. So everything read stayed in memory: the card, plus the read-back of each copy.
+- **Fix:** each chunk is read inside `autoreleasepool` in all four loops: `CardCopier.copy`, `hashFile`, `ServerBackup.send`,
+  `ClipMetadata.mediaDigest`. Any new loop like these needs the same.
+- **Tested:** `MemoryUseTests` puts 1 GB through each of the copy, the server send and the clip digest. Before: at least 1 GB more
+  memory each. After: under 300 MB, the limit set in the tests. On the Mac: the RED card (75 files, 309 GB, folder `2026-11-03-ES022`) then finished with a receipt; the photographer reports it worked.
+
 ## GUI wishlist
 
 Suggestions so far, not yet decided. Edit freely.
@@ -1320,6 +1337,8 @@ Suggestions so far, not yet decided. Edit freely.
 27. MXF previews (2026-11-03; the folder `2026-11-03-ES021`, Load Folder…). Tiles show pictures and lengths; hover to
     scrub. Large view: drag the bar, `,` and `.`, Space, on a 10-27 clip (Long GOP, half-second steps, bar note says so) and a 10-28 clip
     (Intra, frame by frame). No sound. An `.mp4` or `.mov`: as before, with sound and no note.
+28. Memory while copying (2026-11-03). Copy a big video card with Activity Monitor's Memory tab open. Card Ingest should stay
+    in the low GB at most for the whole copy, not climb, and no out-of-memory warning should appear.
 
 ## License keys (asked 2026-10-27, built 2026-10-27, confirmed on the Mac 2026-10-27: a key from the tool unlocked it)
 

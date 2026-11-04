@@ -53,10 +53,14 @@ public enum ServerBackup {
             var hasher = XXHash64()
             while true {
                 if isCancelled() { throw CopyError.cancelled }
-                let chunk = try reader.read(upToCount: CardCopier.chunkSize) ?? Data()
-                if chunk.isEmpty { break }
-                hasher.update(chunk)
-                try writer.write(contentsOf: chunk)
+                let more = try autoreleasepool { () throws -> Bool in
+                    let chunk = try reader.read(upToCount: CardCopier.chunkSize) ?? Data()
+                    if chunk.isEmpty { return false }
+                    hasher.update(chunk)
+                    try writer.write(contentsOf: chunk)
+                    return true
+                }
+                if !more { break }
             }
             try writer.synchronize()
             try writer.close()

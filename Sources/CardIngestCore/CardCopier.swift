@@ -64,6 +64,8 @@ public enum CopyError: Error, LocalizedError, Equatable {
 /// against the original with xxHash64, and writes a receipt. It only reads
 /// from the card; it never changes, moves or deletes anything on it.
 public enum CardCopier {
+    /// A loop reading a file in chunks must read each inside `autoreleasepool`: FileHandle's
+    /// data otherwise stays in memory until the whole job ends, a card's worth for a copy.
     static let chunkSize = 8 * 1024 * 1024
 
     /// - Parameters:
@@ -135,19 +137,24 @@ public enum CardCopier {
                 var hasher = XXHash64()
                 while true {
                     if isCancelled() { throw CopyError.cancelled }
-                    let chunk: Data
-                    do { chunk = try reader.read(upToCount: chunkSize) ?? Data() } catch {
-                        throw CopyError.readFailed(file: file.relativePath, reason: error.localizedDescription)
-                    }
-                    if chunk.isEmpty { break }
-                    hasher.update(chunk)
-                    for w in writers {
-                        do { try w.write(contentsOf: chunk) } catch {
-                            throw CopyError.writeFailed(file: file.relativePath, reason: error.localizedDescription)
+                    // See `chunkSize`: each chunk is let go of before the next.
+                    let more = try autoreleasepool { () throws -> Bool in
+                        let chunk: Data
+                        do { chunk = try reader.read(upToCount: chunkSize) ?? Data() } catch {
+                            throw CopyError.readFailed(file: file.relativePath, reason: error.localizedDescription)
                         }
+                        if chunk.isEmpty { return false }
+                        hasher.update(chunk)
+                        for w in writers {
+                            do { try w.write(contentsOf: chunk) } catch {
+                                throw CopyError.writeFailed(file: file.relativePath, reason: error.localizedDescription)
+                            }
+                        }
+                        workDone += Int64(chunk.count) * Int64(1 + writers.count)
+                        progress(workDone, workTotal)
+                        return true
                     }
-                    workDone += Int64(chunk.count) * Int64(1 + writers.count)
-                    progress(workDone, workTotal)
+                    if !more { break }
                 }
                 for w in writers {
                     do {
@@ -220,13 +227,17 @@ public enum CardCopier {
         #endif
         var hasher = XXHash64()
         while true {
-            let chunk: Data
-            do { chunk = try handle.read(upToCount: chunkSize) ?? Data() } catch {
-                throw CopyError.readFailed(file: name, reason: error.localizedDescription)
+            let more = try autoreleasepool { () throws -> Bool in
+                let chunk: Data
+                do { chunk = try handle.read(upToCount: chunkSize) ?? Data() } catch {
+                    throw CopyError.readFailed(file: name, reason: error.localizedDescription)
+                }
+                if chunk.isEmpty { return false }
+                hasher.update(chunk)
+                progress(Int64(chunk.count))
+                return true
             }
-            if chunk.isEmpty { break }
-            hasher.update(chunk)
-            progress(Int64(chunk.count))
+            if !more { break }
         }
         return hasher.digest()
     }

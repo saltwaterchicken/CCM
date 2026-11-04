@@ -100,10 +100,14 @@ public enum ClipMetadata {
             try reader.seek(toOffset: box.offset + box.header)
             var left = box.size - box.header
             while left > 0 {
-                let chunk = try reader.read(upToCount: Int(min(left, UInt64(CardCopier.chunkSize)))) ?? Data()
-                if chunk.isEmpty { break }
-                hasher.update(chunk)
-                left -= UInt64(chunk.count)
+                let more = try autoreleasepool { () throws -> Bool in
+                    let chunk = try reader.read(upToCount: Int(min(left, UInt64(CardCopier.chunkSize)))) ?? Data()
+                    if chunk.isEmpty { return false }
+                    hasher.update(chunk)
+                    left -= UInt64(chunk.count)
+                    return true
+                }
+                if !more { break }
             }
         }
         return hasher.digest()
