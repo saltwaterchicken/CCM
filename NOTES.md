@@ -1085,6 +1085,40 @@ Also: the orange "Copy only" line and what it means; RED files keep the camera's
 MXF clips: thumbnails and scrubbing, no sound, half-second steps on Long GOP, frame by frame on Intra; log looks flat. MOV and MP4 unchanged.
 RED clips: no thumbnail or scrubbing, preview in Premiere or REDCINE-X; a long take's pieces each show as a tile, matching the card.
 
+### What can be changed in `Settings.plist` (photographer, 2026-11-04: keep this in Help and the ReadMe)
+
+`~/Library/Application Support/Card Ingest/Settings.plist`; Show in Finder in the Settings File panel finds it. Keep a copy first, as a typo can stop
+it loading. Press Reload right after saving, or the next change in the app overwrites the edit. A key left out goes back to its default.
+Keep this, and Help's "What can I change by editing the settings file?" (`settings-file-list`), current with every new setting.
+A test fails if a setting is missing from Help's list. Help's answer confirmed on the Mac 2026-11-04.
+
+**Only changed by editing the file**
+
+| Key | What it does | Default |
+|---|---|---|
+| `autoStartOnInsert` | A camera card with new files starts Copy when it goes in | false |
+| `keepClipsOnCardUntilOnServer` | Clips stay out of the card's Trash until Save to Clips has put them on the Server | false |
+| `openWith` | The app the Open button sends photos to | Adobe Lightroom Classic |
+| `renamePattern` | The pattern for new file names (the tutorial's initials step can change the initials in it) | `{year4}-{month0}-{day0}-ES_{frame4}` |
+| `confirmTrashForFirstCards` | How many more cards ask before originals go to the Trash | 3 |
+| `rating.available` | false removes auto-rating from the app completely | true |
+| `supportWhatsApp` | Replaces the built-in Live Tech Support number | empty |
+| `notifications.server` | The ntfy server for phone alerts | `https://ntfy.sh` |
+| `notifications.topic` | The private topic for phone alerts; they stay off until it's set | empty |
+| `fileTypes` (`raw`, `photo`, `video`, `sidecar`) | Which file extensions count as camera files, and of what kind | built-in lists |
+
+**Also changed in the app**
+
+| Key | Where else |
+|---|---|
+| `folderName`, `nextImportNumber`, `metadata.keywords` | Job panel |
+| `destinationRoot`, `backupRoot` | Choose… buttons |
+| `trashAfterVerify`, `ejectWhenDone`, `rating.autoRating` | Job panel checkboxes |
+| `rating` limits: `minimumSharpnessFaces`, `minimumSharpnessNoFaces`, `maximumBlown`, `maximumCrushed`, `minimumBrightness`, `maximumBrightness` | Calibrate |
+
+**In the file, but doing nothing:** `checksum` (always xxHash64), `rating.eyeOpennessThreshold`, and `metadata`'s `creator`, `copyright`, `email`, `phone`,
+`website`, `caption`, `city`, `state`, `country`. Leave `schemaVersion` alone.
+
 ## MXF clips: pictures without AVFoundation (asked 2026-11-03, built 2026-11-03, confirmed on the Mac 2026-11-03: test step 27)
 
 `AVURLAsset` won't open MXF ("This media format is not supported", -11828), with or without
@@ -1118,6 +1152,16 @@ shows CardIngest at 170.5 GB on this 128 GB Mac; `CardIngest_2026-11-03-204046_*
   `ClipMetadata.mediaDigest`. Any new loop like these needs the same.
 - **Tested:** `MemoryUseTests` puts 1 GB through each of the copy, the server send and the clip digest. Before: at least 1 GB more
   memory each. After: under 300 MB, the limit set in the tests. On the Mac: the RED card (75 files, 309 GB, folder `2026-11-03-ES022`) then finished with a receipt; the photographer reports it worked.
+
+## Auto-start (asked 2026-11-04, built 2026-11-04, confirmed on the Mac 2026-11-04: test step 30)
+
+`autoStartOnInsert` was in the file doing nothing. Only changed by editing the file; default false. True starts Copy when a card goes in
+while the app is open (`didMount`; `CardRules.autoStarts`, decided once per insert after the scan and history check). Needs camera folders
+and new files. So not a plain USB stick, not Use as Card, not a card already in when the app opens, and not a card with nothing new, since
+Copy with nothing new clears the card. Trash and eject follow their boxes, so after the first 3 confirmations a card can go through with no click.
+
+**Decided 2026-11-04 (photographer):** no settings for the other metadata fields. Built, then taken out before committing. The blank
+`creator`, `copyright` and similar keys stay in the file doing nothing, as before.
 
 ## GUI wishlist
 
@@ -1344,6 +1388,8 @@ Suggestions so far, not yet decided. Edit freely.
     in the low GB at most for the whole copy, not climb, and no out-of-memory warning should appear.
 29. RED clips (2026-11-03; Load Folder… on `2026-11-03-ES022`). Tiles say "RED clip: preview in Premiere or REDCINE-X", with no play icon, and hovering does nothing. Double-click:
     the same message with no bar, no endless spinner; ← → and 0 to 5 still work. An `.mxf`, `.mp4` or `.mov`: as before.
+30. Auto-start (2026-11-04). With `autoStartOnInsert` true and Reload pressed, a new card starts by itself; a card already imported, or a USB
+    stick with no DCIM, doesn't.
 
 ## License keys (asked 2026-10-27, built 2026-10-27, confirmed on the Mac 2026-10-27: a key from the tool unlocked it)
 

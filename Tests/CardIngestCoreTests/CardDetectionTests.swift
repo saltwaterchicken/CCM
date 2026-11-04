@@ -2,6 +2,21 @@ import XCTest
 @testable import CardIngestCore
 
 final class CardRulesTests: XCTestCase {
+    func testOnlyACameraCardWithNewFilesStartsByItself() {
+        func volume(dcim: Bool = false, video: Bool = false) -> VolumeInfo {
+            VolumeInfo(url: URL(fileURLWithPath: "/Volumes/CARD"), name: "CARD", isRemovable: true, isEjectable: true,
+                       isInternal: false, isLocal: true, isRootFileSystem: false, hasDCIM: dcim, hasVideoFolder: video)
+        }
+        let new = CardCheck(newFiles: [CardFile(relativePath: "DCIM/A.CR3", size: 1)], alreadyImported: [])
+        let none = CardCheck(newFiles: [], alreadyImported: [])
+        XCTAssertTrue(CardRules.autoStarts(volume(dcim: true), chosen: false, check: new, isOn: true))
+        XCTAssertTrue(CardRules.autoStarts(volume(video: true), chosen: false, check: new, isOn: true))
+        XCTAssertFalse(CardRules.autoStarts(volume(dcim: true), chosen: false, check: new, isOn: false), "Off")
+        XCTAssertFalse(CardRules.autoStarts(volume(), chosen: false, check: new, isOn: true), "A USB stick")
+        XCTAssertFalse(CardRules.autoStarts(volume(dcim: true), chosen: true, check: new, isOn: true), "Use as Card")
+        XCTAssertFalse(CardRules.autoStarts(volume(dcim: true), chosen: false, check: none, isOn: true), "Nothing new")
+    }
+
     private func volume(
         path: String = "/Volumes/EOS_DIGITAL", removable: Bool = true, ejectable: Bool = true,
         isInternal: Bool = false, local: Bool = true, root: Bool = false, dcim: Bool = true, video: Bool = false

@@ -107,6 +107,14 @@ public enum CardRules {
         return .card
     }
 
+    /// Whether a card that just went in starts copying by itself. Only with camera
+    /// folders, as any USB stick counts as a card; not one chosen with Use as Card, which
+    /// could be any drive; and only with new files, since Copy with nothing new still
+    /// clears a card, which shouldn't happen just from putting it back in.
+    public static func autoStarts(_ volume: VolumeInfo, chosen: Bool, check: CardCheck, isOn: Bool) -> Bool {
+        isOn && !chosen && (volume.hasDCIM || volume.hasVideoFolder) && !check.newFiles.isEmpty
+    }
+
     /// True for a drive left alone only because it has no camera folders, which
     /// is all Use as Card can answer.
     public static func canBeChosen(_ volume: VolumeInfo, protectedFolders: [URL]) -> Bool {

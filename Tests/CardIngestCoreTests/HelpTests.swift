@@ -27,7 +27,23 @@ final class HelpTests: XCTestCase {
         XCTAssertEqual(top("red card"), "use-as-card")
         XCTAssertEqual(top("use as card"), "use-as-card")
         XCTAssertEqual(top("r3d preview"), "red-preview")
+        XCTAssertEqual(top("copy automatically when card goes in"), "auto-start")
         XCTAssertEqual(top("red clips thumbnail"), "red-preview")
+    }
+
+    func testTheSettingsFileListHasEverySetting() throws {
+        func keys(_ value: Any) -> [String] {
+            guard let dictionary = value as? [String: Any] else { return [] }
+            return dictionary.flatMap { [$0.key] + keys($0.value) }
+        }
+        let data = try PropertyListEncoder().encode(IngestSettings())
+        let found = keys(try PropertyListSerialization.propertyList(from: data, format: nil))
+        XCTAssertGreaterThan(found.count, 30)
+        let list = try XCTUnwrap(Help.answers.first { $0.id == "settings-file-list" }).answer
+        let words = Set(list.split { !$0.isLetter && !$0.isNumber }.map(String.init))
+        for key in found { XCTAssertTrue(words.contains(key), "Add \(key) to the list here and in NOTES.md's ReadMe section") }
+        XCTAssertEqual(top("settings file list"), "settings-file-list")
+        XCTAssertEqual(top("what can I edit in the plist"), "settings-file-list")
     }
 
     func testNothingTypedListsEverythingAndNonsenseFindsNothing() {

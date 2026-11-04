@@ -197,6 +197,43 @@ public enum Help {
                    + "shows no picture here yet, but copies just the same.",
                    keywords: ["mxf", "audio", "silent", "mute", "preview", "scrub", "thumbnail", "log", "flat", "dim", "xf-avc", "canon", "gop", "choppy", "jumpy", "steps"],
                    target: nil),
+        HelpAnswer("settings-file-list", "What can I change by editing the settings file?",
+                   """
+                   In the Settings File panel, Show in Finder finds the file; open it in a text editor. Keep a copy first, as a typo can stop it \
+                   loading. Press Reload right after saving, or your next change in the app will overwrite the edit. Any key you leave out goes back to its default.
+
+                   ONLY IN THE FILE
+                   • autoStartOnInsert: a camera card with new files starts Copy when it goes in (default false)
+                   • keepClipsOnCardUntilOnServer: clips stay out of the card's Trash until Save to Clips has put them on the Server (default false)
+                   • openWith: the app the Open button sends photos to (default Adobe Lightroom Classic)
+                   • renamePattern: the pattern for new file names (default {year4}-{month0}-{day0}-ES_{frame4}); the tutorial's initials step can change the initials in it
+                   • confirmTrashForFirstCards: how many more cards ask before originals go to the Trash (default 3)
+                   • rating › available: false removes auto-rating from the app completely (default true)
+                   • supportWhatsApp: replaces the built-in Live Tech Support number (default empty)
+                   • notifications › server: the ntfy server for phone alerts (default https://ntfy.sh)
+                   • notifications › topic: the private topic for phone alerts; they stay off until it's set (default empty)
+                   • fileTypes › raw, photo, video, sidecar: which file extensions count as camera files, and of what kind (default: built-in lists)
+
+                   ALSO CHANGED IN THE APP
+                   • folderName, nextImportNumber, metadata › keywords: the Job panel
+                   • destinationRoot, backupRoot: the Choose… buttons
+                   • trashAfterVerify, ejectWhenDone, rating › autoRating: the Job panel's checkboxes
+                   • rating › minimumSharpnessFaces, minimumSharpnessNoFaces, maximumBlown, maximumCrushed, minimumBrightness, maximumBrightness: Calibrate
+
+                   IN THE FILE, BUT DOING NOTHING
+                   • checksum (always xxHash64) and rating › eyeOpennessThreshold
+                   • metadata › creator, copyright, email, phone, website, caption, city, state, country
+                   • schemaVersion: leave this one alone
+                   """,
+                   keywords: ["settings", "plist", "edit", "editing", "change", "modify", "manually", "hand", "keys", "options", "list"],
+                   target: .settingsFile),
+        HelpAnswer("auto-start", "Can a card start copying as soon as it goes in?",
+                   "Yes. In the settings file, set autoStartOnInsert to true, then press Reload. A card with camera folders and new files then "
+                   + "starts Copy by itself when it goes in while the app is open, and Trash and eject follow as they're ticked under When done. "
+                   + "The first 3 cards still ask before anything goes to the Trash. A card already imported, one that was in before the app "
+                   + "opened, and one you press Use as Card for all wait for you.",
+                   keywords: ["automatic", "automatically", "auto", "autostart", "insert", "start", "by itself", "without clicking"],
+                   target: nil),
         HelpAnswer("red-preview", "Why don't my RED clips show a picture?",
                    "Macs can't read RED's R3D files, so these clips have no thumbnail or scrubbing here. Their tiles say so, and you "
                    + "preview them in Premiere or REDCINE-X. The copy is checked like any other. RED splits a long take into many files of "

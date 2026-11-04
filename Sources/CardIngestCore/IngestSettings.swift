@@ -18,6 +18,8 @@ public struct IngestSettings: Codable, Equatable, Sendable {
     /// Pattern for each file's new name, without its extension.
     public var renamePattern: String
     public var checksum: String
+    /// Starts Copy by itself when a camera card with new files goes in (see
+    /// `CardRules.autoStarts`). Only changed by editing the settings file.
     public var autoStartOnInsert: Bool
     /// Move the card's originals to the card's own Trash once every copy is
     /// verified. Never erases or formats anything.

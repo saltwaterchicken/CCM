@@ -85,6 +85,9 @@ final class CardWatcher {
     var couldBeCards: [DetectedVolume] { volumes.filter(\.canBeChosen) }
     /// Drives chosen with Use as Card. Gone when the drive is, so it's asked again next time.
     private var chosenAsCards: Set<URL> = []
+    /// Paths of cards put in while the app is open, until it's decided whether they start
+    /// by themselves. Each is decided once, so a failed or stopped copy doesn't start again.
+    private var justInserted: Set<String> = []
 
     private(set) var copyStates: [URL: CopyState] = [:]
     private var stopFlags: [URL: StopFlag] = [:]
@@ -120,8 +123,13 @@ final class CardWatcher {
         grid.backups = backups
         let center = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification, NSWorkspace.didRenameVolumeNotification] {
-            observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.refresh() }
+            observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
+                let inserted = note.name == NSWorkspace.didMountNotification
+                    ? note.userInfo?[NSWorkspace.volumeURLUserInfoKey] as? URL : nil
+                MainActor.assumeIsolated {
+                    if let inserted { self?.justInserted.insert(inserted.standardizedFileURL.path) }
+                    self?.refresh()
+                }
             })
         }
         refresh()
@@ -160,6 +168,7 @@ final class CardWatcher {
         // A card put back in (or another card at the same path) starts fresh, not with the last result.
         let mounted = Set(volumes.map(\.id))
         copyStates = copyStates.filter { mounted.contains($0.key) || $0.value.isBusy }
+        justInserted.formIntersection(cards.map(\.id.standardizedFileURL.path))
 
         for card in cards where card.files == nil && card.scanError == nil {
             scan(card.info.url)
@@ -210,8 +219,17 @@ final class CardWatcher {
                 guard let self, let index = self.volumes.firstIndex(where: { $0.id == url }),
                       self.volumes[index].files == files else { return }
                 self.volumes[index].check = check
+                self.startIfJustInserted(url)
             }
         }
+    }
+
+    private func startIfJustInserted(_ url: URL) {
+        guard justInserted.remove(url.standardizedFileURL.path) != nil,
+              let card = cards.first(where: { $0.id == url }), let check = card.check,
+              CardRules.autoStarts(card.info, chosen: card.chosen, check: check, isOn: settings.autoStartOnInsert)
+        else { return }
+        startCopy(card)
     }
 
     /// Copies the card into its own folder in the destination, renaming each
