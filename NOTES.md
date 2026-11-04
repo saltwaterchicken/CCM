@@ -361,7 +361,7 @@ stars and keywords (in Synology Photos itself would mean they were never in the 
     length or size, and a Quick Look thumbnail hung for over 60 s here. Not a fault like MXF: the wrapper isn't what's missing, and the Mac has no decoder for
     REDCODE. **Decided 2026-11-03 (photographer):** no SDK; the tile and large view say "RED clip: preview in Premiere or REDCINE-X"
     (`ThumbnailMaker.noPreviewNote`), with no play icon, hover or player, and Help says so. **A take's pieces are not grouped:** other cameras split clips too, so they
-    stay as they land, matching the card. Tiles confirmed on the Mac 2026-11-03; the large view not reported yet. `.braw` is untried and unchanged. All 75 files on that card are pieces of one clip (`A008_A001_11028K_001` onward,
+    stay as they land, matching the card. Tiles, large view and other clips (test step 29) confirmed on the Mac 2026-11-03. `.braw` is untried and unchanged. All 75 files on that card are pieces of one clip (`A008_A001_11028K_001` onward,
     about 4 GB each), and each got its own `.xmp`. Whether Premiere joins the pieces once flat is still unchecked.
   A Mac's built-in SD slot reports cards as internal but removable, so internal only rules a
   drive out when it isn't removable (found testing with a real card, 2026-10-22). Disk images
