@@ -26,6 +26,8 @@ final class HelpTests: XCTestCase {
         XCTAssertEqual(top("no sound in clip"), "mxf")
         XCTAssertEqual(top("red card"), "use-as-card")
         XCTAssertEqual(top("use as card"), "use-as-card")
+        XCTAssertEqual(top("r3d preview"), "red-preview")
+        XCTAssertEqual(top("red clips thumbnail"), "red-preview")
     }
 
     func testNothingTypedListsEverythingAndNonsenseFindsNothing() {

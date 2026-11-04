@@ -44,6 +44,12 @@ public enum ThumbnailMaker {
             ?? builtIn
     }
 
+    /// What to say in place of a picture, for a clip the Mac can't show at all:
+    /// it has no decoder for RED's REDCODE. Nil for anything else.
+    public static func noPreviewNote(for fileName: String) -> String? {
+        (fileName as NSString).pathExtension.lowercased() == "r3d" ? "RED clip: preview in Premiere or REDCINE-X" : nil
+    }
+
     /// A frame from early in the clip, and the clip's length.
     public static func video(_ url: URL, maxPixels: Int) async -> Thumbnail? {
         if MXFClip.handles(url) { return mxf(url, maxPixels: maxPixels) }

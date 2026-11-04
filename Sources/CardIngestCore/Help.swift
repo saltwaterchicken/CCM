@@ -197,6 +197,12 @@ public enum Help {
                    + "shows no picture here yet, but copies just the same.",
                    keywords: ["mxf", "audio", "silent", "mute", "preview", "scrub", "thumbnail", "log", "flat", "dim", "xf-avc", "canon", "gop", "choppy", "jumpy", "steps"],
                    target: nil),
+        HelpAnswer("red-preview", "Why don't my RED clips show a picture?",
+                   "Macs can't read RED's R3D files, so these clips have no thumbnail or scrubbing here. Their tiles say so, and you "
+                   + "preview them in Premiere or REDCINE-X. The copy is checked like any other. RED splits a long take into many files of "
+                   + "about 4 GB, and each shows as its own tile, matching the card.",
+                   keywords: ["red", "r3d", "redcine", "komodo", "preview", "scrub", "thumbnail", "picture", "blank", "pieces", "tiles"],
+                   target: nil),
         HelpAnswer("trash", "Where did the photos on my card go?",
                    "With \"Move the card's photos and videos to the card's Trash\" ticked under When done, each original goes to the "
                    + "card's own Trash once every copy is verified. Nothing is erased: they stay there until you format the card in "

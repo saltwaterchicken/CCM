@@ -359,7 +359,9 @@ stars and keywords (in Synology Photos itself would mean they were never in the 
     (photographer, 2026-11-03: RED will be very rare among users, and the unchanged names will be plain to see).
     **Tried 2026-11-03 on a real RED card:** no thumbnail or scrubbing, reported by the photographer. AVFoundation says "Cannot Open", Spotlight reads no
     length or size, and a Quick Look thumbnail hung for over 60 s here. Not a fault like MXF: the wrapper isn't what's missing, and the Mac has no decoder for
-    REDCODE. The likely route is RED's own SDK, a dependency to ask about first; nothing decided. All 75 files on that card are pieces of one clip (`A008_A001_11028K_001` onward,
+    REDCODE. **Decided 2026-11-03 (photographer):** no SDK; the tile and large view say "RED clip: preview in Premiere or REDCINE-X"
+    (`ThumbnailMaker.noPreviewNote`), with no play icon, hover or player, and Help says so. **A take's pieces are not grouped:** other cameras split clips too, so they
+    stay as they land, matching the card. Tiles confirmed on the Mac 2026-11-03; the large view not reported yet. `.braw` is untried and unchanged. All 75 files on that card are pieces of one clip (`A008_A001_11028K_001` onward,
     about 4 GB each), and each got its own `.xmp`. Whether Premiere joins the pieces once flat is still unchecked.
   A Mac's built-in SD slot reports cards as internal but removable, so internal only rules a
   drive out when it isn't removable (found testing with a real card, 2026-10-22). Disk images
@@ -1081,6 +1083,7 @@ the ReadMe should say it all too, starting with how each card behaves, which dep
 
 Also: the orange "Copy only" line and what it means; RED files keep the camera's names.
 MXF clips: thumbnails and scrubbing, no sound, half-second steps on Long GOP, frame by frame on Intra; log looks flat. MOV and MP4 unchanged.
+RED clips: no thumbnail or scrubbing, preview in Premiere or REDCINE-X; a long take's pieces each show as a tile, matching the card.
 
 ## MXF clips: pictures without AVFoundation (asked 2026-11-03, built 2026-11-03, confirmed on the Mac 2026-11-03: test step 27)
 
@@ -1339,6 +1342,8 @@ Suggestions so far, not yet decided. Edit freely.
     (Intra, frame by frame). No sound. An `.mp4` or `.mov`: as before, with sound and no note.
 28. Memory while copying (2026-11-03). Copy a big video card with Activity Monitor's Memory tab open. Card Ingest should stay
     in the low GB at most for the whole copy, not climb, and no out-of-memory warning should appear.
+29. RED clips (2026-11-03; Load Folder… on `2026-11-03-ES022`). Tiles say "RED clip: preview in Premiere or REDCINE-X", with no play icon, and hovering does nothing. Double-click:
+    the same message with no bar, no endless spinner; ← → and 0 to 5 still work. An `.mxf`, `.mp4` or `.mov`: as before.
 
 ## License keys (asked 2026-10-27, built 2026-10-27, confirmed on the Mac 2026-10-27: a key from the tool unlocked it)
 

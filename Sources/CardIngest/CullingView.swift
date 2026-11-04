@@ -1188,6 +1188,8 @@ struct TileView: View {
     @State private var wanted: Double?
     @State private var width: CGFloat = 1
 
+    private var noPreview: String? { ThumbnailMaker.noPreviewNote(for: shot.primary.newName) }
+
     var body: some View {
         VStack(spacing: 6) {
             ZStack {
@@ -1200,12 +1202,18 @@ struct TileView: View {
                     Image(decorative: thumbnail.image, scale: 1)
                         .resizable()
                         .scaledToFit()
+                } else if tried, let noPreview {
+                    Text(noPreview)
+                        .font(.caption)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 10)
                 } else if tried {
                     Image(systemName: "photo").font(.title).foregroundStyle(.tertiary)
                 } else {
                     ProgressView().controlSize(.small)
                 }
-                if shot.kind == .video && hoverShare == nil {
+                if shot.kind == .video && hoverShare == nil && noPreview == nil {
                     Image(systemName: "play.circle.fill")
                         .font(.largeTitle)
                         .foregroundStyle(.white.opacity(0.85))
@@ -1257,7 +1265,7 @@ struct TileView: View {
             }
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = max($0, 1) }
             .onContinuousHover { phase in
-                guard shot.kind == .video else { return }
+                guard shot.kind == .video, noPreview == nil else { return }
                 switch phase {
                 case .active(let point):
                     let share = min(max(point.x / width, 0), 1)
@@ -1429,6 +1437,10 @@ struct LargeView: View {
                                 .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 6))
                         }
                     }
+                } else if let shot, let note = ThumbnailMaker.noPreviewNote(for: shot.primary.newName) {
+                    Text("\(note). The Mac can't show these here; the copy is fine.")
+                        .padding()
+                        .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 6))
                 } else if model.actualSize, let actual, actualFor == shot?.id {
                     actualPixels(actual, in: geometry.size)
                 } else if let fitted {
@@ -1515,7 +1527,8 @@ struct LargeView: View {
             clip?.stop()
             clip = nil
             clipFor = nil
-            guard let shot, shot.kind == .video, let url = shot.primary.destinations.first else { return }
+            guard let shot, shot.kind == .video, ThumbnailMaker.noPreviewNote(for: shot.primary.newName) == nil,
+                  let url = shot.primary.destinations.first else { return }
             let playback = makeClipControls(url: url)
             clip = playback
             clipFor = shot.id
@@ -1570,7 +1583,9 @@ struct LargeView: View {
                 if model.actualSize && shot.isPhoto { Text("100%").font(.caption.bold()).foregroundStyle(.yellow) }
             }
             Spacer()
-            Text(shot?.kind == .video
+            Text(shot.flatMap { ThumbnailMaker.noPreviewNote(for: $0.primary.newName) } != nil
+                 ? "← → · 0–5 · Esc back"
+                 : shot?.kind == .video
                  ? "Space play/pause · , . frame (⇧ ten) · drag the bar to scrub · ← → · Esc back"
                  : "Space 100% · click to zoom there · drag to look around · ← → · 0–5 · Esc back")
                 .font(.caption)

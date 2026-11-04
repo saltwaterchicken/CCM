@@ -113,6 +113,13 @@ final class ThumbnailsTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(made.duration), 2, accuracy: 0.1)
     }
 
+    func testOnlyRedClipsSayTheyHaveNoPreview() {
+        XCTAssertEqual(ThumbnailMaker.noPreviewNote(for: "A008_A001_11028K_001.R3D"), "RED clip: preview in Premiere or REDCINE-X")
+        for other in ["CLIP.MXF", "CLIP.MOV", "CLIP.MP4", "IMG_0001.CR3"] {
+            XCTAssertNil(ThumbnailMaker.noPreviewNote(for: other), other)
+        }
+    }
+
     func testAClipThatWontOpenUsesItsTHM() async throws {
         let mov = dir.appendingPathComponent("2026-10-14-ES_0006.MP4")
         try Data("broken clip".utf8).write(to: mov)
