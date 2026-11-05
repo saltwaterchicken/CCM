@@ -13,6 +13,13 @@ struct CardIngestApp: App {
     @State private var license = LicenseModel()
 
     init() {
+        // make-app.sh checks the file going out with this.
+        let arguments = CommandLine.arguments
+        if arguments.count == 3, arguments[1] == "--check-shipped-settings" {
+            guard let problem = SettingsStore.shippingProblem(URL(fileURLWithPath: arguments[2])) else { exit(0) }
+            print("\(arguments[2]): \(problem)")
+            exit(1)
+        }
         // Needed so the window comes to the front when launched from Terminal.
         NSApplication.shared.setActivationPolicy(.regular)
         NSApplication.shared.activate()

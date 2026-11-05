@@ -1105,6 +1105,7 @@ A test fails if a setting is missing from Help's list. Help's answer confirmed o
 | `supportWhatsApp` | Replaces the built-in Live Tech Support number | empty |
 | `notifications.server` | The ntfy server for phone alerts | `https://ntfy.sh` |
 | `notifications.topic` | The private topic for phone alerts; they stay off until it's set | empty |
+| `tutorialKeywords` | The buttons in the tutorial's keyword step; `{year}` is the current year | `{year}`, Summer Camp |
 | `fileTypes` (`raw`, `photo`, `video`, `sidecar`) | Which file extensions count as camera files, and of what kind | built-in lists |
 
 **Also changed in the app**
@@ -1162,6 +1163,19 @@ Copy with nothing new clears the card. Trash and eject follow their boxes, so af
 
 **Decided 2026-11-04 (photographer):** no settings for the other metadata fields. Built, then taken out before committing. The blank
 `creator`, `copyright` and similar keys stay in the file doing nothing, as before.
+
+## Shipped settings and Make App.command (asked 2026-11-04, built 2026-11-04; tutorial buttons from the shipped file confirmed on the Mac 2026-11-04)
+
+The photographer's design, "what you see is what you get": `Ship/Settings.plist` is a complete settings file, edited by hand for next year or a
+particular build. `make-app.sh` puts it in the app, and a new user's first `Settings.plist` is what it says (`SettingsStore.loadOrCreate`). To keep other
+versions, save copies beside it. An earlier version with a short file listing only keywords was thrown out as limiting.
+
+- **Reaching only new users is a feature** (photographer), not something to warn about.
+- **Phone alert topic can't ship (photographer's worry):** the build stops on one, and first launch empties it anyway, the one place the app doesn't follow the file. No shared-phone setup wanted. Each user gets their own from the tutorial.
+- **Caught when building** (`SettingsStore.shippingProblem`, through the hidden `CardIngest --check-shipped-settings`): syntax or type errors, a topic, a key that isn't a setting. Nothing is installed then.
+- **`tutorialKeywords`** replaces the buttons that were in the code. Empty hides the row.
+- A test fails if `Ship/Settings.plist` lacks a setting, so it stays complete.
+- **`Make App.command`** at the top of the project: double-click in Finder to run `make-app.sh`. It opens a Terminal window for progress and needs no typing.
 
 ## GUI wishlist
 

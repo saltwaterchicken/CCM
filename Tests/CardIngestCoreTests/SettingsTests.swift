@@ -23,6 +23,94 @@ final class SettingsTests: XCTestCase {
         XCTAssertTrue(text.contains("<?xml"), "Settings should be saved as readable XML")
     }
 
+    private func shippedFile(_ body: String) throws -> URL {
+        let url = tempDir.appendingPathComponent("Shipped.plist")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <plist version="1.0"><dict>
+        <!-- A comment, as the real one has. -->
+        \(body)
+        </dict></plist>
+        """.write(to: url, atomically: true, encoding: .utf8)
+        return url
+    }
+
+    func testANewUserGetsWhatTheShippedFileSays() throws {
+        let url = tempDir.appendingPathComponent("Settings.plist")
+        let shipped = try shippedFile("""
+        <key>autoStartOnInsert</key><true/>
+        <key>metadata</key><dict><key>keywords</key><array><string>Summer Camp</string></array></dict>
+        <key>tutorialKeywords</key><array><string>Lake</string></array>
+        """)
+        let settings = try SettingsStore.loadOrCreate(at: url, shipped: shipped)
+        var expected = IngestSettings()
+        expected.autoStartOnInsert = true
+        expected.metadata.keywords = ["Summer Camp"]
+        expected.tutorialKeywords = ["Lake"]
+        XCTAssertEqual(settings, expected)
+        XCTAssertEqual(try SettingsStore.load(from: url), expected, "Saved as their own file")
+    }
+
+    func testAShippedTopicNeverReachesANewUser() throws {
+        let url = tempDir.appendingPathComponent("Settings.plist")
+        let shipped = try shippedFile("<key>notifications</key><dict><key>topic</key><string>ccm-private</string><key>server</key><string>https://example.com</string></dict>")
+        let settings = try SettingsStore.loadOrCreate(at: url, shipped: shipped)
+        XCTAssertEqual(settings.notifications.topic, "")
+        XCTAssertEqual(settings.notifications.server, "https://example.com", "Only the topic is left out")
+        XCTAssertEqual(try SettingsStore.load(from: url).notifications.topic, "")
+    }
+
+    func testAnExistingUserKeepsTheirSettingsAndTopic() throws {
+        let url = tempDir.appendingPathComponent("Settings.plist")
+        var mine = IngestSettings()
+        mine.notifications.topic = "ccm-mine"
+        mine.nextImportNumber = 24
+        try SettingsStore.save(mine, to: url)
+        XCTAssertEqual(try SettingsStore.loadOrCreate(at: url, shipped: try shippedFile("<key>nextImportNumber</key><integer>1</integer>")), mine)
+    }
+
+    func testAShippedFileThatWontLoadGivesTheDefaults() throws {
+        let url = tempDir.appendingPathComponent("Settings.plist")
+        let bad = try shippedFile("<key>metadata</key><string>wrong kind</string>")
+        XCTAssertEqual(try SettingsStore.loadOrCreate(at: url, shipped: bad), IngestSettings())
+    }
+
+    func testBadShippedFilesAreCaughtWhenBuilding() throws {
+        XCTAssertNil(SettingsStore.shippingProblem(try shippedFile("<key>openWith</key><string>Adobe Bridge 2023</string>")))
+        let topic = try shippedFile("<key>notifications</key><dict><key>topic</key><string>ccm-private</string></dict>")
+        XCTAssertTrue(try XCTUnwrap(SettingsStore.shippingProblem(topic)).contains("topic"))
+        let typo = try shippedFile("<key>metadata</key><dict><key>keyword</key><array/></dict>")
+        XCTAssertTrue(try XCTUnwrap(SettingsStore.shippingProblem(typo)).contains("metadata › keyword"))
+        XCTAssertTrue(try XCTUnwrap(SettingsStore.shippingProblem(try shippedFile("<key>openwith</key><string>x</string>"))).contains("openwith"))
+        XCTAssertNotNil(SettingsStore.shippingProblem(try shippedFile("<key>metadata</key><string>wrong kind</string>")))
+        XCTAssertNotNil(SettingsStore.shippingProblem(tempDir.appendingPathComponent("none")))
+    }
+
+    func testTheProjectsShippedFileIsFineAndListsEverySetting() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let shipped = root.appendingPathComponent("Ship/Settings.plist")
+        XCTAssertNil(SettingsStore.shippingProblem(shipped))
+        func keys(_ value: Any, _ prefix: String = "") -> [String] {
+            guard let dictionary = value as? [String: Any] else { return [] }
+            return dictionary.flatMap { ["\(prefix)\($0.key)"] + keys($0.value, "\(prefix)\($0.key).") }
+        }
+        let listed = keys(try PropertyListSerialization.propertyList(from: try Data(contentsOf: shipped), format: nil))
+        let all = keys(try PropertyListSerialization.propertyList(from: try PropertyListEncoder().encode(IngestSettings()), format: nil))
+        XCTAssertEqual(Set(all).subtracting(listed), [], "Add these to Ship/Settings.plist")
+    }
+
+    func testTutorialKeywordButtons() {
+        XCTAssertEqual(IngestSettings().tutorialKeywordChoices(year: 2027), ["2027", "Summer Camp"])
+        var settings = IngestSettings()
+        settings.tutorialKeywords = ["Season {year}", " Lake ", "", "lake"]
+        XCTAssertEqual(settings.tutorialKeywordChoices(year: 2027), ["Season 2027", "Lake"])
+        settings.tutorialKeywords = []
+        XCTAssertEqual(settings.tutorialKeywordChoices(year: 2027), [])
+        let old = Data(#"<?xml version="1.0"?><plist version="1.0"><dict/></plist>"#.utf8)
+        XCTAssertEqual(try PropertyListDecoder().decode(IngestSettings.self, from: old).tutorialKeywords, ["{year}", "Summer Camp"],
+                       "A file from before this setting gets the old buttons")
+    }
+
     func testRoundTrip() throws {
         let url = tempDir.appendingPathComponent("Settings.plist")
         var settings = IngestSettings()

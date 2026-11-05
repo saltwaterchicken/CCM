@@ -12,6 +12,9 @@
 # (one line, with the country code, e.g. +1 555 123 4567), or in the
 # CARD_INGEST_SUPPORT_WHATSAPP variable. It's built into the app so photographers
 # don't have to set it. The file is kept out of git all the same.
+#
+# Ship/Settings.plist goes in the app as it is, and is what a new user's settings
+# start from. The build stops if it has a typo or a phone alert topic.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -23,10 +26,22 @@ echo "Building (this takes a minute the first time)…"
 swift build -c release --product CardIngest
 BIN="$(swift build -c release --show-bin-path)/CardIngest"
 
+SHIPPED="Ship/Settings.plist"
+if [ -f "$SHIPPED" ] && ! "$BIN" --check-shipped-settings "$SHIPPED"; then
+    echo "Nothing was installed. Fix $SHIPPED and build again." >&2
+    exit 1
+fi
+
 APP=".build/${APP_NAME}.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/CardIngest"
+if [ -f "$SHIPPED" ]; then
+    cp "$SHIPPED" "$APP/Contents/Resources/Settings.plist"
+    echo "New users start from $SHIPPED."
+else
+    echo "Note: no $SHIPPED, so new users start from the built-in defaults."
+fi
 
 # The version people see is in the VERSION file ("1.0 beta"); the build is the
 # commit it was made from, so a problem report says exactly which code it was.

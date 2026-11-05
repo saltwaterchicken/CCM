@@ -167,19 +167,22 @@ struct TutorialView: View {
     /// photographer's own are kept apart, in My Keywords.txt.
     @ViewBuilder
     private var jobKeywords: some View {
-        let year = String(Calendar.current.component(.year, from: Date()))
+        let year = Calendar.current.component(.year, from: Date())
         let words = settings.settings.metadata.keywords
+        let choices = settings.settings.tutorialKeywordChoices(year: year)
         title("Keywords on every photo")
         para("Keywords for the whole job, like the camp's name, the season and the year, go on every photo and clip as it "
              + "lands, so they're there in Lightroom and on the Server without typing them again. They're saved in the "
              + "settings file, so a project settings file can have its own.")
         JobKeywordsField(model: settings)
             .font(.title3)
-        HStack {
-            Text("Add:").foregroundStyle(.secondary)
-            ForEach([year, "Summer Camp"], id: \.self) { word in
-                Button("+ \(word)") { settings.change { $0.metadata.keywords = Keywords.merged(words, adding: [word]) } }
-                    .disabled(words.contains { $0.caseInsensitiveCompare(word) == .orderedSame })
+        if !choices.isEmpty {
+            HStack {
+                Text("Add:").foregroundStyle(.secondary)
+                ForEach(choices, id: \.self) { word in
+                    Button("+ \(word)") { settings.change { $0.metadata.keywords = Keywords.merged(words, adding: [word]) } }
+                        .disabled(words.contains { $0.caseInsensitiveCompare(word) == .orderedSame })
+                }
             }
         }
         para("Keywords for a few photos (a camper's name, a place, an activity) you add in the grid as you cull: select "

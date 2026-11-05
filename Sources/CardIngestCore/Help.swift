@@ -212,6 +212,7 @@ public enum Help {
                    • supportWhatsApp: replaces the built-in Live Tech Support number (default empty)
                    • notifications › server: the ntfy server for phone alerts (default https://ntfy.sh)
                    • notifications › topic: the private topic for phone alerts; they stay off until it's set (default empty)
+                   • tutorialKeywords: the buttons in the tutorial's keyword step; {year} is the current year (default {year}, Summer Camp)
                    • fileTypes › raw, photo, video, sidecar: which file extensions count as camera files, and of what kind (default: built-in lists)
 
                    ALSO CHANGED IN THE APP

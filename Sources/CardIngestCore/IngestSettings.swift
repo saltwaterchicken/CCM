@@ -39,6 +39,9 @@ public struct IngestSettings: Codable, Equatable, Sendable {
     public var openWith: String
     public var fileTypes: FileTypes
     public var metadata: MetadataTemplate
+    /// The buttons in the tutorial's keyword step; `{year}` is the current year.
+    /// Only changed by editing the settings file.
+    public var tutorialKeywords: [String]
     public var rating: RatingSettings
     /// A WhatsApp number for Live Tech Support in place of the one built into
     /// the app, with its country code (e.g. +1 555 123 4567). Empty uses the app's.
@@ -63,6 +66,7 @@ public struct IngestSettings: Codable, Equatable, Sendable {
         openWith: String = "Adobe Lightroom Classic",
         fileTypes: FileTypes = FileTypes(),
         metadata: MetadataTemplate = MetadataTemplate(),
+        tutorialKeywords: [String] = ["{year}", "Summer Camp"],
         rating: RatingSettings = RatingSettings(),
         supportWhatsApp: String = "",
         notifications: NotificationSettings = NotificationSettings()
@@ -82,6 +86,7 @@ public struct IngestSettings: Codable, Equatable, Sendable {
         self.openWith = openWith
         self.fileTypes = fileTypes
         self.metadata = metadata
+        self.tutorialKeywords = tutorialKeywords
         self.rating = rating
         self.supportWhatsApp = supportWhatsApp
         self.notifications = notifications
@@ -110,12 +115,20 @@ public struct IngestSettings: Codable, Equatable, Sendable {
         openWith = try c.decodeIfPresent(String.self, forKey: .openWith) ?? d.openWith
         fileTypes = try c.decodeIfPresent(FileTypes.self, forKey: .fileTypes) ?? d.fileTypes
         metadata = try c.decodeIfPresent(MetadataTemplate.self, forKey: .metadata) ?? d.metadata
+        tutorialKeywords = try c.decodeIfPresent([String].self, forKey: .tutorialKeywords) ?? d.tutorialKeywords
         rating = try c.decodeIfPresent(RatingSettings.self, forKey: .rating) ?? d.rating
         supportWhatsApp = try c.decodeIfPresent(String.self, forKey: .supportWhatsApp) ?? d.supportWhatsApp
         notifications = try c.decodeIfPresent(NotificationSettings.self, forKey: .notifications) ?? d.notifications
     }
 
     static let milestone1RenamePattern = "{date:YYYY-MM-DD}_{job}_{camera}_{seq:4}"
+
+    /// The tutorial's keyword buttons, with `{year}` filled in; blank ones and repeats dropped.
+    public func tutorialKeywordChoices(year: Int) -> [String] {
+        Keywords.merged([], adding: tutorialKeywords
+            .map { $0.replacingOccurrences(of: "{year}", with: String(year)).trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty })
+    }
 
     /// The destination root with `~` expanded.
     public var destinationRootURL: URL {

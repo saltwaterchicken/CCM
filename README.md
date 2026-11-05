@@ -12,4 +12,7 @@ scripts/make-fake-card.sh   # mount a pretend card for testing
 scripts/make-app.sh    # build "CCM Card Ingest.app" into /Applications for double-click use
 ```
 
+Or double-click `Make App.command` in Finder, which does the same. `Ship/Settings.plist` is the settings new users
+start from; edit it in any text editor before building.
+
 See `NOTES.md` for current status, decisions and testing steps.

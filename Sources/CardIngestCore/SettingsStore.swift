@@ -25,14 +25,53 @@ public enum SettingsStore {
             .appendingPathComponent("Settings.plist")
     }
 
-    /// Loads the file, or writes the defaults there first if it doesn't exist yet.
-    public static func loadOrCreate(at url: URL = defaultFileURL) throws -> IngestSettings {
+    /// `Ship/Settings.plist`, as `make-app.sh` puts it in the app. Nil without it (`swift run`).
+    public static var shippedFileURL: URL? {
+        Bundle.main.url(forResource: "Settings", withExtension: "plist")
+    }
+
+    /// Loads the file, or if it doesn't exist yet writes it first: as the shipped settings say,
+    /// where they can be read, otherwise the defaults. A shipped topic is never taken, as it
+    /// would share alerts with whoever else has this build; the tutorial makes each user their own.
+    public static func loadOrCreate(at url: URL = defaultFileURL, shipped: URL? = shippedFileURL) throws -> IngestSettings {
         if FileManager.default.fileExists(atPath: url.path) {
             return try load(from: url)
         }
-        let defaults = IngestSettings()
-        try save(defaults, to: url)
-        return defaults
+        var first = shipped.flatMap { try? load(from: $0) } ?? IngestSettings()
+        first.notifications.topic = ""
+        try save(first, to: url)
+        return first
+    }
+
+    /// Why settings shouldn't ship, or nil when they're fine. `make-app.sh` stops on this,
+    /// as the app would otherwise ignore a misspelled setting without saying so.
+    public static func shippingProblem(_ url: URL) -> String? {
+        let settings: IngestSettings
+        do { settings = try load(from: url) } catch { return error.localizedDescription }
+        if !settings.notifications.topic.trimmingCharacters(in: .whitespaces).isEmpty {
+            return "It has a notifications topic. Empty it: each user gets their own in the tutorial."
+        }
+        guard let found = keys(in: try? Data(contentsOf: url)),
+              let known = keys(in: try? PropertyListEncoder().encode(IngestSettings())) else { return "It isn't a settings file." }
+        if let unknown = unknownKey(in: found, known: known) {
+            return "\"\(unknown)\" isn't a setting, so it would be ignored. Check the spelling."
+        }
+        return nil
+    }
+
+    private static func keys(in data: Data?) -> [String: Any]? {
+        data.flatMap { try? PropertyListSerialization.propertyList(from: $0, format: nil) as? [String: Any] }
+    }
+
+    private static func unknownKey(in found: [String: Any], known: [String: Any]) -> String? {
+        for (key, value) in found.sorted(by: { $0.key < $1.key }) {
+            guard let expected = known[key] else { return key }
+            if let inner = value as? [String: Any], let innerKnown = expected as? [String: Any],
+               let unknown = unknownKey(in: inner, known: innerKnown) {
+                return "\(key) › \(unknown)"
+            }
+        }
+        return nil
     }
 
     public static func load(from url: URL) throws -> IngestSettings {
