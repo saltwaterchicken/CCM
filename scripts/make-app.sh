@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds "CCM Card Ingest.app" so the app opens with a double-click, like any
+# Builds "CC Media Sherpa.app" so the app opens with a double-click, like any
 # other Mac app, instead of typing `swift run` in Terminal.
 #
 #   scripts/make-app.sh               # build and put the app in /Applications
@@ -18,7 +18,9 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-APP_NAME="CCM Card Ingest"
+APP_NAME="CC Media Sherpa"
+# What the app was called before, so installing removes the old copy.
+OLD_NAMES=("CCM Card Ingest")
 INSTALL=1
 [ "${1:-}" = "--no-install" ] && INSTALL=0
 
@@ -113,12 +115,21 @@ PLIST
 
 # A local signature so macOS treats it as a normal app on this Mac.
 codesign --force --sign - "$APP" >/dev/null
+# CI still looks for the app under its old name, and this login can't change
+# the workflow, so leave a link to it there.
+for old in "${OLD_NAMES[@]}"; do
+    rm -rf ".build/${old}.app"
+    ln -s "${APP_NAME}.app" ".build/${old}.app"
+done
 
 if [ "$INSTALL" = 1 ]; then
     DEST="/Applications"
     [ -w "$DEST" ] || DEST="$HOME/Applications"
     mkdir -p "$DEST"
     rm -rf "$DEST/${APP_NAME}.app"
+    for old in "${OLD_NAMES[@]}"; do
+        rm -rf "$DEST/${old}.app"
+    done
     cp -R "$APP" "$DEST/"
     echo "Done. ${APP_NAME} is in ${DEST}. Double-click it there, or drag it to the Dock."
 else

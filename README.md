@@ -9,7 +9,7 @@ Requires macOS 14 or later and Xcode 16 or later to build.
 swift test             # run the tests
 swift run CardIngest   # open the app
 scripts/make-fake-card.sh   # mount a pretend card for testing
-scripts/make-app.sh    # build "CCM Card Ingest.app" into /Applications for double-click use
+scripts/make-app.sh    # build "CC Media Sherpa.app" into /Applications for double-click use
 ```
 
 Or double-click `Make App.command` in Finder, which does the same. `Ship/Settings.plist` is the settings new users

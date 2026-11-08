@@ -1460,3 +1460,14 @@ says whether ntfy took it. The Watch shows them when the iPhone's ntfy notificat
 If a phone lists the messages in ntfy but gives no alerts (seen 2026-10-30 on the photographer's
 current iPhone, while the old one alerted), delete and reinstall ntfy and subscribe again: that fixed
 it. The topic is in the photographer's main Settings.plist only, never in the repo.
+
+## App name (asked 2026-11-08, built 2026-11-08)
+
+The app is "CC Media Sherpa" in Finder, the Dock, the menu bar and /Applications (`APP_NAME` in
+make-app.sh); the About window's title reads "Media Sherpa by Capture Camp" (`About.aboutName`), and
+the menu item is About CC Media Sherpa. Installing removes the old "CCM Card Ingest.app". The bundle
+ID, the settings folder (~/Library/Application Support/Card Ingest) and the default destination
+(~/Pictures/Card Ingest) are unchanged, so settings and copies carry over. Other text inside the app
+(Help, tutorial, License window) still says Card Ingest. CI still tests `.build/CCM Card Ingest.app`
+and this login can't change the workflow, so make-app.sh leaves a link with that name to the new app.
+The logo was recropped closer the same day.

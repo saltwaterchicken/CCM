@@ -415,7 +415,7 @@ struct HelpCommands: Commands {
             Button("License…") { openWindow(id: "license") }
         }
         CommandGroup(replacing: .appInfo) {
-            Button("About Card Ingest") { About.show(license: license) }
+            Button("About CC Media Sherpa") { About.show(license: license) }
         }
     }
 }

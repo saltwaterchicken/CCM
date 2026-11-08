@@ -1,6 +1,6 @@
 import AppKit
 
-/// Card Ingest › About Card Ingest: the logo (the app's icon), the version,
+/// CC Media Sherpa › About CC Media Sherpa: the logo (the app's icon), the version,
 /// Capture Camp Media's details, and who the app is licensed to.
 @MainActor
 enum About {
@@ -8,6 +8,7 @@ enum About {
     static let website = URL(string: "https://www.capturecampmedia.com")!
     static let email = "capturecampmedia@icloud.com"
     static let copyright = "© 2026 Capture Camp Media"
+    static let aboutName = "Media Sherpa by Capture Camp"
 
     /// "1.0 beta (4b7ed56)": the version people see, and the build it came
     /// from, as make-app.sh sets them.
@@ -40,9 +41,8 @@ enum About {
             .version: "",
             NSApplication.AboutPanelOptionKey(rawValue: "Copyright"): copyright,
         ]
-        if Bundle.main.infoDictionary?["CFBundleShortVersionString"] == nil {
-            options[.applicationName] = "CCM Card Ingest"
-        }
+        // Finder calls the app CC Media Sherpa; the About window says this.
+        options[.applicationName] = aboutName
         NSApp.orderFrontStandardAboutPanel(options: options)
         NSApp.activate()
     }
