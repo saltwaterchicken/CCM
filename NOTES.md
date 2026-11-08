@@ -310,7 +310,7 @@ stars and keywords (in Synology Photos itself would mean they were never in the 
   Xcode to build and run. A full Xcode app project (for an icon, signing, menu bar) can wrap
   this later, around Milestone 6.
 - **Settings:** one XML property list, defaults at
-  `~/Library/Application Support/Card Ingest/Settings.plist`, created on first launch.
+  `~/Library/Application Support/Media Sherpa/Settings.plist`, created on first launch.
   The photographer can keep a separate settings file per project and load it in the app.
   Any key missing from a file falls back to its default, so project files can be short.
   The Settings screen (Milestone 6) will edit this same file. For now the main window has a
@@ -854,7 +854,7 @@ nothing new is decided about where metadata lives:
   job's keywords (Summer Camp, the year) in the settings file, set in the Job panel or the
   tutorial's new "Keywords on every photo" step (with + year and + Summer Camp buttons); the
   photographer's own, used from the grid now and then (names, places), in
-  `~/Library/Application Support/Card Ingest/My Keywords.txt`, one per line, newest first, up to
+  `~/Library/Application Support/Media Sherpa/My Keywords.txt`, one per line, newest first, up to
   500, read afresh before each add so hand edits stick (`KeywordHistory.swift`; File › Show My
   Keywords in Finder). They used to be in the app's preferences, which differ between `swift run`
   (`CardIngest`) and the double-click app (`com.capturecampmemories.cardingest`), so each kept its
@@ -1057,7 +1057,7 @@ where they stand alone outside the tokens, in both the folder name and the renam
 live preview of the next folder and a file name. A folder name with nothing before `{iseq}` says
 to edit it in the Job panel. To see it again as a first run: `scripts/reset-app.sh` (asked 2026-11-02;
 confirmed on the Mac 2026-11-02). It quits the app politely, keeps a copy
-in `~/Library/Application Support/Card Ingest Resets/<date-time>`, clears the preferences and moves
+in `~/Library/Application Support/Media Sherpa Resets/<date-time>`, clears the preferences and moves
 `Settings.plist` and `My Keywords.txt` aside. The license key and keyboard shortcuts stay unless
 `--license`; `--restore [folder name]` puts a copy back. Deleting the preferences file in Finder doesn't
 work: cfprefsd writes it back from memory (seen 2026-11-02: `setupTutorialSeen` survived, so no tutorial,
@@ -1087,7 +1087,7 @@ RED clips: no thumbnail or scrubbing, preview in Premiere or REDCINE-X; a long t
 
 ### What can be changed in `Settings.plist` (photographer, 2026-11-04: keep this in Help and the ReadMe)
 
-`~/Library/Application Support/Card Ingest/Settings.plist`; Show in Finder in the Settings File panel finds it. Keep a copy first, as a typo can stop
+`~/Library/Application Support/Media Sherpa/Settings.plist`; Show in Finder in the Settings File panel finds it. Keep a copy first, as a typo can stop
 it loading. Press Reload right after saving, or the next change in the app overwrites the edit. A key left out goes back to its default.
 Keep this, and Help's "What can I change by editing the settings file?" (`settings-file-list`), current with every new setting.
 A test fails if a setting is missing from Help's list. Help's answer confirmed on the Mac 2026-11-04.
@@ -1468,8 +1468,11 @@ make-app.sh); the About window's title reads "Media Sherpa by Capture Camp" (`Ab
 the menu item is About CC Media Sherpa. Inside the app it's "Media Sherpa": the main window, Help ›
 Media Sherpa Help, the tutorial, the License window and its messages, the test phone alert, Live
 Tech Support's "— From Media Sherpa —", and the card-access prompt. Installing removes the old
-"CCM Card Ingest.app". The bundle ID, the settings folder (~/Library/Application Support/Card
-Ingest), the default destination (~/Pictures/Card Ingest) and the license keys (CI1-) are
-unchanged, so settings, copies and keys carry over. CI still tests `.build/CCM Card Ingest.app`
+"CCM Card Ingest.app". The settings folder is now ~/Library/Application Support/Media Sherpa
+(Settings.plist, My Keywords.txt, Calibration Labels.json), so people can find it: the first time the
+renamed app opens, it renames the old "Card Ingest" folder (`SettingsStore.moveOldFolder`), and if a
+"Media Sherpa" folder is already there it is used and the old one left alone. reset-app.sh does
+the same, with resets kept in "Media Sherpa Resets". The bundle ID, the default destination
+(~/Pictures/Card Ingest) and the license keys (CI1-) are unchanged, so copies and keys carry over. CI still tests `.build/CCM Card Ingest.app`
 and this login can't change the workflow, so make-app.sh leaves a link with that name to the new app.
 The logo was recropped closer the same day.

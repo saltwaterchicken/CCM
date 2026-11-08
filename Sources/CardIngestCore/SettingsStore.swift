@@ -15,14 +15,45 @@ public enum SettingsError: Error, LocalizedError, Equatable {
 }
 
 /// Reads and writes settings files. The main file lives at
-/// ~/Library/Application Support/Card Ingest/Settings.plist; project files can
+/// ~/Library/Application Support/Media Sherpa/Settings.plist; project files can
 /// live anywhere and be loaded in its place.
 public enum SettingsStore {
-    public static var defaultFileURL: URL {
+    /// The app's folder in ~/Library/Application Support, named after the app so
+    /// people can find it. It was "Card Ingest" before the app was renamed.
+    public static let folderName = "Media Sherpa"
+    public static let oldFolderNames = ["Card Ingest"]
+
+    /// The app's folder, with an old-named one moved to the new name the first time.
+    public static let folder: URL = {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return support
-            .appendingPathComponent("Card Ingest", isDirectory: true)
-            .appendingPathComponent("Settings.plist")
+        return moveOldFolder(in: support)
+    }()
+
+    public static var defaultFileURL: URL {
+        folder.appendingPathComponent("Settings.plist")
+    }
+
+    /// Renames an old-named folder (settings, keywords, labels) to `folderName`,
+    /// unless a folder with the new name is already there, which is then kept as is.
+    /// Returns the folder to use, which is the new one even if the move failed.
+    @discardableResult
+    public static func moveOldFolder(in support: URL) -> URL {
+        let fm = FileManager.default
+        let folder = support.appendingPathComponent(folderName, isDirectory: true)
+        guard !fm.fileExists(atPath: folder.path) else { return folder }
+        for old in oldFolderNames {
+            let from = support.appendingPathComponent(old, isDirectory: true)
+            var isFolder: ObjCBool = false
+            if fm.fileExists(atPath: from.path, isDirectory: &isFolder), isFolder.boolValue {
+                do {
+                    try fm.moveItem(at: from, to: folder)
+                } catch {
+                    NSLog("Media Sherpa: couldn't rename %@ to %@: %@", from.path, folder.path, error.localizedDescription)
+                }
+                break
+            }
+        }
+        return folder
     }
 
     /// `Ship/Settings.plist`, as `make-app.sh` puts it in the app. Nil without it (`swift run`).

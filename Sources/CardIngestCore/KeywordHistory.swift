@@ -5,7 +5,7 @@ import Foundation
 /// the settings file, which holds the job's keywords (Summer Camp, 2026), so a
 /// project file never carries one photographer's names and places to another.
 /// A plain text file, one keyword per line, that can be read and edited by hand:
-/// ~/Library/Application Support/Card Ingest/My Keywords.txt.
+/// ~/Library/Application Support/Media Sherpa/My Keywords.txt.
 public enum KeywordHistory {
     /// How many are kept; the oldest drop off.
     public static let limit = 500

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Puts Card Ingest back to a first run on this Mac, for testing: the tutorial
+# Puts Media Sherpa back to a first run on this Mac, for testing: the tutorial
 # opens by itself and the settings are the defaults.
 #
 #   scripts/reset-app.sh            # reset; the license key and keyboard shortcuts stay
@@ -10,15 +10,20 @@
 # Deleting the preferences file in Finder doesn't work: macOS holds preferences
 # in memory (cfprefsd) and writes them back. `defaults` goes through it.
 #
-# Nothing is lost: a copy goes to ~/Library/Application Support/Card Ingest Resets
+# Nothing is lost: a copy goes to ~/Library/Application Support/Media Sherpa Resets
 # first. Cards, the destination and the Server aren't touched.
 set -euo pipefail
 
 DOMAIN="com.capturecampmemories.cardingest"
 SWIFT_RUN_DOMAIN="CardIngest"   # the preferences `swift run` uses
 PROCESS="CardIngest"
-SUPPORT="$HOME/Library/Application Support/Card Ingest"
-RESETS="$HOME/Library/Application Support/Card Ingest Resets"
+LIBRARY="$HOME/Library/Application Support"
+SUPPORT="$LIBRARY/Media Sherpa"
+RESETS="$LIBRARY/Media Sherpa Resets"
+# Before the app was renamed these were "Card Ingest" and "Card Ingest Resets".
+# Move them to the new names, as the app does, so nothing is left behind.
+[ -d "$LIBRARY/Card Ingest" ] && [ ! -e "$SUPPORT" ] && mv "$LIBRARY/Card Ingest" "$SUPPORT"
+[ -d "$LIBRARY/Card Ingest Resets" ] && [ ! -e "$RESETS" ] && mv "$LIBRARY/Card Ingest Resets" "$RESETS"
 KEEP_KEYS=(licenseKey licenseLastSeen NSUserKeyEquivalents)
 PREFS_COPY="Preferences.plist"
 
@@ -33,13 +38,13 @@ esac
 # Asks the app to quit rather than forcing it, so a copy in progress can say no.
 quit_app() {
     pgrep -x "$PROCESS" >/dev/null || return 0
-    echo "Quitting Card Ingest…"
+    echo "Quitting Media Sherpa…"
     osascript -e "quit app id \"$DOMAIN\"" >/dev/null 2>&1 || true
     for _ in {1..20}; do
         pgrep -x "$PROCESS" >/dev/null || return 0
         sleep 0.5
     done
-    echo "Card Ingest is still running, so nothing was changed. Quit it and run this again." >&2
+    echo "Media Sherpa is still running, so nothing was changed. Quit it and run this again." >&2
     exit 1
 }
 
@@ -71,7 +76,7 @@ if [ "$MODE" = "restore" ]; then
     exit 0
 fi
 
-confirm "Reset Card Ingest to a first run? (A copy of the current setup is kept.)"
+confirm "Reset Media Sherpa to a first run? (A copy of the current setup is kept.)"
 quit_app
 
 BACKUP="$RESETS/$(date +%Y-%m-%d-%H%M%S)"
@@ -97,6 +102,6 @@ for name in Settings.plist "My Keywords.txt"; do
     [ -f "$SUPPORT/$name" ] && mv "$SUPPORT/$name" "$BACKUP/$name"
 done
 
-echo "Reset. Open Card Ingest and the tutorial will start."
+echo "Reset. Open Media Sherpa and the tutorial will start."
 echo "Your old setup is in $BACKUP"
 echo "To put it back: scripts/reset-app.sh --restore $(basename "$BACKUP")"

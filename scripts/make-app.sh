@@ -6,7 +6,7 @@
 #   scripts/make-app.sh --no-install  # build only; the app is left in .build/
 #
 # Run it again after pulling new code to update the app. Settings are kept,
-# because they live in ~/Library/Application Support/Card Ingest, not in the app.
+# because they live in ~/Library/Application Support/Media Sherpa, not in the app.
 #
 # Live Tech Support writes to the WhatsApp number in scripts/support-whatsapp.txt
 # (one line, with the country code, e.g. +1 555 123 4567), or in the

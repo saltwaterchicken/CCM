@@ -14,6 +14,37 @@ final class SettingsTests: XCTestCase {
         try? FileManager.default.removeItem(at: tempDir)
     }
 
+    func testTheOldCardIngestFolderIsRenamedMediaSherpa() throws {
+        let fm = FileManager.default
+        let old = tempDir.appendingPathComponent("Card Ingest", isDirectory: true)
+        try fm.createDirectory(at: old, withIntermediateDirectories: true)
+        try Data("mine".utf8).write(to: old.appendingPathComponent("Settings.plist"))
+
+        let folder = SettingsStore.moveOldFolder(in: tempDir)
+        XCTAssertEqual(folder.lastPathComponent, "Media Sherpa")
+        XCTAssertFalse(fm.fileExists(atPath: old.path))
+        XCTAssertEqual(try Data(contentsOf: folder.appendingPathComponent("Settings.plist")), Data("mine".utf8))
+    }
+
+    func testAMediaSherpaFolderIsKeptOverAnOldOne() throws {
+        let fm = FileManager.default
+        let old = tempDir.appendingPathComponent("Card Ingest", isDirectory: true)
+        let new = tempDir.appendingPathComponent("Media Sherpa", isDirectory: true)
+        try fm.createDirectory(at: old, withIntermediateDirectories: true)
+        try fm.createDirectory(at: new, withIntermediateDirectories: true)
+        try Data("new".utf8).write(to: new.appendingPathComponent("Settings.plist"))
+
+        XCTAssertEqual(SettingsStore.moveOldFolder(in: tempDir), new)
+        XCTAssertTrue(fm.fileExists(atPath: old.path))
+        XCTAssertEqual(try Data(contentsOf: new.appendingPathComponent("Settings.plist")), Data("new".utf8))
+    }
+
+    func testNoFolderYetMovesNothing() {
+        let folder = SettingsStore.moveOldFolder(in: tempDir)
+        XCTAssertEqual(folder.lastPathComponent, "Media Sherpa")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.path))
+    }
+
     func testLoadOrCreateWritesDefaultsWhenMissing() throws {
         let url = tempDir.appendingPathComponent("Nested/Settings.plist")
         let settings = try SettingsStore.loadOrCreate(at: url)
