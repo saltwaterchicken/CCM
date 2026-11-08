@@ -37,7 +37,7 @@ struct CardIngestApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("Card Ingest", id: "main") {
+        WindowGroup("Media Sherpa", id: "main") {
             ContentView(model: model, watcher: watcher, server: server, license: license)
                 .frame(minWidth: 1000, minHeight: 620)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -61,7 +61,7 @@ struct CardIngestApp: App {
             CardCommands(settings: model, watcher: watcher)
             HelpCommands(help: help, license: license, watcher: watcher)
         }
-        Window("Card Ingest Help", id: "help") {
+        Window("Media Sherpa Help", id: "help") {
             HelpView(settings: model, watcher: watcher)
                 .frame(minWidth: 460, minHeight: 520)
                 .background(Theme.window)
@@ -71,7 +71,7 @@ struct CardIngestApp: App {
         }
         .defaultSize(width: 520, height: 640)
         .handlesExternalEvents(matching: [])
-        Window("Set Up Card Ingest", id: "tutorial") {
+        Window("Set Up Media Sherpa", id: "tutorial") {
             TutorialView(settings: model, watcher: watcher)
                 .frame(minWidth: 560, minHeight: 520)
                 .background(Theme.window)
@@ -81,7 +81,7 @@ struct CardIngestApp: App {
         }
         .defaultSize(width: 600, height: 600)
         .handlesExternalEvents(matching: [])
-        Window("Card Ingest License", id: "license") {
+        Window("Media Sherpa License", id: "license") {
             LicenseView(license: license)
                 .frame(minWidth: 480, minHeight: 300)
                 .background(Theme.window)

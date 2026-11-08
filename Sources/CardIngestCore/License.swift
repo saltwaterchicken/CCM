@@ -46,11 +46,11 @@ public struct License: Equatable, Sendable {
         public var problem: String? {
             switch self {
             case .valid: nil
-            case .missing: "Enter your license key to use Card Ingest."
+            case .missing: "Enter your license key to use Media Sherpa."
             case let .invalid(reason): reason
             case let .expired(license): "This key ran out on \(License.format(license.expires)). Ask for a new key to renew."
             case let .clockTurnedBack(_, lastSeen):
-                "The Mac's clock is set earlier than \(License.format(lastSeen)), a date Card Ingest has already seen. "
+                "The Mac's clock is set earlier than \(License.format(lastSeen)), a date Media Sherpa has already seen. "
                     + "Set the right date and time in System Settings › General › Date & Time."
             }
         }
@@ -75,7 +75,7 @@ public struct License: Equatable, Sendable {
         let cleaned = key.filter { !$0.isWhitespace }
         guard !cleaned.isEmpty else { return .missing }
         guard cleaned.uppercased().hasPrefix(prefix) else {
-            return .invalid("That isn't a Card Ingest key: keys start with \(prefix).")
+            return .invalid("That isn't a Media Sherpa key: keys start with \(prefix).")
         }
         let parts = cleaned.dropFirst(prefix.count).split(separator: ".", omittingEmptySubsequences: false)
         guard parts.count == 2, let payload = base64URLDecode(parts[0]), let signature = base64URLDecode(parts[1]) else {
@@ -88,7 +88,7 @@ public struct License: Equatable, Sendable {
         }
         guard let fields = try? JSONDecoder().decode(Payload.self, from: payload), fields.v == 1,
               let issued = day(fields.issued), let expires = day(fields.expires) else {
-            return .invalid("That key is from a newer version of Card Ingest. Update the app, or ask for a new key.")
+            return .invalid("That key is from a newer version of Media Sherpa. Update the app, or ask for a new key.")
         }
         let license = License(email: fields.email, issued: issued, expires: expires)
         if let lastSeen, now < lastSeen.addingTimeInterval(-clockAllowance) {

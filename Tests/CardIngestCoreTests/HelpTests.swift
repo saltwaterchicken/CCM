@@ -117,8 +117,8 @@ final class SupportTests: XCTestCase {
     }
 
     func testTheMessageKeepsThePhotographersWordsFirst() {
-        let text = Support.message(problem: "  The light is red  ", details: ["Card Ingest 1.0"], receipt: nil)
-        XCTAssertEqual(text, "The light is red\n\n— From Card Ingest —\nCard Ingest 1.0")
+        let text = Support.message(problem: "  The light is red  ", details: ["Media Sherpa 1.0"], receipt: nil)
+        XCTAssertEqual(text, "The light is red\n\n— From Media Sherpa —\nMedia Sherpa 1.0")
     }
 
     func testTheWhatsAppLinkCarriesTheWholeMessage() {

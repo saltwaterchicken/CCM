@@ -49,8 +49,8 @@ struct TutorialView: View {
     private var page: some View {
         switch step {
         case .welcome:
-            title("Welcome to Card Ingest")
-            para("Card Ingest copies your camera cards safely: every file is copied, read back and checked against the card "
+            title("Welcome to Media Sherpa")
+            para("Media Sherpa copies your camera cards safely: every file is copied, read back and checked against the card "
                  + "before anything else happens. It renames each file as it lands, backs the card up to the server, and lets "
                  + "you start rating while the rest is still copying.")
             para("This takes about two minutes. Whatever you choose is saved straight away, and you can change any of it "
@@ -153,7 +153,7 @@ struct TutorialView: View {
                      + "A receipt listing every file is saved in the card's folder.")
             numbered(5, "After culling and exporting from Lightroom, Sync With Server sends your stars and exports "
                      + "to the server. Nothing there is ever deleted or replaced.", target: .syncWithServer)
-            numbered(6, "Stuck? Help › Card Ingest Help (⌘?) answers most questions, and Live Tech Support writes to us "
+            numbered(6, "Stuck? Help › Media Sherpa Help (⌘?) answers most questions, and Live Tech Support writes to us "
                      + "on WhatsApp.")
         case .done:
             title("You're set")
@@ -202,7 +202,7 @@ struct TutorialView: View {
     private var phone: some View {
         let topic = settings.settings.notifications.topic.trimmingCharacters(in: .whitespaces)
         title("Alerts on your phone")
-        para("Card Ingest can tell your iPhone (and Watch) when a card is copied, when its backup is on the server, and when "
+        para("Media Sherpa can tell your iPhone (and Watch) when a card is copied, when its backup is on the server, and when "
              + "Sync With Server is done, so you can walk away from the Mac. It uses ntfy, a free app.")
         HStack(alignment: .top, spacing: 16) {
             if let code = Self.qrCode(Self.ntfyAppStore) {

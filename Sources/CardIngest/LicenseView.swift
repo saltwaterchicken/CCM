@@ -68,7 +68,7 @@ struct LicenseView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Card Ingest License").font(.title2).bold()
+            Text("Media Sherpa License").font(.title2).bold()
             if let licensedTo = license.licensedTo, !entering {
                 Label(licensedTo, systemImage: "checkmark.seal.fill").foregroundStyle(.green)
                 if let days = license.daysLeftToRenew {

@@ -79,7 +79,7 @@ final class LicenseTests: XCTestCase {
     func testNothingOrSomethingElsePastedSaysWhatsWrong() {
         XCTAssertEqual(check(""), .missing)
         XCTAssertEqual(License.check(nil), .missing)
-        XCTAssertEqual(check("hello"), .invalid("That isn't a Card Ingest key: keys start with CI1-."))
+        XCTAssertEqual(check("hello"), .invalid("That isn't a Media Sherpa key: keys start with CI1-."))
         XCTAssertEqual(check("CI1-abc"),
                        .invalid("That key is incomplete. Copy the whole key from the email, from CI1- to the end."))
     }

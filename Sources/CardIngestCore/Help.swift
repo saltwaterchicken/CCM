@@ -384,7 +384,7 @@ public enum Help {
         HelpAnswer("tutorial", "How do I go through the setup steps again?",
                    "Choose Help › Setup Tutorial…. It walks through your initials, the destination, the server backup, the card "
                    + "counter and what happens when a card is done, and saves each choice as you go. It opens by itself only the "
-                   + "first time Card Ingest runs on a Mac.",
+                   + "first time Media Sherpa runs on a Mac.",
                    keywords: ["tutorial", "setup", "start", "first", "walkthrough", "guide", "welcome", "initials"]),
         HelpAnswer("initials", "How do I change my initials in the names?",
                    "Help › Setup Tutorial… changes them in both the folder name and the file names at once, with a preview. "

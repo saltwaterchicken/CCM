@@ -98,7 +98,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSApplicationCategoryType</key><string>public.app-category.photography</string>
     <key>NSHighResolutionCapable</key><true/>
-    <key>NSRemovableVolumesUsageDescription</key><string>Card Ingest copies photos from camera cards.</string>
+    <key>NSRemovableVolumesUsageDescription</key><string>Media Sherpa copies photos from camera cards.</string>
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>

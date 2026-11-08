@@ -1465,9 +1465,11 @@ it. The topic is in the photographer's main Settings.plist only, never in the re
 
 The app is "CC Media Sherpa" in Finder, the Dock, the menu bar and /Applications (`APP_NAME` in
 make-app.sh); the About window's title reads "Media Sherpa by Capture Camp" (`About.aboutName`), and
-the menu item is About CC Media Sherpa. Installing removes the old "CCM Card Ingest.app". The bundle
-ID, the settings folder (~/Library/Application Support/Card Ingest) and the default destination
-(~/Pictures/Card Ingest) are unchanged, so settings and copies carry over. Other text inside the app
-(Help, tutorial, License window) still says Card Ingest. CI still tests `.build/CCM Card Ingest.app`
+the menu item is About CC Media Sherpa. Inside the app it's "Media Sherpa": the main window, Help ›
+Media Sherpa Help, the tutorial, the License window and its messages, the test phone alert, Live
+Tech Support's "— From Media Sherpa —", and the card-access prompt. Installing removes the old
+"CCM Card Ingest.app". The bundle ID, the settings folder (~/Library/Application Support/Card
+Ingest), the default destination (~/Pictures/Card Ingest) and the license keys (CI1-) are
+unchanged, so settings, copies and keys carry over. CI still tests `.build/CCM Card Ingest.app`
 and this login can't change the workflow, so make-app.sh leaves a link with that name to the new app.
 The logo was recropped closer the same day.

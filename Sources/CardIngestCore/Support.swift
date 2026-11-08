@@ -65,7 +65,7 @@ public enum Support {
     /// the app knows, then the latest receipt.
     public static func message(problem: String, details: [String], receipt: ReceiptSummary?) -> String {
         var parts = [problem.trimmingCharacters(in: .whitespacesAndNewlines)]
-        if !details.isEmpty { parts.append("— From Card Ingest —\n" + details.joined(separator: "\n")) }
+        if !details.isEmpty { parts.append("— From Media Sherpa —\n" + details.joined(separator: "\n")) }
         if let receipt { parts.append("— Latest receipt —\n" + receipt.lines.joined(separator: "\n")) }
         return parts.filter { !$0.isEmpty }.joined(separator: "\n\n")
     }

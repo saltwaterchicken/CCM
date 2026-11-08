@@ -240,7 +240,7 @@ struct SupportView: View {
                 }
             }
             if link == nil {
-                Label("This copy of Card Ingest was built without a support number. Put it in scripts/support-whatsapp.txt "
+                Label("This copy of Media Sherpa was built without a support number. Put it in scripts/support-whatsapp.txt "
                       + "and run make-app.sh again (or add supportWhatsApp to the settings file).",
                       systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
@@ -274,7 +274,7 @@ struct SupportView: View {
     /// The app's version and Mac, each card and the step it's on, and the last error.
     private var details: [String] {
         let version = About.version
-        var lines = ["Card Ingest \(version), macOS \(ProcessInfo.processInfo.operatingSystemVersionString)",
+        var lines = ["Media Sherpa \(version), macOS \(ProcessInfo.processInfo.operatingSystemVersionString)",
                      "Settings: \(settings.fileURL.lastPathComponent)"]
         for card in watcher.cards {
             lines.append("Card \(card.info.name): " + step(watcher.copyStates[card.id]))
@@ -402,7 +402,7 @@ struct HelpCommands: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .help) {
-            Button("Card Ingest Help") { openWindow(id: "help") }
+            Button("Media Sherpa Help") { openWindow(id: "help") }
                 .keyboardShortcut("?", modifiers: .command)
             Button("Live Tech Support…") {
                 help.supportRequested = true

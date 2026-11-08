@@ -129,7 +129,7 @@ public struct PhoneNotification: Equatable, Sendable {
         return PhoneNotification(title: title, message: lines.joined(separator: "\n"), isProblem: problems > 0)
     }
 
-    public static let test = PhoneNotification(title: "Card Ingest",
+    public static let test = PhoneNotification(title: "Media Sherpa",
                                                message: "Test notification. Alerts for copies and the server will arrive like this.")
 
     private static func count(_ n: Int, _ word: String) -> String { "\(n) \(word)\(n == 1 ? "" : "s")" }
