@@ -1432,7 +1432,10 @@ the `VERSION` file at the top of the repo; the build is the commit (`git describ
 built with uncommitted changes), also sent with Live Tech Support. The logo: put a square PNG at
 `scripts/logo.png` (1024 x 1024, clear background) and make-app.sh turns it into the app's icon,
 which the About box shows. Logo added 2026-10-27: Capture Camp Media's orange CC with "PHOTO / FILM /
-CONTENT" (1024 x 1024, clear background).
+CONTENT" (1024 x 1024, clear background). Logo replaced 2026-11-08: the white CC lit blue and pink in
+smoke, filling the whole square. A logo with no clear background is rounded by make-app.sh
+(`scripts/shape-icon.swift`) into the Mac icon shape with the usual margin, so it matches other
+icons in the Dock; a logo with a clear background is used as it is.
 
 ## Phone and Watch notifications (asked 2026-10-28, built 2026-10-28, confirmed on the Mac and iPhone 2026-10-30)
 

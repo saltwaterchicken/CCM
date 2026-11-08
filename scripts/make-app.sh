@@ -54,9 +54,16 @@ ICON_KEY=""
 if [ -f scripts/logo.png ]; then
     ICONSET="$(mktemp -d)/AppIcon.iconset"
     mkdir -p "$ICONSET"
+    # A logo that fills its whole square (no clear background) is rounded into
+    # the Mac icon shape, so it doesn't sit in the Dock as a hard-edged square.
+    LOGO="scripts/logo.png"
+    if sips -g hasAlpha scripts/logo.png | grep -q "hasAlpha: no"; then
+        LOGO="$(dirname "$ICONSET")/logo-shaped.png"
+        swift scripts/shape-icon.swift scripts/logo.png "$LOGO" || LOGO="scripts/logo.png"
+    fi
     for size in 16 32 128 256 512; do
-        sips -z $size $size scripts/logo.png --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
-        sips -z $((size * 2)) $((size * 2)) scripts/logo.png --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
+        sips -z $size $size "$LOGO" --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
+        sips -z $((size * 2)) $((size * 2)) "$LOGO" --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
     done
     iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
     ICON_KEY="<key>CFBundleIconFile</key><string>AppIcon</string>"
