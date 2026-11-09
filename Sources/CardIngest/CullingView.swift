@@ -508,7 +508,8 @@ final class GridModel {
     /// preferences: one for `swift run`, one for the double-click app.
     nonisolated private static func savedRecentKeywords() -> [String] {
         let older = [UserDefaults.standard, UserDefaults(suiteName: "CardIngest"),
-                     UserDefaults(suiteName: "com.capturecampmemories.cardingest")]
+                     UserDefaults(suiteName: "com.capturecampmemories.cardingest"),
+                     UserDefaults(suiteName: PreferencesMove.appID)]
             .map { $0?.stringArray(forKey: "recentKeywords") ?? [] }
         return KeywordHistory.moveIn(older)
     }

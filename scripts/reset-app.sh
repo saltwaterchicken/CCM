@@ -14,7 +14,8 @@
 # first. Cards, the destination and the Server aren't touched.
 set -euo pipefail
 
-DOMAIN="com.capturecampmemories.cardingest"
+DOMAIN="com.capturecampmedia.mediasherpa"
+OLD_DOMAIN="com.capturecampmemories.cardingest"   # the app's ID before it was renamed
 SWIFT_RUN_DOMAIN="CardIngest"   # the preferences `swift run` uses
 PROCESS="CardIngest"
 LIBRARY="$HOME/Library/Application Support"
@@ -24,6 +25,17 @@ RESETS="$LIBRARY/Media Sherpa Resets"
 # Move them to the new names, as the app does, so nothing is left behind.
 [ -d "$LIBRARY/Card Ingest" ] && [ ! -e "$SUPPORT" ] && mv "$LIBRARY/Card Ingest" "$SUPPORT"
 [ -d "$LIBRARY/Card Ingest Resets" ] && [ ! -e "$RESETS" ] && mv "$LIBRARY/Card Ingest Resets" "$RESETS"
+# Preferences under the old ID move to the new one, as the app does, so a reset
+# clears them rather than the app bringing them back.
+if defaults read "$OLD_DOMAIN" >/dev/null 2>&1; then
+    if ! defaults read "$DOMAIN" >/dev/null 2>&1; then
+        OLD_PREFS="$(mktemp)"
+        defaults export "$OLD_DOMAIN" "$OLD_PREFS"
+        defaults import "$DOMAIN" "$OLD_PREFS"
+        rm -f "$OLD_PREFS"
+    fi
+    defaults delete "$OLD_DOMAIN" 2>/dev/null || true
+fi
 KEEP_KEYS=(licenseKey licenseLastSeen NSUserKeyEquivalents)
 PREFS_COPY="Preferences.plist"
 

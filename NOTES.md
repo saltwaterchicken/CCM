@@ -1461,7 +1461,7 @@ If a phone lists the messages in ntfy but gives no alerts (seen 2026-10-30 on th
 current iPhone, while the old one alerted), delete and reinstall ntfy and subscribe again: that fixed
 it. The topic is in the photographer's main Settings.plist only, never in the repo.
 
-## App name (asked 2026-11-08, built 2026-11-08, confirmed on the Mac 2026-11-08)
+## App name (asked 2026-11-08, built 2026-11-08, confirmed on the Mac 2026-11-08; new app ID built 2026-11-08)
 
 The app is "CC Media Sherpa" in Finder, the Dock, the menu bar and /Applications (`APP_NAME` in
 make-app.sh); the About window's title reads "Media Sherpa by Capture Camp" (`About.aboutName`), and
@@ -1472,7 +1472,17 @@ Tech Support's "— From Media Sherpa —", and the card-access prompt. Installi
 (Settings.plist, My Keywords.txt, Calibration Labels.json), so people can find it: the first time the
 renamed app opens, it renames the old "Card Ingest" folder (`SettingsStore.moveOldFolder`), and if a
 "Media Sherpa" folder is already there it is used and the old one left alone. reset-app.sh does
-the same, with resets kept in "Media Sherpa Resets". The bundle ID, the default destination
-(~/Pictures/Card Ingest) and the license keys (CI1-) are unchanged, so copies and keys carry over. CI still tests `.build/CCM Card Ingest.app`
+the same, with resets kept in "Media Sherpa Resets". The default destination
+(~/Pictures/Card Ingest) and the license keys (CI1-) are unchanged.
+
+The app's ID (bundle ID) is now `com.capturecampmedia.mediasherpa` (was
+`com.capturecampmemories.cardingest`), so its preferences file is
+~/Library/Preferences/com.capturecampmedia.mediasherpa.plist. On first launch the app moves the old
+ID's preferences across (license key, tutorial seen, keyboard shortcuts) and removes the old ones
+(`PreferencesMove.swift`); if the new ID already has preferences they're kept. reset-app.sh does
+the same before resetting. macOS ties card access to the ID, so it asks once more for permission
+to read cards. Left as "cardingest" on purpose: the private marker in photos' sidecars
+(`cardingest:` namespace; renaming it would stop the app reading markers already written) and the
+developer's license-signing key folder ~/.cardingest (on the developer's Mac only). CI still tests `.build/CCM Card Ingest.app`
 and this login can't change the workflow, so make-app.sh leaves a link with that name to the new app.
 The logo was recropped closer the same day.

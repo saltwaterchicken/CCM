@@ -88,7 +88,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <dict>
     <key>CFBundleName</key><string>${APP_NAME}</string>
     <key>CFBundleDisplayName</key><string>${APP_NAME}</string>
-    <key>CFBundleIdentifier</key><string>com.capturecampmemories.cardingest</string>
+    <key>CFBundleIdentifier</key><string>com.capturecampmedia.mediasherpa</string>
     <key>CFBundleExecutable</key><string>CardIngest</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>${VERSION}</string>

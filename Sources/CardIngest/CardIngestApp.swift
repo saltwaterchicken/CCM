@@ -20,6 +20,11 @@ struct CardIngestApp: App {
             print("\(arguments[2]): \(problem)")
             exit(1)
         }
+        // Preferences kept under the app's old ID (license key, tutorial seen) come
+        // across first, before anything reads them. Not under `swift run`, which has no ID.
+        if Bundle.main.bundleIdentifier == PreferencesMove.appID {
+            PreferencesMove.moveOld(to: PreferencesMove.appID)
+        }
         // Needed so the window comes to the front when launched from Terminal.
         NSApplication.shared.setActivationPolicy(.regular)
         NSApplication.shared.activate()
