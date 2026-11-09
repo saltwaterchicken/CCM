@@ -47,21 +47,21 @@ public struct AutoCheck: Equatable, Sendable {
 /// Mechanic ignore the marker. Never touches a photo that already has stars
 /// (the photographer's or the camera's), and only reads the copies, never the card.
 public enum AutoRating {
-    public static let namespace = "http://ns.cardingest.app/autorating/1.0/"
-    public static let prefix = "cardingest"
+    public static let namespace = "http://ns.capturecampmedia.com/mediasherpa/autorating/1.0/"
+    public static let prefix = "mediasherpa"
     /// The stars the checks gave. Taken out when the photographer rates the
     /// photo in this app; another app changing the rating shows as a rating
     /// that no longer matches it.
-    public static let starsField = "cardingest:Stars"
-    static let checkedField = "cardingest:Checked"
-    static let problemsField = "cardingest:Problems"
-    static let scoreField = "cardingest:Score"
-    static let facesField = "cardingest:Faces"
-    static let blownField = "cardingest:Blown"
-    static let crushedField = "cardingest:Crushed"
-    static let brightnessField = "cardingest:Brightness"
-    static let subjectField = "cardingest:Subject"
-    static let takenField = "cardingest:Taken"
+    public static let starsField = "mediasherpa:Stars"
+    static let checkedField = "mediasherpa:Checked"
+    static let problemsField = "mediasherpa:Problems"
+    static let scoreField = "mediasherpa:Score"
+    static let facesField = "mediasherpa:Faces"
+    static let blownField = "mediasherpa:Blown"
+    static let crushedField = "mediasherpa:Crushed"
+    static let brightnessField = "mediasherpa:Brightness"
+    static let subjectField = "mediasherpa:Subject"
+    static let takenField = "mediasherpa:Taken"
     /// The capture time as kept in the marker, to the hundredth of a second.
     static func takenFormatter() -> ISO8601DateFormatter {
         let f = ISO8601DateFormatter()

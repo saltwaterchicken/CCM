@@ -158,7 +158,7 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   share can't catch them. Added `minimumBrightness` (0 = off, the default): the face's average
   brightness, else the sharpest area's (0 to 255), flagged "Too dark" when below it, so a lit face
   on a black stage passes. Its own "Dark subject" slider (off to 128); the two share sliders now go
-  0 to 100%. Recorded as `cardingest:Brightness` in the marker. To tune on a folder with dark
+  0 to 100%. Recorded as `mediasherpa:Brightness` in the marker. To tune on a folder with dark
   outtakes; score-folder's CSV already has `face_brightness` and `area_brightness`.
   **Subject Sharpest in bursts (asked 2026-10-30, built 2026-10-30, confirmed on the Mac 2026-10-30):** a
   green "Subject Sharpest" chip on the sharpest frame of each burst, in the grid, its large view
@@ -169,8 +169,8 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   frame per burst even on a near tie. Cameras aren't told apart: a card is one photographer's
   camera, and comparing across cards or cameras is for Lightroom (photographer, 2026-10-30).
   Capture time read to the hundredth of a second (EXIF SubSecTimeOriginal,
-  `CaptureDate.moment`). The check's marker now also keeps `cardingest:Subject` (the largest
-  face's score, else the area's), `cardingest:Taken`, so Load Folder needs no extra reading. Not
+  `CaptureDate.moment`). The check's marker now also keeps `mediasherpa:Subject` (the largest
+  face's score, else the area's), `mediasherpa:Taken`, so Load Folder needs no extra reading. Not
   needed on cards copied before (photographer): photos checked before 2026-10-30 have no Taken
   and are left out. Only checked photos take part (`Bursts.swift`, `CullGrid.burstSharpest`).
   **Calibration rework, agreed 2026-10-30, built 2026-10-30; interface confirmed on the Mac 2026-10-30,
@@ -253,10 +253,10 @@ any code (see "Metadata"). Embedding stars in JPEG-only and HEIC shots was dropp
   photo lands" (`rating.autoRating`, off by default). Each photo that lands unrated is checked once
   its last file is in, on half the cores at utility priority, reading the copy; copy, trash and
   eject never wait. 1★ if it passes, 0 if not, written to its sidecar(s) in destination and backup
-  with a private marker (namespace `http://ns.cardingest.app/autorating/1.0/`: Checked, Stars,
+  with a private marker (namespace `http://ns.capturecampmedia.com/mediasherpa/autorating/1.0/`, was `http://ns.cardingest.app/autorating/1.0/` until 2026-11-09: Checked, Stars,
   Problems, Score, Faces, Blown, Crushed). Never a photo already rated (hand, camera or editor, 0
   included), checked again, or rated while it was being checked; the grid drops a late result too.
-  Rating it here removes `cardingest:Stars`; another app changing the rating shows as a mismatch, so
+  Rating it here removes `mediasherpa:Stars`; another app changing the rating shows as a mismatch, so
   either way it counts as the photographer's. App stars are drawn blue, hand stars yellow; flagged
   tiles carry reason chips. "Check N Photos" in the grid for a loaded folder or with auto-rating
   off. Calibration leaves out photos still at the app's own stars. Tried on 35 real NEF/CR3/ARW
@@ -1481,8 +1481,12 @@ The app's ID (bundle ID) is now `com.capturecampmedia.mediasherpa` (was
 ID's preferences across (license key, tutorial seen, keyboard shortcuts) and removes the old ones
 (`PreferencesMove.swift`); if the new ID already has preferences they're kept. reset-app.sh does
 the same before resetting. macOS ties card access to the ID, so it asks once more for permission
-to read cards. Left as "cardingest" on purpose: the private marker in photos' sidecars
-(`cardingest:` namespace; renaming it would stop the app reading markers already written) and the
-developer's license-signing key folder ~/.cardingest (on the developer's Mac only). CI still tests `.build/CCM Card Ingest.app`
+to read cards. The private marker in photos' sidecars was renamed too (2026-11-09) so it matches the app for anyone
+reading the code or a sidecar: prefix `mediasherpa:`, namespace
+`http://ns.capturecampmedia.com/mediasherpa/autorating/1.0/` (was `cardingest:` and
+`http://ns.cardingest.app/autorating/1.0/`). The old marker is no longer read, on purpose: the cards
+done before were tests. Photos marked before keep their stars, but the app now sees them as rated
+by hand: no orange or green chips, not counted as flagged, out of calibration, and not checked again.
+Still "cardingest": the developer's license-signing key folder ~/.cardingest (developer's Mac only). CI still tests `.build/CCM Card Ingest.app`
 and this login can't change the workflow, so make-app.sh leaves a link with that name to the new app.
 The logo was recropped closer the same day.
