@@ -10,7 +10,7 @@
 #
 # Live Tech Support writes to the WhatsApp number in scripts/support-whatsapp.txt
 # (one line, with the country code, e.g. +1 555 123 4567), or in the
-# CARD_INGEST_SUPPORT_WHATSAPP variable. It's built into the app so photographers
+# MEDIA_SHERPA_SUPPORT_WHATSAPP variable. It's built into the app so photographers
 # don't have to set it. The file is kept out of git all the same.
 #
 # Ship/Settings.plist goes in the app as it is, and is what a new user's settings
@@ -25,8 +25,8 @@ INSTALL=1
 [ "${1:-}" = "--no-install" ] && INSTALL=0
 
 echo "Building (this takes a minute the first time)…"
-swift build -c release --product CardIngest
-BIN="$(swift build -c release --show-bin-path)/CardIngest"
+swift build -c release --product MediaSherpa
+BIN="$(swift build -c release --show-bin-path)/MediaSherpa"
 
 SHIPPED="Ship/Settings.plist"
 if [ -f "$SHIPPED" ] && ! "$BIN" --check-shipped-settings "$SHIPPED"; then
@@ -37,7 +37,7 @@ fi
 APP=".build/${APP_NAME}.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN" "$APP/Contents/MacOS/CardIngest"
+cp "$BIN" "$APP/Contents/MacOS/MediaSherpa"
 if [ -f "$SHIPPED" ]; then
     cp "$SHIPPED" "$APP/Contents/Resources/Settings.plist"
     echo "New users start from $SHIPPED."
@@ -72,7 +72,7 @@ if [ -f scripts/logo.png ]; then
 else
     echo "Note: no logo (scripts/logo.png), so the app has the plain icon."
 fi
-SUPPORT="${CARD_INGEST_SUPPORT_WHATSAPP:-}"
+SUPPORT="${MEDIA_SHERPA_SUPPORT_WHATSAPP:-}"
 if [ -z "$SUPPORT" ] && [ -f scripts/support-whatsapp.txt ]; then
     SUPPORT="$(head -n 1 scripts/support-whatsapp.txt)"
 fi
@@ -89,7 +89,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleName</key><string>${APP_NAME}</string>
     <key>CFBundleDisplayName</key><string>${APP_NAME}</string>
     <key>CFBundleIdentifier</key><string>com.capturecampmedia.mediasherpa</string>
-    <key>CFBundleExecutable</key><string>CardIngest</string>
+    <key>CFBundleExecutable</key><string>MediaSherpa</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>${VERSION}</string>
     <key>CFBundleVersion</key><string>${BUILD}</string>
@@ -108,18 +108,15 @@ cat > "$APP/Contents/Info.plist" <<PLIST
             <key>LSItemContentTypes</key><array><string>public.folder</string></array>
         </dict>
     </array>
-    <key>CardIngestSupportWhatsApp</key><string>${SUPPORT}</string>
+    <key>MediaSherpaSupportWhatsApp</key><string>${SUPPORT}</string>
 </dict>
 </plist>
 PLIST
 
 # A local signature so macOS treats it as a normal app on this Mac.
 codesign --force --sign - "$APP" >/dev/null
-# CI still looks for the app under its old name, and this login can't change
-# the workflow, so leave a link to it there.
 for old in "${OLD_NAMES[@]}"; do
     rm -rf ".build/${old}.app"
-    ln -s "${APP_NAME}.app" ".build/${old}.app"
 done
 
 if [ "$INSTALL" = 1 ]; then

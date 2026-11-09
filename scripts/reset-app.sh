@@ -16,8 +16,8 @@ set -euo pipefail
 
 DOMAIN="com.capturecampmedia.mediasherpa"
 OLD_DOMAIN="com.capturecampmemories.cardingest"   # the app's ID before it was renamed
-SWIFT_RUN_DOMAIN="CardIngest"   # the preferences `swift run` uses
-PROCESS="CardIngest"
+SWIFT_RUN_DOMAIN="MediaSherpa"   # the preferences `swift run` uses
+PROCESS="MediaSherpa"
 LIBRARY="$HOME/Library/Application Support"
 SUPPORT="$LIBRARY/Media Sherpa"
 RESETS="$LIBRARY/Media Sherpa Resets"
@@ -107,6 +107,7 @@ if defaults read "$DOMAIN" >/dev/null 2>&1; then
     defaults delete "$DOMAIN" 2>/dev/null || true   # says no if it's already empty
 fi
 defaults delete "$SWIFT_RUN_DOMAIN" 2>/dev/null || true
+defaults delete CardIngest 2>/dev/null || true   # `swift run` before the rename
 defaults import "$DOMAIN" "$KEPT"
 rm -f "$KEPT"
 

@@ -1,4 +1,4 @@
-# Card Ingest: working notes
+# Media Sherpa (formerly Card Ingest): working notes
 
 Keep this file current so any new session can pick up where the last one left off.
 The full brief is `BRIEF.md`.
@@ -305,8 +305,8 @@ stars and keywords (in Synology Photos itself would mean they were never in the 
 
 ## Decisions
 
-- **Project layout:** a Swift package (`Package.swift`) with two parts. `CardIngestCore` holds
-  all the logic and its tests. `CardIngest` is the thin SwiftUI app. Open `Package.swift` in
+- **Project layout:** a Swift package (`Package.swift`) with two parts. `MediaSherpaCore` holds
+  all the logic and its tests. `MediaSherpa` is the thin SwiftUI app. Open `Package.swift` in
   Xcode to build and run. A full Xcode app project (for an icon, signing, menu bar) can wrap
   this later, around Milestone 6.
 - **Settings:** one XML property list, defaults at
@@ -322,7 +322,7 @@ stars and keywords (in Synology Photos itself would mean they were never in the 
   The backup can't be the destination, inside it, or contain it; Copy refuses until that's fixed.
 - **Look:** always dark, like Capture One, whatever the Mac's appearance setting: a near-black
   window with slightly lighter flat panels and small grey headings (`Theme` and `PanelStyle`
-  in `CardIngestApp.swift`). Choose… panels and alerts are dark too.
+  in `MediaSherpaApp.swift`). Choose… panels and alerts are dark too.
 - **Default destination:** `~/Pictures/Card Ingest`, with each card's folder directly inside,
   e.g. `~/Pictures/Card Ingest/2026-10-23-ES001/`. Patterns and tokens: see Naming.
   A pattern always makes one name: `/` or `:` becomes `-`, so nothing can escape the destination.
@@ -1020,7 +1020,7 @@ help window is the one search. Done by making the app's help menu one that's nev
 (`AppDelegate` in `HelpView.swift`, set again if the menus are rebuilt). The menu items can no
 longer be searched from the Help menu; the help answers name them instead. Confirmed gone on the
 Mac 2026-10-27. The photographer misses it a little but wants it left out for now; to bring it
-back, delete the `AppDelegate` (and its `@NSApplicationDelegateAdaptor` line in `CardIngestApp.swift`).
+back, delete the `AppDelegate` (and its `@NSApplicationDelegateAdaptor` line in `MediaSherpaApp.swift`).
 **Menu commands in the help search (asked 2026-10-27, built 2026-10-27, confirmed on the Mac 2026-10-27, with macOS's search field still gone):** in
 place of macOS's search field, typing in the dark help window also lists, under "In the menus", up to
 5 commands from the File, Photos and Help menus that every typed word finds (in the command's name or
@@ -1037,7 +1037,7 @@ newest receipt in the destination's card folders); Open in WhatsApp opens `wa.me
 all written; Share Receipt… (the Mac's Share menu) or Show Receipt in Finder for the file itself.
 The number is built into the app by `make-app.sh` (photographer's point, 2026-10-27: they
 shouldn't have to set it), from `scripts/support-whatsapp.txt` (one line, with the country code)
-or `CARD_INGEST_SUPPORT_WHATSAPP`, into Info.plist as `CardIngestSupportWhatsApp`. The file is
+or `MEDIA_SHERPA_SUPPORT_WHATSAPP`, into Info.plist as `MediaSherpaSupportWhatsApp`. The file is
 git-ignored because the repository is public. `supportWhatsApp` in a settings file overrides it.
 The file must be named exactly `support-whatsapp.txt`, with the number inside it (country code
 included); a file named after the number isn't read, and isn't git-ignored either.
@@ -1172,7 +1172,7 @@ versions, save copies beside it. An earlier version with a short file listing on
 
 - **Reaching only new users is a feature** (photographer), not something to warn about.
 - **Phone alert topic can't ship (photographer's worry):** the build stops on one, and first launch empties it anyway, the one place the app doesn't follow the file. No shared-phone setup wanted. Each user gets their own from the tutorial.
-- **Caught when building** (`SettingsStore.shippingProblem`, through the hidden `CardIngest --check-shipped-settings`): syntax or type errors, a topic, a key that isn't a setting. Nothing is installed then.
+- **Caught when building** (`SettingsStore.shippingProblem`, through the hidden `MediaSherpa --check-shipped-settings`): syntax or type errors, a topic, a key that isn't a setting. Nothing is installed then.
 - **`tutorialKeywords`** replaces the buttons that were in the code. Empty hides the row.
 - A test fails if `Ship/Settings.plist` lacks a setting, so it stays complete.
 - **`Make App.command`** at the top of the project: double-click in Finder to run `make-app.sh`. It opens a Terminal window for progress and needs no typing.
@@ -1211,7 +1211,7 @@ Suggestions so far, not yet decided. Edit freely.
    `sudo xcode-select -s /Applications/Xcode.app` once, or put
    `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` in front of each `swift` command.
 2. In Terminal: `cd` into the project, then `swift test` (runs the tests) and
-   `swift run -c release CardIngest` (opens the app; `-c release` makes copying and checksums
+   `swift run -c release MediaSherpa` (opens the app; `-c release` makes copying and checksums
    much faster). Or open `Package.swift` in Xcode and press Run.
    To open it by double-click instead, run `scripts/make-app.sh` once: it builds
    "CCM Card Ingest.app" into /Applications (drag it to the Dock if you like). Run it again
@@ -1411,9 +1411,9 @@ Offline keys that run out, as in the photographer's brief: Ed25519 via Apple's C
 server or network. `tools/licensing/license.swift` (developer's Mac only, not in the package) makes
 the keypair once and issues keys (`--email`, `--months 6` or `--expires YYYY-MM-DD`); see
 `tools/licensing/README.md`. The keypair was made on 2026-10-27; the private key is in
-`~/.cardingest/license_private.key` (to be backed up offline) and the public key is
+`~/.mediasherpa/license_private.key` (to be backed up offline) and the public key is
 `License.publicKey`. Keys are `CI1-` + base64url(JSON payload) + `.` + base64url(signature) and work
-through the end of their expiry day. `License.check` (CardIngestCore) ignores spaces and line breaks,
+through the end of their expiry day. `License.check` (MediaSherpaCore) ignores spaces and line breaks,
 and catches a clock set more than 2 days earlier than the latest date the app has seen (kept in the
 app's preferences, never moved back). The app (`LicenseView.swift`) checks at launch and hourly;
 the key is in its preferences, not the settings file. Photographer's calls (2026-10-27): without a
@@ -1487,6 +1487,16 @@ reading the code or a sidecar: prefix `mediasherpa:`, namespace
 `http://ns.cardingest.app/autorating/1.0/`). The old marker is no longer read, on purpose: the cards
 done before were tests. Photos marked before keep their stars, but the app now sees them as rated
 by hand: no orange or green chips, not counted as flagged, out of calibration, and not checked again.
-Still "cardingest": the developer's license-signing key folder ~/.cardingest (developer's Mac only). CI still tests `.build/CCM Card Ingest.app`
+Code renamed too (2026-11-09), so a developer sees one name: the package is MediaSherpa, with
+`Sources/MediaSherpaCore` (logic), `Sources/MediaSherpa` (the app, `MediaSherpaApp.swift`) and
+`Tests/MediaSherpaCoreTests`; the program inside the app is `MediaSherpa` (`swift run MediaSherpa`);
+the support number's Info.plist key is `MediaSherpaSupportWhatsApp` and its variable
+`MEDIA_SHERPA_SUPPORT_WHATSAPP`; the license-signing key moved to ~/.mediasherpa. Still "Card Ingest"
+on purpose: the default destination ~/Pictures/Card Ingest (kept, the photographer's choice), the
+code that moves old settings and preferences across, the license key prefix CI1- (changing it would
+void keys already given out), and one checksum test's sample text. Older entries in these notes use
+the old names. The CI workflow's last step names the app's path, and only the photographer can edit
+it (this login has no workflow permission): it should read
+`test -x ".build/CC Media Sherpa.app/Contents/MacOS/MediaSherpa"`. CI still tests `.build/CCM Card Ingest.app`
 and this login can't change the workflow, so make-app.sh leaves a link with that name to the new app.
 The logo was recropped closer the same day.

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Double-click in Finder to build Card Ingest and put it in Applications.
+# Double-click in Finder to build Media Sherpa and put it in Applications.
 cd "$(dirname "$0")"
 if scripts/make-app.sh; then
     echo

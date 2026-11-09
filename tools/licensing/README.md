@@ -1,10 +1,10 @@
 # License keys
 
-Card Ingest unlocks with a license key that runs out after a set time. Keys are
+Media Sherpa unlocks with a license key that runs out after a set time. Keys are
 checked on the photographer's Mac alone (no server, no internet): each is a small
 payload (email, issued, expires) signed with an Ed25519 private key that only you
 have. The app holds the matching public key (`License.publicKey` in
-`Sources/CardIngestCore/License.swift`), which can check keys but never make them.
+`Sources/MediaSherpaCore/License.swift`), which can check keys but never make them.
 
 `license.swift` here is for your Mac only. It isn't part of the Swift package, so
 it's never built into the app.
@@ -13,7 +13,7 @@ it's never built into the app.
 
     swift tools/licensing/license.swift generate-keypair
 
-This saves the private key to `~/.cardingest/license_private.key`, readable only by
+This saves the private key to `~/.mediasherpa/license_private.key`, readable only by
 you, and prints the public key. Put that in `License.publicKey` and rebuild the app.
 (Already done on 2026-10-27; it refuses to replace an existing private key, as every
 key issued with it would stop working.)

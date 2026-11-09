@@ -1,19 +1,19 @@
 #!/usr/bin/env swift
-// Makes Card Ingest license keys. For the developer's Mac only: not part of
+// Makes Media Sherpa license keys. For the developer's Mac only: not part of
 // the app or the Swift package, and the private key it makes is kept outside
-// the repo, in ~/.cardingest. See README.md beside this file.
+// the repo, in ~/.mediasherpa. See README.md beside this file.
 //
 //   swift tools/licensing/license.swift generate-keypair
 //   swift tools/licensing/license.swift issue-license --email someone@example.com --months 6
 //   swift tools/licensing/license.swift issue-license --email someone@example.com --expires 2027-04-30
 //
-// The key format must match License.swift in CardIngestCore.
+// The key format must match License.swift in MediaSherpaCore.
 
 import CryptoKit
 import Foundation
 
 let privateKeyURL = FileManager.default.homeDirectoryForCurrentUser
-    .appendingPathComponent(".cardingest/license_private.key")
+    .appendingPathComponent(".mediasherpa/license_private.key")
 
 func fail(_ message: String) -> Never {
     FileHandle.standardError.write(Data((message + "\n").utf8))
@@ -53,7 +53,7 @@ func generateKeypair() {
     print("Private key saved to \(privateKeyURL.path) (only you can read it). Back it up somewhere safe and offline;")
     print("never commit it, email it or put it in the app.")
     print("")
-    print("Public key, for License.publicKey in Sources/CardIngestCore/License.swift:")
+    print("Public key, for License.publicKey in Sources/MediaSherpaCore/License.swift:")
     print(key.publicKey.rawRepresentation.base64EncodedString())
 }
 

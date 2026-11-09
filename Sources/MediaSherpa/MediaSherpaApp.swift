@@ -1,0 +1,698 @@
+import AppKit
+import MediaSherpaCore
+import SwiftUI
+import UniformTypeIdentifiers
+
+@main
+struct MediaSherpaApp: App {
+    @NSApplicationDelegateAdaptor private var delegate: AppDelegate
+    @State private var model: SettingsModel
+    @State private var watcher: CardWatcher
+    @State private var server = ServerStatus()
+    @State private var help = HelpModel()
+    @State private var license = LicenseModel()
+
+    init() {
+        // make-app.sh checks the file going out with this.
+        let arguments = CommandLine.arguments
+        if arguments.count == 3, arguments[1] == "--check-shipped-settings" {
+            guard let problem = SettingsStore.shippingProblem(URL(fileURLWithPath: arguments[2])) else { exit(0) }
+            print("\(arguments[2]): \(problem)")
+            exit(1)
+        }
+        // Preferences kept under the app's old ID (license key, tutorial seen) come
+        // across first, before anything reads them. Not under `swift run`, which has no ID.
+        if Bundle.main.bundleIdentifier == PreferencesMove.appID {
+            PreferencesMove.moveOld(to: PreferencesMove.appID)
+        }
+        // Needed so the window comes to the front when launched from Terminal.
+        NSApplication.shared.setActivationPolicy(.regular)
+        NSApplication.shared.activate()
+        // Always dark, like Capture One, whatever the Mac's own setting. This also
+        // makes the Choose… panels and alerts dark.
+        NSApplication.shared.appearance = NSAppearance(named: .darkAqua)
+        let model = SettingsModel()
+        _model = State(initialValue: model)
+        _watcher = State(initialValue: CardWatcher(settings: model.settings) { plan in
+            // Only a verified copy uses up the number, and the counter never goes down.
+            model.change { $0.nextImportNumber = plan.nextImportNumber(after: $0.nextImportNumber) }
+        } onTrashConfirmed: {
+            model.change { $0.confirmTrashForFirstCards = max(0, $0.confirmTrashForFirstCards - 1) }
+        })
+    }
+
+    var body: some Scene {
+        WindowGroup("Media Sherpa", id: "main") {
+            ContentView(model: model, watcher: watcher, server: server, license: license)
+                .frame(minWidth: 1000, minHeight: 620)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Theme.window)
+                .groupBoxStyle(PanelStyle())
+                .preferredColorScheme(.dark)
+                .onChange(of: model.settings) { _, settings in
+                    watcher.update(settings: settings)
+                    server.use(settings)
+                }
+                .onAppear {
+                    server.use(model.settings)
+                    delegate.loadFolder = { watcher.grid.load($0) }
+                }
+                .environment(help)
+        }
+        // A folder dropped on the Dock icon goes to the delegate. Every scene says so,
+        // or SwiftUI opens the next one in line (Help) for it.
+        .handlesExternalEvents(matching: [])
+        .commands {
+            CardCommands(settings: model, watcher: watcher)
+            HelpCommands(help: help, license: license, watcher: watcher)
+        }
+        Window("Media Sherpa Help", id: "help") {
+            HelpView(settings: model, watcher: watcher)
+                .frame(minWidth: 460, minHeight: 520)
+                .background(Theme.window)
+                .groupBoxStyle(PanelStyle())
+                .preferredColorScheme(.dark)
+                .environment(help)
+        }
+        .defaultSize(width: 520, height: 640)
+        .handlesExternalEvents(matching: [])
+        Window("Set Up Media Sherpa", id: "tutorial") {
+            TutorialView(settings: model, watcher: watcher)
+                .frame(minWidth: 560, minHeight: 520)
+                .background(Theme.window)
+                .groupBoxStyle(PanelStyle())
+                .preferredColorScheme(.dark)
+                .environment(help)
+        }
+        .defaultSize(width: 600, height: 600)
+        .handlesExternalEvents(matching: [])
+        Window("Media Sherpa License", id: "license") {
+            LicenseView(license: license)
+                .frame(minWidth: 480, minHeight: 300)
+                .background(Theme.window)
+                .preferredColorScheme(.dark)
+        }
+        .windowResizability(.contentSize)
+        .handlesExternalEvents(matching: [])
+    }
+}
+
+/// The dark, low-contrast look of pro photo apps like Capture One: a near-black
+/// window with slightly lighter panels, so photos and status stand out.
+enum Theme {
+    static let window = Color(white: 0.09)
+    static let panel = Color(white: 0.145)
+    static let panelEdge = Color(white: 0.22)
+}
+
+/// A flat panel with a small grey heading, in place of the standard group box.
+struct PanelStyle: GroupBoxStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            configuration.label
+                .font(.caption.weight(.semibold))
+                .textCase(.uppercase)
+                .foregroundStyle(.secondary)
+            configuration.content
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.panel, in: RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.panelEdge, lineWidth: 1))
+    }
+}
+
+/// Holds the settings currently in use and which file they came from.
+@MainActor
+@Observable
+final class SettingsModel {
+    var settings = IngestSettings()
+    var fileURL = SettingsStore.defaultFileURL
+    var errorMessage: String?
+
+    init() {
+        reload()
+    }
+
+    func reload() {
+        do {
+            settings = fileURL == SettingsStore.defaultFileURL
+                ? try SettingsStore.loadOrCreate(at: fileURL)
+                : try SettingsStore.load(from: fileURL)
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func useFile(_ url: URL) {
+        fileURL = url
+        reload()
+    }
+
+    /// Load Project Settings…, from the Settings File panel or the File menu.
+    func chooseProjectFile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.propertyList]
+        panel.message = "Choose a project settings file"
+        if panel.runModal() == .OK, let url = panel.url {
+            useFile(url)
+        }
+    }
+
+    func useDefaultFile() {
+        useFile(SettingsStore.defaultFileURL)
+    }
+
+    /// Changes one setting and saves it straight to the file in use.
+    func change(_ edit: (inout IngestSettings) -> Void) {
+        var updated = settings
+        edit(&updated)
+        guard updated != settings else { return }
+        settings = updated
+        do {
+            try SettingsStore.save(settings, to: fileURL)
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// The next card's folder, e.g. 2026-10-23-ES001, or what's wrong with the pattern.
+    var folderPreview: Result<String, Error> {
+        Result { try settings.cardFolderName() }
+    }
+
+    var destinationPreview: String {
+        switch folderPreview {
+        case let .success(name): settings.destinationRootURL.appendingPathComponent(name).path
+        case let .failure(error): error.localizedDescription
+        }
+    }
+
+    /// What a camera file called IMG_1234.CR3 taken today would become.
+    var fileNamePreview: String {
+        let values = TemplateValues(today: Date(), importNumber: settings.nextImportNumber,
+                                    capture: Date(), originalName: "IMG_1234.CR3")
+        do {
+            return "IMG_1234.CR3 → " + (try NameTemplate(settings.renamePattern).render(values)) + ".CR3"
+        } catch {
+            return error.localizedDescription
+        }
+    }
+}
+
+struct ContentView: View {
+    @Bindable var model: SettingsModel
+    var watcher: CardWatcher
+    var server: ServerStatus
+    var license: LicenseModel
+    @Environment(HelpModel.self) private var help
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        // Cards and settings on the left, the photos just copied on the right, like Photo Mechanic.
+        HStack(alignment: .top, spacing: 16) {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    // Calibrating: the limits in place of the cards and the Job panel.
+                    if let calibration = watcher.grid.calibration {
+                        CalibrationPanel(settings: model, model: calibration, grid: watcher.grid)
+                    } else {
+                        controls
+                    }
+                }
+                .onChange(of: help.request) {
+                    if let target = help.showing { withAnimation { proxy.scrollTo(target, anchor: .center) } }
+                }
+            }
+            .frame(width: 480)
+            CullingView(model: watcher.grid, settings: model)
+        }
+        .padding(16)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            LicenseBanner(license: license)
+        }
+        .overlay {
+            if watcher.grid.isViewing { LargeView(model: watcher.grid) }
+        }
+        .onAppear {
+            // The first time Media Sherpa runs for someone on this Mac.
+            if !UserDefaults.standard.bool(forKey: TutorialView.seenKey) { openWindow(id: "tutorial") }
+        }
+        .onChange(of: license.status.isValid, initial: true) { _, valid in
+            watcher.licensed = valid
+            // At launch, or when the hourly check finds the key has run out.
+            if !valid { openWindow(id: "license") }
+        }
+    }
+
+    private var controls: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            CardsView(watcher: watcher)
+                .helpSpot(.cards)
+
+            GroupBox("Job") {
+                JobPanel(model: model, grid: watcher.grid)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(4)
+            }
+
+            GroupBox("Server") {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top) {
+                        ServerLight(status: server)
+                            .helpSpot(.server)
+                        SyncButton(model: watcher.grid)
+                            .helpSpot(.syncWithServer)
+                    }
+                    SyncStatusView(model: watcher.grid)
+                    WaitingClipsView(model: watcher.grid)
+                    if !watcher.backups.isEmpty { BackupsView(backups: watcher.backups) }
+                }
+                .padding(4)
+            }
+            GroupBox("Settings File") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(model.fileURL.path).textSelection(.enabled)
+                    if let error = model.errorMessage {
+                        Text(error).foregroundStyle(.red)
+                    }
+                    HStack {
+                        Button("Show in Finder") {
+                            NSWorkspace.shared.activateFileViewerSelecting([model.fileURL])
+                        }
+                        Button("Load Project Settings…") { model.chooseProjectFile() }
+                        Button("Use Default") { model.useDefaultFile() }
+                        Button("Reload") { model.reload() }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(4)
+            }
+            .helpSpot(.settingsFile)
+        }
+    }
+}
+
+/// Folder name, import number, destination and backup. Every change is saved
+/// to the settings file.
+struct JobPanel: View {
+    @Bindable var model: SettingsModel
+    /// Calibrate… works on the card in the grid.
+    var grid: GridModel
+
+    var body: some View {
+        Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+            GridRow {
+                Text("Folder name").gridColumnAlignment(.trailing)
+                VStack(alignment: .leading, spacing: 4) {
+                    TextField("e.g. {todayyear4}-{todaymonth0}-{todayday0}-ES{iseq}", text: Binding(
+                        get: { model.settings.folderName },
+                        set: { pattern in model.change { $0.folderName = pattern } }))
+                        .textFieldStyle(.roundedBorder)
+                        .font(.body.monospaced())
+                    switch model.folderPreview {
+                    case let .success(name):
+                        Text("Next card: \(name)").foregroundStyle(.secondary)
+                    case let .failure(error):
+                        Label(error.localizedDescription, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.red)
+                    }
+                }
+                .helpSpot(.folderName)
+            }
+            GridRow {
+                Text("Next import number")
+                HStack {
+                    TextField("1", value: Binding(
+                        get: { model.settings.nextImportNumber },
+                        set: { number in model.change { $0.nextImportNumber = max(1, number) } }),
+                              format: .number.grouping(.never))
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 70)
+                    Text("{iseq}; goes up by one after each card copies and verifies")
+                        .foregroundStyle(.secondary)
+                }
+                .helpSpot(.importNumber)
+            }
+            GridRow {
+                Text("Destination")
+                HStack {
+                    Text(model.settings.destinationRoot)
+                        .lineLimit(1).truncationMode(.middle)
+                        .help(model.settings.destinationRootURL.path)
+                    Spacer()
+                    Button("Choose…") {
+                        if let url = Self.chooseFolder("Choose where cards are copied to", startingAt: model.settings.destinationRootURL) {
+                            model.change { $0.destinationRoot = Self.displayPath(url) }
+                        }
+                    }
+                }
+                .helpSpot(.destination)
+            }
+            GridRow {
+                Text("Backup")
+                HStack {
+                    Text(model.settings.backupRootURL == nil ? "None (optional)" : model.settings.backupRoot)
+                        .foregroundStyle(model.settings.backupRootURL == nil ? .secondary : .primary)
+                        .lineLimit(1).truncationMode(.middle)
+                    Spacer()
+                    if model.settings.backupRootURL != nil {
+                        Button("Remove") { model.change { $0.backupRoot = "" } }
+                    }
+                    Button("Choose…") {
+                        if let url = Self.chooseFolder("Choose a second place to copy cards to, ideally another drive", startingAt: model.settings.backupRootURL) {
+                            model.change { $0.backupRoot = Self.displayPath(url) }
+                        }
+                    }
+                }
+                .helpSpot(.backup)
+            }
+            GridRow {
+                Text("Copies go to")
+                Text(model.destinationPreview)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2).truncationMode(.middle)
+                    .textSelection(.enabled)
+            }
+            GridRow {
+                Text("File names")
+                Text(model.fileNamePreview)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .textSelection(.enabled)
+            }
+            GridRow {
+                Text("Keywords").gridCellAnchor(.topTrailing)
+                VStack(alignment: .leading, spacing: 4) {
+                    JobKeywordsField(model: model)
+                    Text("Added to every photo's sidecar as it lands, commas between. Add more to a few in the grid (K).")
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .helpSpot(.keywords)
+            }
+            GridRow {
+                Text("When done").gridCellAnchor(.topTrailing)
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Move the card's photos and videos to the card's Trash once every copy is verified", isOn: Binding(
+                        get: { model.settings.trashAfterVerify },
+                        set: { on in model.change { $0.trashAfterVerify = on } }))
+                    if model.settings.trashAfterVerify {
+                        let asks = model.settings.confirmTrashForFirstCards
+                        Text((asks > 0 ? "Asks first for the next \(asks) \(asks == 1 ? "card" : "cards"). " : "")
+                             + "Only cards with a DCIM folder, in a reader the Mac sees as removable. They stay in the card's Trash until you format the card in the camera.")
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 20)
+                    }
+                    Toggle("Eject the card when finished", isOn: Binding(
+                        get: { model.settings.ejectWhenDone },
+                        set: { on in model.change { $0.ejectWhenDone = on } }))
+                }
+                .toggleStyle(.checkbox)
+                .helpSpot(.whenDone)
+            }
+            if model.settings.rating.available {
+                GridRow {
+                    Text("Auto-rating").gridCellAnchor(.topTrailing)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Toggle("Rate sharpness and exposure as each photo lands", isOn: Binding(
+                            get: { model.settings.rating.autoRating },
+                            set: { on in model.change { $0.rating.autoRating = on } }))
+                            .toggleStyle(.checkbox)
+                        HStack {
+                            let r = model.settings.rating
+                            Text("1★ for keepers, 0 for soft or badly exposed. Limits: faces \(Int(r.minimumSharpnessFaces)) · "
+                                 + "no face \(Int(r.minimumSharpnessNoFaces)) · white \(Int((r.maximumBlown * 100).rounded()))% · "
+                                 + "black \(Int((r.maximumCrushed * 100).rounded()))%"
+                                 + (r.minimumBrightness >= 1 ? " · subject \(Int(r.minimumBrightness))" : "")
+                                 + (r.maximumBrightness < 255 ? " · bright subject \(Int(r.maximumBrightness))" : ""))
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer()
+                            Button("Calibrate…") { grid.calibrate(settingsURL: model.fileURL) }
+                                .help("Calibrates on the card in the grid, or asks for an earlier card first")
+                        }
+                        .padding(.leading, 20)
+                    }
+                    .helpSpot(.autoRating)
+                }
+            }
+            if let problem = model.settings.folderProblem {
+                GridRow {
+                    Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
+                    Label(problem, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
+                }
+            }
+        }
+    }
+
+    /// Choose… for a folder; the setup tutorial uses it too.
+    static func chooseFolder(_ message: String, startingAt start: URL?) -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Choose"
+        panel.message = message
+        panel.directoryURL = start
+        return panel.runModal() == .OK ? panel.url : nil
+    }
+
+    /// Keeps paths in the settings file short and readable, e.g. `~/Pictures/...`.
+    static func displayPath(_ url: URL) -> String {
+        (url.path as NSString).abbreviatingWithTildeInPath
+    }
+}
+
+/// The job's keywords, typed with commas between. Saved as they're typed,
+/// without tidying the text under the cursor (a comma just typed stays).
+struct JobKeywordsField: View {
+    @Bindable var model: SettingsModel
+    @State private var text = ""
+
+    var body: some View {
+        TextField("e.g. Camp, 2026, Summer", text: $text)
+            .textFieldStyle(.roundedBorder)
+            .onAppear { text = model.settings.metadata.keywords.joined(separator: ", ") }
+            .onChange(of: text) { _, typed in
+                let words = Keywords.parse(typed)
+                if words != model.settings.metadata.keywords { model.change { $0.metadata.keywords = words } }
+            }
+            // A project settings file loaded, or the file reloaded.
+            .onChange(of: model.settings.metadata.keywords) { _, words in
+                if Keywords.parse(text) != words { text = words.joined(separator: ", ") }
+            }
+    }
+}
+
+/// Shows the cards that are inserted, and why any other drives were left alone.
+struct CardsView: View {
+    var watcher: CardWatcher
+    @State private var showIgnored = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if watcher.cards.isEmpty {
+                Text("Waiting for a card…").font(.title2)
+            }
+            ForEach(watcher.ejected) { finished in
+                GroupBox {
+                    HStack(alignment: .top) {
+                        Image(systemName: "eject.circle").font(.largeTitle)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(finished.cardName).font(.title3).bold()
+                            Text("Ejected. You can take the card out.").foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Dismiss") { watcher.dismissEjected(finished) }
+                    }
+                    .padding(4)
+                    summary(finished)
+                }
+            }
+            if !watcher.cards.isEmpty {
+                ForEach(watcher.cards) { card in
+                    GroupBox {
+                        HStack(alignment: .top) {
+                            Image(systemName: "sdcard").font(.largeTitle)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(card.info.name).font(.title3).bold()
+                                Text(card.info.url.path).foregroundStyle(.secondary)
+                                if let error = card.scanError {
+                                    Text("Couldn't read the card: \(error)").foregroundStyle(.red)
+                                } else if let files = card.files {
+                                    Text("\(files.count) camera files, \(ByteCountFormatter.string(fromByteCount: card.totalBytes, countStyle: .file))")
+                                    if let message = card.check?.message {
+                                        Label(message, systemImage: "clock.arrow.circlepath")
+                                            .foregroundStyle(.orange)
+                                    }
+                                } else {
+                                    ProgressView().controlSize(.small)
+                                }
+                                if watcher.trashAfterVerify, let notice = CardClearer.notice(for: card.info) {
+                                    Label(notice, systemImage: "trash.slash")
+                                        .foregroundStyle(.orange)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                                if card.chosen, watcher.copyStates[card.id]?.isBusy != true {
+                                    Button("Not a Card") { watcher.notACard(card) }
+                                }
+                            }
+                            Spacer()
+                            copyButton(card)
+                        }
+                        .padding(4)
+                        copyStatus(card)
+                    }
+                }
+            }
+            ForEach(watcher.couldBeCards) { volume in
+                HStack(alignment: .firstTextBaseline) {
+                    Text("\(volume.info.name) has no camera folders. If it's a Blackmagic or RED card, use it as a card.")
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer()
+                    Button("Use as Card") { watcher.useAsCard(volume) }
+                }
+            }
+            DisclosureGroup("Other drives left alone (\(watcher.ignored.count))", isExpanded: $showIgnored) {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(watcher.ignored) { volume in
+                        if case let .ignored(reason) = volume.verdict {
+                            Text("\(volume.info.name): \(reason)")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func copyButton(_ card: DetectedVolume) -> some View {
+        if watcher.copyStates[card.id]?.isCopying == true {
+            Button("Stop") { watcher.stopCopy(card) }
+        } else if watcher.copyStates[card.id]?.isBusy == true {
+            EmptyView()
+        } else {
+            Button("Copy") { watcher.startCopy(card) }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!watcher.licensed || (card.files?.isEmpty ?? true))
+        }
+    }
+
+    @ViewBuilder
+    private func copyStatus(_ card: DetectedVolume) -> some View {
+        switch watcher.copyStates[card.id] {
+        case .preparing:
+            ProgressView { Text("Reading capture dates and choosing names…") }
+        case let .copying(fraction):
+            ProgressView(value: fraction) {
+                Text("Copying and verifying… \(Int(fraction * 100))%")
+            }
+        case let .askTrash(finished, files):
+            VStack(alignment: .leading, spacing: 6) {
+                summary(finished)
+                Label("Move the \(files.count) \(files.count == 1 ? "original" : "originals") on \(card.info.name) to the card's Trash? "
+                      + "Every one has a verified copy. They stay in the card's Trash until you format the card in the camera.",
+                      systemImage: "trash")
+                HStack {
+                    Button("Move to Trash") { watcher.confirmTrash(card) }
+                        .keyboardShortcut(.defaultAction)
+                    Button("Keep on Card") { watcher.keepOnCard(card) }
+                }
+            }
+        case .clearing:
+            ProgressView { Text("Moving the originals to the card's Trash…") }
+        case let .done(finished):
+            summary(finished)
+        case let .failed(message):
+            VStack(alignment: .leading, spacing: 4) {
+                Label(message, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
+                Text("Nothing on the card was changed. Copies that weren't verified were removed.")
+                    .foregroundStyle(.secondary)
+            }
+        case nil:
+            EmptyView()
+        }
+    }
+
+    /// What was copied, skipped, moved to the card's Trash and ejected.
+    @ViewBuilder
+    private func summary(_ finished: Finished) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            let skipped = finished.check.alreadyImported.count
+            if let report = finished.report {
+                Label("Copied and verified \(report.files.count) files (\(ByteCountFormatter.string(fromByteCount: report.totalBytes, countStyle: .file))).",
+                      systemImage: "checkmark.seal.fill")
+                    .foregroundStyle(.green)
+                if skipped > 0 {
+                    Text("Skipped \(skipped) \(skipped == 1 ? "file" : "files") already imported earlier.")
+                        .foregroundStyle(.secondary)
+                }
+                if let number = report.importNumber {
+                    Text("Import number \(String(format: "%03d", number))").foregroundStyle(.secondary)
+                }
+                if let first = finished.sidecarProblems.first {
+                    let count = finished.sidecarProblems.count
+                    Label("Couldn't write the .xmp sidecar for \(count) \(count == 1 ? "photo" : "photos"): \(first)",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                }
+                ForEach(report.destinationFolders, id: \.self) { folder in
+                    Text(folder.path).foregroundStyle(.secondary).textSelection(.enabled)
+                }
+            } else {
+                Label(finished.check.message ?? "Nothing new on this card.", systemImage: "checkmark.circle")
+                    .foregroundStyle(.secondary)
+                Text("Nothing was copied, and the import number wasn't used up.")
+                    .foregroundStyle(.secondary)
+            }
+            if let trash = finished.trash {
+                if trash.trashed > 0 {
+                    Label("Moved \(trash.trashed) \(trash.trashed == 1 ? "original" : "originals") to the card's Trash. "
+                          + "The space frees up once you format the card in the camera.", systemImage: "trash")
+                }
+                if !trash.failures.isEmpty {
+                    Label("Left \(trash.failures.count) \(trash.failures.count == 1 ? "file" : "files") on the card:",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    ForEach(trash.failures.prefix(5), id: \.self) { line in
+                        Text(line).foregroundStyle(.secondary).textSelection(.enabled)
+                    }
+                    if trash.failures.count > 5 {
+                        Text("…and \(trash.failures.count - 5) more.").foregroundStyle(.secondary)
+                    }
+                }
+            } else if let kept = finished.keptOnCard {
+                Text(kept).foregroundStyle(.secondary)
+            } else {
+                Text("Nothing on the card was changed.").foregroundStyle(.secondary)
+            }
+            if finished.clipsKept > 0 {
+                Text("\(finished.clipsKept) \(finished.clipsKept == 1 ? "clip stays" : "clips stay") on the card until on the Server. "
+                     + "Put the card back in after Save to Clips to clear them.").foregroundStyle(.secondary)
+            }
+            if let problem = finished.ejectProblem {
+                Label(problem, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            }
+            HStack {
+                // Opens the main copy's folder itself, so the photos are right there.
+                Button("Show Imported Files") {
+                    if let folder = finished.report?.destinationFolders.first ?? finished.check.earlierFolders.last {
+                        NSWorkspace.shared.open(folder)
+                    }
+                }
+                if let report = finished.report {
+                    Button("Show Receipt in Finder") {
+                        NSWorkspace.shared.activateFileViewerSelecting(report.receipts)
+                    }
+                }
+            }
+        }
+    }
+}

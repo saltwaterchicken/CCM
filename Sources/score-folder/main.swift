@@ -1,4 +1,4 @@
-import CardIngestCore
+import MediaSherpaCore
 import Foundation
 
 // Scores every RAW in the folders given, for calibrating auto-rating. Only

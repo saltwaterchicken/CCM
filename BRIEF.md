@@ -1,5 +1,7 @@
 # Card Ingest: Project Brief for Claude Code
 
+(The app has since been renamed Media Sherpa, "CC Media Sherpa" in Finder; see NOTES.md, App name.)
+
 You are building a small, native macOS app for a working photographer. Read this whole brief before writing any code. Then propose a plan for Milestone 1, ask any questions you need answered, and wait for my go-ahead.
 
 ## 1. What this app is
