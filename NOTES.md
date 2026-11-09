@@ -1495,8 +1495,7 @@ the support number's Info.plist key is `MediaSherpaSupportWhatsApp` and its vari
 on purpose: the default destination ~/Pictures/Card Ingest (kept, the photographer's choice), the
 code that moves old settings and preferences across, the license key prefix CI1- (changing it would
 void keys already given out), and one checksum test's sample text. Older entries in these notes use
-the old names. The CI workflow's last step names the app's path, and only the photographer can edit
-it (this login has no workflow permission): it should read
-`test -x ".build/CC Media Sherpa.app/Contents/MacOS/MediaSherpa"`. CI still tests `.build/CCM Card Ingest.app`
+the old names. The CI workflow's last step names the app's path; the photographer changed it to
+`test -x ".build/CC Media Sherpa.app/Contents/MacOS/MediaSherpa"` (this login can't edit workflows). CI still tests `.build/CCM Card Ingest.app`
 and this login can't change the workflow, so make-app.sh leaves a link with that name to the new app.
 The logo was recropped closer the same day.
