@@ -1461,7 +1461,7 @@ If a phone lists the messages in ntfy but gives no alerts (seen 2026-10-30 on th
 current iPhone, while the old one alerted), delete and reinstall ntfy and subscribe again: that fixed
 it. The topic is in the photographer's main Settings.plist only, never in the repo.
 
-## App name (asked 2026-11-08, built 2026-11-08)
+## App name (asked 2026-11-08, built 2026-11-08, confirmed on the Mac 2026-11-08)
 
 The app is "CC Media Sherpa" in Finder, the Dock, the menu bar and /Applications (`APP_NAME` in
 make-app.sh); the About window's title reads "Media Sherpa by Capture Camp" (`About.aboutName`), and
