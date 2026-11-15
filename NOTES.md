@@ -1498,3 +1498,12 @@ void keys already given out), and one checksum test's sample text. Older entries
 the old names. The CI workflow's last step names the app's path; the photographer changed it to
 `test -x ".build/CC Media Sherpa.app/Contents/MacOS/MediaSherpa"` (this login can't edit workflows), and CI passes with it.
 The logo was recropped closer the same day.
+
+## Beta testers (decided 2026-11-15)
+
+Testers get the built app (zipped), not the code; their tester note is the doc "Media Sherpa Beta:
+Getting Started" (https://claude.ai/artifact/6uJtAVqc4dpwGgiyjhLuDQ). The app is signed only for this
+Mac, not by Apple, so the first open is blocked: the note walks through System Settings › Privacy &
+Security › Open Anyway. The release build is arm64 only, so Intel Macs can't run it; macOS 14 or later.
+Each tester needs a license key (tools/licensing). Building from the code would leave out the Live
+Tech Support number, as scripts/support-whatsapp.txt isn't in git.
