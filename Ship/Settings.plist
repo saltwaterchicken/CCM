@@ -143,6 +143,7 @@
 	<true/>
 	<key>tutorialKeywords</key>
 	<array>
+		<string>2027</string>
 		<string>{year}</string>
 		<string>Summer Camp</string>
 	</array>
