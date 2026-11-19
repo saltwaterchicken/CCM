@@ -10,7 +10,7 @@ public enum HelpTarget: String, CaseIterable, Sendable {
     public var place: String {
         switch self {
         case .cards: "the card at the top left (it shows once a card is in)"
-        case .folderName: "Folder name in the Job panel"
+        case .folderName: "Job Tokens in the Job panel"
         case .importNumber: "Next import number in the Job panel"
         case .destination: "Destination in the Job panel"
         case .backup: "Backup in the Job panel"
@@ -199,14 +199,13 @@ public enum Help {
                    target: nil),
         HelpAnswer("settings-file-list", "What can I change by editing the settings file?",
                    """
-                   In the Settings File panel, Show in Finder finds the file; open it in a text editor. Keep a copy first, as a typo can stop it \
+                   Open Job Tokens in the Job panel; Show in Finder there finds the file. Open it in a text editor. Keep a copy first, as a typo can stop it \
                    loading. Press Reload right after saving, or your next change in the app will overwrite the edit. Any key you leave out goes back to its default.
 
                    ONLY IN THE FILE
                    • autoStartOnInsert: a camera card with new files starts Copy when it goes in (default false)
                    • keepClipsOnCardUntilOnServer: clips stay out of the card's Trash until Save to Clips has put them on the Server (default false)
                    • openWith: the app the Open button sends photos to (default Adobe Lightroom Classic)
-                   • renamePattern: the pattern for new file names (default {year4}-{month0}-{day0}-ES_{frame4}); the tutorial's initials step can change the initials in it
                    • confirmTrashForFirstCards: how many more cards ask before originals go to the Trash (default 3)
                    • rating › available: false removes auto-rating from the app completely (default true)
                    • supportWhatsApp: replaces the built-in Live Tech Support number (default empty)
@@ -216,7 +215,8 @@ public enum Help {
                    • fileTypes › raw, photo, video, sidecar: which file extensions count as camera files, and of what kind (default: built-in lists)
 
                    ALSO CHANGED IN THE APP
-                   • folderName, nextImportNumber, metadata › keywords: the Job panel
+                   • folderName, renamePattern: the patterns for card folders and file names (default {todayyear4}-{todaymonth0}-{todayday0}-ES{iseq} and {year4}-{month0}-{day0}-ES_{frame4}); Job Tokens in the Job panel and the tutorial change only the initials in them
+                   • nextImportNumber, metadata › keywords: the Job panel
                    • destinationRoot, backupRoot: the Choose… buttons
                    • trashAfterVerify, ejectWhenDone, rating › autoRating: the Job panel's checkboxes
                    • rating › minimumSharpnessFaces, minimumSharpnessNoFaces, maximumBlown, maximumCrushed, minimumBrightness, maximumBrightness: Calibrate
@@ -264,15 +264,16 @@ public enum Help {
                    + "from another card, it skips to the next free number.",
                    keywords: ["sequence", "es", "wrong number"], target: .importNumber),
         HelpAnswer("folder-name", "How are card folders named?",
-                   "Folder name in the Job panel is a pattern, e.g. {todayyear4}-{todaymonth0}-{todayday0}-ES{iseq} makes "
-                   + "2026-10-23-ES001. The line under it shows the next card's folder as you type. Each card's folder goes straight "
-                   + "inside the destination.",
+                   "By a pattern, e.g. {todayyear4}-{todaymonth0}-{todayday0}-ES{iseq} makes 2026-10-23-ES001. Open Job Tokens in "
+                   + "the Job panel to see it, with the next card's folder under it. Only the initials can be changed there, so a "
+                   + "stray keystroke can't change the rest; the rest is folderName in the settings file (Show in Finder, on "
+                   + "the More customizable tokens line). Each card's folder goes straight inside the destination.",
                    keywords: ["pattern", "token", "date", "initials"], target: .folderName),
         HelpAnswer("file-names", "How are files renamed?",
                    "Each file gets the rename pattern from the settings file, by default {year4}-{month0}-{day0}-ES_{frame4}: the "
                    + "date it was taken and the camera's frame number, e.g. 2026-10-14-ES_1234.CR3. RAW+JPEG pairs and sidecars keep "
                    + "the same name. If two files would get the same name, the later one gets -2. Nothing is ever overwritten. "
-                   + "\"File names\" in the Job panel shows an example.",
+                   + "Image name under Job Tokens in the Job panel shows an example.",
                    keywords: ["frame", "-2", "clash"], target: .folderName),
         HelpAnswer("where", "Where do my copies go?",
                    "Destination in the Job panel, ~/Pictures/Card Ingest unless you change it. \"Copies go to\" shows the exact "
@@ -387,8 +388,8 @@ public enum Help {
                    + "first time Media Sherpa runs on a Mac.",
                    keywords: ["tutorial", "setup", "start", "first", "walkthrough", "guide", "welcome", "initials"]),
         HelpAnswer("initials", "How do I change my initials in the names?",
-                   "Help › Setup Tutorial… changes them in both the folder name and the file names at once, with a preview. "
-                   + "Or edit Folder name in the Job panel; the file names follow the rename pattern in the settings file.",
+                   "Open Job Tokens in the Job panel, type them in either initials box and press Return (Escape undoes). They "
+                   + "change in both the folder name and the file names at once. Help › Setup Tutorial… does the same.",
                    keywords: ["initials", "es", "name", "letters"], target: .folderName),
         HelpAnswer("notifications", "How do I get alerts on my iPhone or Watch?",
                    "Install the free ntfy app on the iPhone and subscribe to this Mac's topic: a long name nobody would guess, like "

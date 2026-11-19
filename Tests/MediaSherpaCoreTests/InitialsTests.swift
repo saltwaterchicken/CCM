@@ -34,4 +34,18 @@ final class InitialsTests: XCTestCase {
         XCTAssertNil(Initials.apply("", to: IngestSettings()))
         XCTAssertNil(Initials.apply("AB", to: IngestSettings(folderName: "{todayyear4}-{iseq}")))
     }
+
+    func testThePatternSplitsAroundTheInitialsForTheJobPanel() throws {
+        let folder = try XCTUnwrap(Initials.split("{todayyear4}-{todaymonth0}-{todayday0}-ISC{iseq}", at: "ISC"))
+        XCTAssertEqual(folder.before, "{todayyear4}-{todaymonth0}-{todayday0}-")
+        XCTAssertEqual(folder.after, "{iseq}")
+        let file = try XCTUnwrap(Initials.split("{year4}-{month0}-{day0}-ISC_{frame4}", at: "ISC"))
+        XCTAssertEqual(file.before, "{year4}-{month0}-{day0}-")
+        XCTAssertEqual(file.after, "_{frame4}")
+        let first = try XCTUnwrap(Initials.split("BEST-ES_{frame4}", at: "ES"), "Not inside a longer word")
+        XCTAssertEqual(first.before, "BEST-")
+        XCTAssertNil(Initials.split("{todaymonth0}-{iseq}", at: "E"), "Not inside a token")
+        XCTAssertNil(Initials.split("{year4}_{frame4}", at: "ES"))
+        XCTAssertNil(Initials.split("{year4}", at: ""))
+    }
 }

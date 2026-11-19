@@ -209,10 +209,13 @@ struct ContentView: View {
     var license: LicenseModel
     @Environment(HelpModel.self) private var help
     @Environment(\.openWindow) private var openWindow
+    /// The left column's width; drag the line between the columns to change it.
+    @AppStorage("leftColumnWidth") private var leftWidth = ColumnDivider.standard
 
     var body: some View {
         // Cards and settings on the left, the photos just copied on the right, like Photo Mechanic.
-        HStack(alignment: .top, spacing: 16) {
+        GeometryReader { window in
+        HStack(alignment: .top, spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView {
                     // Calibrating: the limits in place of the cards and the Job panel.
@@ -226,8 +229,10 @@ struct ContentView: View {
                     if let target = help.showing { withAnimation { proxy.scrollTo(target, anchor: .center) } }
                 }
             }
-            .frame(width: 480)
+            .frame(width: ColumnDivider.clamp(leftWidth, in: window.size.width))
+            ColumnDivider(width: $leftWidth, total: window.size.width)
             CullingView(model: watcher.grid, settings: model)
+        }
         }
         .padding(16)
         .safeAreaInset(edge: .top, spacing: 0) {
@@ -279,9 +284,6 @@ struct ContentView: View {
                         Text(error).foregroundStyle(.red)
                     }
                     HStack {
-                        Button("Show in Finder") {
-                            NSWorkspace.shared.activateFileViewerSelecting([model.fileURL])
-                        }
                         Button("Load Project Settings…") { model.chooseProjectFile() }
                         Button("Use Default") { model.useDefaultFile() }
                         Button("Reload") { model.reload() }
@@ -295,6 +297,149 @@ struct ContentView: View {
     }
 }
 
+/// The line between the cards and settings and the photo grid. Drag it to make
+/// the left column wider or narrower (remembered); double-click puts it back.
+struct ColumnDivider: View {
+    static let standard = 480.0
+    /// The narrowest the left column goes, and the room the grid always keeps.
+    static let narrowest = 420.0, gridKeeps = 400.0
+
+    static func clamp(_ width: Double, in total: Double) -> Double {
+        max(narrowest, min(width, total - gridKeeps))
+    }
+
+    @Binding var width: Double
+    var total: Double
+    @State private var dragStart: Double?
+
+    var body: some View {
+        Rectangle()
+            .fill(.separator)
+            .frame(width: 1)
+            .frame(maxHeight: .infinity)
+            .padding(.horizontal, 7)
+            .contentShape(Rectangle())
+            .onHover { inside in
+                if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
+            }
+            .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                .onChanged { drag in
+                    let start = dragStart ?? Self.clamp(width, in: total)
+                    dragStart = start
+                    width = Self.clamp(start + drag.translation.width, in: total)
+                }
+                .onEnded { _ in dragStart = nil })
+            .onTapGesture(count: 2) { width = Self.standard }
+            .help("Drag to make the left column wider or narrower; double-click to reset")
+    }
+}
+
+/// Job Tokens: the folder and file name patterns, shown as they are with only
+/// the initials editable, so a stray keystroke can't change the rest. The
+/// initials are saved on Return or on leaving the box; Escape puts them back.
+/// Everything else in the patterns is changed in the settings file.
+struct JobTokens: View {
+    @Bindable var model: SettingsModel
+    @Environment(HelpModel.self) private var help
+    @AppStorage("jobTokensOpen") private var open = false
+
+    var body: some View {
+        DisclosureGroup("Job Tokens", isExpanded: $open) {
+            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+                GridRow {
+                    Text("Folder name").gridColumnAlignment(.trailing).gridCellAnchor(.topTrailing)
+                    VStack(alignment: .leading, spacing: 4) {
+                        pattern(model.settings.folderName)
+                        switch model.folderPreview {
+                        case let .success(name):
+                            Text("Next card: \(name)").foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        case let .failure(error):
+                            Label(error.localizedDescription, systemImage: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.red)
+                        }
+                    }
+                }
+                GridRow {
+                    Text("Image name").gridCellAnchor(.topTrailing)
+                    VStack(alignment: .leading, spacing: 4) {
+                        pattern(model.settings.renamePattern)
+                        Text(model.fileNamePreview).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                    }
+                }
+                GridRow {
+                    Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
+                    HStack {
+                        Text("More customizable tokens here").foregroundStyle(.secondary)
+                        Button("Show in Finder") {
+                            NSWorkspace.shared.activateFileViewerSelecting([model.fileURL])
+                        }
+                        .help("Shows the settings file; press Reload after editing it")
+                    }
+                }
+            }
+            .padding(.top, 6)
+        }
+        .onChange(of: help.showing) { if help.showing == .folderName { open = true } }
+    }
+
+    /// The pattern as text, with a box for the initials where they are in it.
+    @ViewBuilder private func pattern(_ text: String) -> some View {
+        let initials = Initials.current(in: model.settings.folderName)
+        if let initials, let parts = Initials.split(text, at: initials) {
+            HStack(spacing: 2) {
+                Text(parts.before)
+                InitialsField(model: model, initials: initials)
+                Text(parts.after)
+            }
+            .font(.callout.monospaced())
+            .lineLimit(1)
+            .minimumScaleFactor(0.75)
+        } else {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(text).font(.callout.monospaced()).lineLimit(1).minimumScaleFactor(0.75)
+                if initials == nil {
+                    Text("No initials before {iseq} to change here; edit folderName in the settings file.")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+}
+
+/// The initials in Job Tokens. Typing changes nothing until Return or leaving
+/// the box; then both names take the new initials.
+private struct InitialsField: View {
+    @Bindable var model: SettingsModel
+    var initials: String
+    @State private var typed = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        TextField("Initials", text: $typed)
+            .textFieldStyle(.roundedBorder)
+            .frame(width: 64)
+            .focused($focused)
+            .help("Your initials, in both the folder and file names. Press Return to save, Escape to undo.")
+            .onAppear { typed = initials }
+            .onChange(of: initials) { if !focused { typed = initials } }
+            .onChange(of: typed) {
+                let cleaned = Initials.clean(typed)
+                if cleaned != typed { typed = cleaned }
+            }
+            .onSubmit { save(); focused = false }
+            .onChange(of: focused) { if !focused { save() } }
+            .onExitCommand { typed = initials; focused = false }
+    }
+
+    private func save() {
+        guard let changed = Initials.apply(typed, to: model.settings) else {
+            typed = initials  // empty, or nothing to replace
+            return
+        }
+        model.change { $0 = changed }
+    }
+}
+
 /// Folder name, import number, destination and backup. Every change is saved
 /// to the settings file.
 struct JobPanel: View {
@@ -304,26 +449,10 @@ struct JobPanel: View {
 
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
-            GridRow {
-                Text("Folder name").gridColumnAlignment(.trailing)
-                VStack(alignment: .leading, spacing: 4) {
-                    TextField("e.g. {todayyear4}-{todaymonth0}-{todayday0}-ES{iseq}", text: Binding(
-                        get: { model.settings.folderName },
-                        set: { pattern in model.change { $0.folderName = pattern } }))
-                        .textFieldStyle(.roundedBorder)
-                        .font(.body.monospaced())
-                    switch model.folderPreview {
-                    case let .success(name):
-                        Text("Next card: \(name)").foregroundStyle(.secondary)
-                    case let .failure(error):
-                        Label(error.localizedDescription, systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
-                    }
-                }
+            JobTokens(model: model)
                 .helpSpot(.folderName)
-            }
             GridRow {
-                Text("Next import number")
+                Text("Next import number").gridColumnAlignment(.trailing)
                 HStack {
                     TextField("1", value: Binding(
                         get: { model.settings.nextImportNumber },
@@ -374,13 +503,6 @@ struct JobPanel: View {
                 Text(model.destinationPreview)
                     .foregroundStyle(.secondary)
                     .lineLimit(2).truncationMode(.middle)
-                    .textSelection(.enabled)
-            }
-            GridRow {
-                Text("File names")
-                Text(model.fileNamePreview)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
                     .textSelection(.enabled)
             }
             GridRow {

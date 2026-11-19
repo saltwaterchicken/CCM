@@ -74,7 +74,7 @@ struct TutorialView: View {
                 Text("Letters or numbers, up to 6").font(.caption).foregroundStyle(.secondary)
             }
             if Initials.current(in: settings.settings.folderName) == nil {
-                Label("Your folder name has no initials before {iseq} to change. Edit Folder name in the Job panel instead.",
+                Label("Your folder name has no initials before {iseq} to change. Change folderName in the settings file instead (Job Tokens › Show in Finder).",
                       systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
             }
             preview

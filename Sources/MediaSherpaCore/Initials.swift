@@ -39,6 +39,39 @@ public enum Initials {
         return result
     }
 
+    /// The pattern either side of the first place `initials` stand on their own
+    /// in the text typed between tokens, so a window can show the pattern with
+    /// just the initials editable; nil when they aren't in it.
+    public static func split(_ pattern: String, at initials: String) -> (before: String, after: String)? {
+        guard !initials.isEmpty else { return nil }
+        let alone = try! NSRegularExpression(pattern: "(?<![A-Za-z])" + NSRegularExpression.escapedPattern(for: initials) + "(?![A-Za-z])")
+        var literal = "", literalStart = pattern.startIndex, inToken = false
+        func find() -> (before: String, after: String)? {
+            guard let match = alone.firstMatch(in: literal, range: NSRange(literal.startIndex..., in: literal)),
+                  let range = Range(match.range, in: literal) else { return nil }
+            let start = pattern.index(literalStart, offsetBy: literal.distance(from: literal.startIndex, to: range.lowerBound))
+            let end = pattern.index(start, offsetBy: initials.count)
+            return (String(pattern[..<start]), String(pattern[end...]))
+        }
+        var index = pattern.startIndex
+        while index < pattern.endIndex {
+            let character = pattern[index]
+            if character == "{", !inToken {
+                if let found = find() { return found }
+                inToken = true
+            } else if character == "}", inToken {
+                inToken = false
+                literal = ""
+                literalStart = pattern.index(after: index)
+            } else if !inToken {
+                if literal.isEmpty { literalStart = index }
+                literal.append(character)
+            }
+            index = pattern.index(after: index)
+        }
+        return find()
+    }
+
     /// The settings with `new` initials in the folder and file names, or nil
     /// when the folder name has none to replace.
     public static func apply(_ new: String, to settings: IngestSettings) -> IngestSettings? {
