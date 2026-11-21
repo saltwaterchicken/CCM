@@ -50,6 +50,15 @@
 
   /* ---------- desktop + window ---------- */
   .desk{flex:1;display:flex;align-items:flex-start;justify-content:center;padding-top:12px;overflow:hidden}
+
+  /* ---------- desktop icon: back to CC Media Sherpa ---------- */
+  .dicon{position:absolute;top:40px;right:18px;width:110px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:default}
+  .dicon img{width:64px;height:64px;image-rendering:pixelated;image-rendering:crisp-edges;display:block}
+  .dicon span{background:#fff;color:#000;font-size:18px;line-height:16px;padding:1px 4px 0;white-space:nowrap}
+  .dicon.sel img{filter:brightness(.5)}
+  .dicon.sel span{background:#000;color:#fff}
+  html.embedded .dicon{display:none}
+  .zoomrect{position:fixed;border:1px dotted #000;pointer-events:none;z-index:40}
   .stage{transform-origin:top center}
   .win{background:var(--plat);border:1px solid #000;box-shadow:2px 2px 0 rgba(0,0,0,.6);position:relative}
   .win::before{content:"";position:absolute;inset:0;border-top:1px solid #fff;border-left:1px solid #fff;pointer-events:none}
@@ -236,6 +245,11 @@
     <div class="drop"><div data-act="help">Controls…</div><div data-act="arsenal">Arsenal…</div></div>
   </div>
   <div class="clock" id="clock"></div>
+</div>
+
+<div class="dicon" id="dicon" title="Double-click to go back to CC Media Sherpa">
+  <img alt="" draggable="false" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABkElEQVR42sWXT2pCQQzGvYDSldjiCR6ue4baIzy67CGkh3DpwhN4AI/QIxRx3VVXLqR0OyUD3yPMSzJ/mNEHIT4I8/0mE+clk8n4cY1NfXzAfLVz3duP99yWi9eR5/bRbQYv2aU/eK+BeFFYDQgJBhDkQwhVVBKXLEUUPgQQd177GE5f384dzyJEsvjh07nf659fbL87RsUpFgaA7fO7DGDVAIT5YgTwMFuJEDw2BFg/vsQzwC0U1wAs8eQMhMcgiVsZ0MSzM2CJWxnQYmHJNWCJawCWOMWSJWegBgAXx85JPFoDMXEJwIrBrrHz6D1QE8ASV2ugBYB0Ld8sA3TmknjzGiC7awZCgKY1QO8WRFYGSu4B+h3LQnINlN6EVhZ4USb3A7nfAnq3ILL7AQLQFtS+hhZEUT8AiHBRqx/QIIr6AUBgUW5WR8Tji/sBnonpUz+AcJMygL8cYor6Aa09I0HAkNcyAE+75cBFPaE2F1ji4VyAPkDrB7Ja8xrjWXQyai0uAQzDaevZMHlKvtV4/g8CEbc8ZvmJZgAAAABJRU5ErkJggg==">
+  <span>CC Media Sherpa</span>
 </div>
 
 <div class="desk">
@@ -2314,26 +2328,28 @@
   tick(); setInterval(tick, 15000);
   let userScale = null; { const v = LS('scale'); if (v) userScale = +v; }
   const maxScale = () => { const w = $('win'); return Math.min((innerWidth-16)/w.offsetWidth, (innerHeight-(EMBED?16:50))/w.offsetHeight); };
-  let curScale = 1, winOff = {x:0, y:0};
+  // winOff is where the window was put (saved); winShown is where it's drawn, kept on screen. They differ only
+  // while the screen is too small for the saved spot, e.g. as the app opens before going full screen.
+  let curScale = 1, winOff = {x:0, y:0}, winShown = {x:0, y:0};
   try { const v = JSON.parse(LS('winpos') || 'null'); if (v) winOff = v; } catch(e) {}
   function fit(){ const m = maxScale(); curScale = Math.max(.5, userScale == null ? m : Math.min(userScale, m)); placeWin(); }
   function placeWin(){
     const st = $('stage');
     st.style.transform = `scale(${curScale})`;
     const r = st.getBoundingClientRect(), top = $('menubar').offsetHeight || 0;
-    winOff.x = Math.max(60 - r.right, Math.min(innerWidth - 60 - r.left, winOff.x));
-    winOff.y = Math.max(top - r.top, Math.min(innerHeight - 30 - r.top, winOff.y));
-    st.style.transform = `translate(${winOff.x}px,${winOff.y}px) scale(${curScale})`;
+    winShown = { x: Math.max(60 - r.right, Math.min(innerWidth - 60 - r.left, winOff.x)),
+              y: Math.max(top - r.top, Math.min(innerHeight - 30 - r.top, winOff.y)) };
+    st.style.transform = `translate(${winShown.x}px,${winShown.y}px) scale(${curScale})`;
   }
   (() => {
     const bar = $('win').querySelector('.titlebar'); let sx, sy, ox, oy, dragging = false;
     bar.addEventListener('pointerdown', e => {
       if (e.target.closest('.closebox,.zoombox')) return;
       e.preventDefault(); bar.setPointerCapture(e.pointerId); dragging = true; $('win').classList.add('dragging');
-      sx = e.clientX; sy = e.clientY; ox = winOff.x; oy = winOff.y;
+      sx = e.clientX; sy = e.clientY; ox = winShown.x; oy = winShown.y;
     });
     bar.addEventListener('pointermove', e => { if (dragging) { winOff = {x: ox + e.clientX - sx, y: oy + e.clientY - sy}; placeWin(); } });
-    const end = () => { if (!dragging) return; dragging = false; $('win').classList.remove('dragging'); LS('winpos', JSON.stringify(winOff)); };
+    const end = () => { if (!dragging) return; dragging = false; $('win').classList.remove('dragging'); winOff = {...winShown}; LS('winpos', JSON.stringify(winOff)); };
     bar.addEventListener('pointerup', end); bar.addEventListener('pointercancel', end);
   })();
   const saveScale = () => { try { userScale == null ? localStorage.removeItem('azimov-scale') : LS('scale', userScale); } catch(e) {} };
@@ -2388,14 +2404,15 @@
     if ((busy || s.paused) && !upUserHidden) showStatus();
   }
   function showStatus(){ if (uwin.hidden) { uwin.hidden = false; placeStatus(); } $('mStatus').classList.add('check'); }
-  function hideStatus(){ uwin.hidden = true; upUserHidden = true; $('mStatus').classList.remove('check'); }
-  function toggleStatus(){ if (uwin.hidden) { upUserHidden = false; showStatus(); } else hideStatus(); }
+  function hideStatus(){ uwin.hidden = true; upUserHidden = true; $('mStatus').classList.remove('check'); LS('statusopen', '0'); }
+  function toggleStatus(){ if (uwin.hidden) { upUserHidden = false; showStatus(); LS('statusopen', '1'); } else hideStatus(); }
   $('uclose').addEventListener('click', e => { e.stopPropagation(); hideStatus(); });
   function placeStatus(x, y){
     let pos = null;
     if (x == null) { try { pos = JSON.parse(LS('statuswin') || 'null'); } catch(e) {} } else pos = {x, y};
     const w = uwin.offsetWidth, h = uwin.offsetHeight, top = EMBED ? 4 : 30;
-    if (!pos) pos = { x: innerWidth - w - 16, y: top + 10 };
+    // First time: top right, just under the CC Media Sherpa desktop icon.
+    if (!pos) pos = { x: innerWidth - w - 16, y: top + (EMBED ? 10 : 140) };
     pos.x = clamp(pos.x, 0, innerWidth - w); pos.y = clamp(pos.y, top, innerHeight - h);
     uwin.style.left = pos.x + 'px'; uwin.style.top = pos.y + 'px';
   }
@@ -2410,7 +2427,39 @@
     const end = () => { if (!dragging) return; dragging = false; uwin.classList.remove('dragging'); LS('statuswin', JSON.stringify({x: uwin.offsetLeft, y: uwin.offsetTop})); };
     bar.addEventListener('pointerup', end); bar.addEventListener('pointercancel', end);
   })();
-  addEventListener('resize', () => { if (!uwin.hidden) placeStatus(uwin.offsetLeft, uwin.offsetTop); });
+  addEventListener('resize', () => { if (!uwin.hidden) placeStatus(); });
+  // Left open last time (from File › Status Window): open again.
+  if (host && LS('statusopen') === '1') showStatus();
+
+  // ---------- Desktop icon: back to CC Media Sherpa ----------
+  // Click selects it, double-click opens it, as in the Finder. Opening pauses the game, draws
+  // the classic zoom rectangles out of the icon, then asks the app to minimize the game and
+  // bring its own window forward.
+  const dicon = $('dicon');
+  dicon.addEventListener('mousedown', e => { e.stopPropagation(); dicon.classList.add('sel'); });
+  document.addEventListener('mousedown', e => { if (!e.target.closest('#dicon')) dicon.classList.remove('sel'); });
+  dicon.addEventListener('dblclick', () => openSherpa());
+  function zoomRects(from, done){
+    const steps = 8, to = { left: 0, top: 0, width: innerWidth, height: innerHeight };
+    for (let i = 1; i <= steps; i++) {
+      setTimeout(() => {
+        const t = i / steps, r = document.createElement('div'); r.className = 'zoomrect';
+        r.style.left = (from.left + (to.left - from.left) * t) + 'px'; r.style.top = (from.top + (to.top - from.top) * t) + 'px';
+        r.style.width = (from.width + (to.width - from.width) * t) + 'px'; r.style.height = (from.height + (to.height - from.height) * t) + 'px';
+        document.body.appendChild(r); setTimeout(() => r.remove(), 120);
+        if (i === steps) setTimeout(done, 120);
+      }, i * 22);
+    }
+  }
+  function openSherpa(){
+    if (live() && state !== 'pause') togglePause();
+    const r = dicon.querySelector('img').getBoundingClientRect();
+    zoomRects(r, () => {
+      dicon.classList.remove('sel');
+      if (host) host.postMessage('sherpa');
+      else info('<p>Azimov\'s Rebellion would pause, tuck itself into the Dock and take you back to CC Media Sherpa here.</p>');
+    });
+  }
 
   // Hooks for the host app (call these from Swift via evaluateJavaScript)
   window.AzimovsRebellion = {

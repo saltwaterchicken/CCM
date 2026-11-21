@@ -1517,13 +1517,35 @@ The photographer's own game, built by them in Claude Code: turn-based artillery 
 (source: `Capture Camp Media App Build/Azimovs Rebellion/azimovs-rebellion.html`). It replaces the space duel
 built 2026-11-18 from "Hidden Game Brief - Space Duel.md" (Asimov's Breach), dropped 2026-11-21 and never committed.
 - **The page is theirs, copied in unchanged** as `Resources/azimovs-rebellion.html` (make-app.sh puts it in the app).
-  To update it, copy their newer file over this one; don't edit it here. It already carries the classic Mac OS 9
+  Changes go in their original file (backed up first), which is then copied over this one; never edit only this copy,
+  and only one session edits it at a time (agreed 2026-11-21). It already carries the classic Mac OS 9
   wrapper: desktop, menu bar and clock, windows that drag by their title bars and are remembered, close/zoom/grow
   boxes, the green LCD status window, and the hooks below.
 - **Opens from Window › Azimov's Rebellion (⇧⌘G)**, straight into full screen; pauses when it stops being the active
   window. No Play While You Wait button (photographer's choice, 2026-11-18). `Sources/MediaSherpa/AzimovsRebellion.swift`.
   Under `swift run` the window says the game isn't there.
-- **Hooks:** the page posts to `messageHandlers.azimov`: `'close'`, `'zoom'`, and `{type:'capturePlanet', fileName,
+- **CC Media Sherpa desktop icon** (added 2026-11-21, photographer's request): an 8-bit version of the app icon
+  (32 × 32 pixel art from scripts/logo.png, shown at 64) at the top right of the fake desktop, behind the game
+  window. Click selects it (darkened, label inverted, as in the Finder); double-click pauses the game, draws OS 9
+  zoom rectangles and posts `'sherpa'`: the app leaves full screen, minimizes the game to the Dock and brings its main
+  window forward. Back from the Dock (or ⇧⌘G) the game goes full screen again, still paused. The Card Progress
+  window's first spot is now just under the icon. Backup of the original before this change sits beside it
+  ("azimovs-rebellion backup 2026-11-21 before desktop icon.html").
+- **Full screen and remembered windows (fixed 2026-11-21, photographer's report):** the game didn't open full screen
+  and its windows didn't come back where they were after a relaunch. Full screen waited for the game window to be on
+  the current Space, which it never is when Media Sherpa itself is full screen (the photographer runs it that way);
+  it now waits only for the window to be open, and the game goes full screen whenever its window appears (including
+  when macOS reopens it at launch). That alone wasn't enough: macOS still ignored the request until the game window was
+  marked as its own full-screen window (`.fullScreenPrimary`, with `.fullScreenAuxiliary`/`.fullScreenNone` removed)
+  and brought to the front first; then it went full screen on the first try (confirmed by the photographer and the log,
+  2026-11-21). A second try 1.5 s later stays as a fallback. Each step is logged:
+  `log show --last 10m --info --predicate 'subsystem == "com.capturecampmedia.mediasherpa" AND category == "game"'`. Positions: the page loads before its window has a size, and the game used to
+  overwrite the saved spots with ones squeezed onto that tiny screen; now the saved spots are kept and only the drawing
+  is kept on screen, so both windows go back where they were once full size. The Card Progress window being open
+  (File › Status Window) or closed is remembered too (`azimov-statusopen`). Checked in a hidden web view by loading at
+  zero size then growing (the old version failed it, the fix passes). Backup of the original before this:
+  "azimovs-rebellion backup 2026-11-21 before position fix.html".
+- **Hooks:** the page posts to `messageHandlers.azimov`: `'close'`, `'zoom'`, `'sherpa'`, and `{type:'capturePlanet', fileName,
   mime, data}`. The app calls `AzimovsRebellion.setStatus(json)`, `.pause()` and `.capturePlanetDone({ok, folder} or
   {ok:false, error})`. Corner boxes as in FrameDrop 1.13 (close hides at once in full screen, 3 s fallback).
 - **Status window ("Card Progress"):** `CardWatcher.gameStatus` → `GameStatus.json` (MediaSherpaCore, tested), in the

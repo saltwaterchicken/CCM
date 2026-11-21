@@ -8,10 +8,15 @@
 
 import AppKit
 import MediaSherpaCore
+import OSLog
 import SwiftUI
 import WebKit
 
 // MARK: - Controller (one shared game)
+
+/// Full-screen steps go to the system log, to see what macOS did:
+/// log show --last 10m --predicate 'subsystem == "com.capturecampmedia.mediasherpa" && category == "game"'
+private let log = Logger(subsystem: "com.capturecampmedia.mediasherpa", category: "game")
 
 @MainActor
 final class AzimovsRebellionController {
@@ -25,6 +30,7 @@ final class AzimovsRebellionController {
     private let messages = AzimovsRebellionMessages()
     private var observers: [NSObjectProtocol] = []
     private var closeAfterFullScreen = false
+    private var minimizeAfterFullScreen = false
     private var fullScreenTask: Task<Void, Never>?
     private var statusTimer: Timer?
     private var lastStatus = ""
@@ -100,40 +106,74 @@ final class AzimovsRebellionController {
     var window: NSWindow? { webView.window }
     var isFullScreen: Bool { window?.styleMask.contains(.fullScreen) ?? false }
 
-    /// Opens straight into full screen. Waits until the window is really on
-    /// screen (a just-opened or reopened one isn't yet), then switches.
+    /// Opens straight into full screen. Waits until the window is really open
+    /// (a just-opened or reopened one isn't yet), then switches. It doesn't wait
+    /// for it to be on the current Space: with Media Sherpa itself in full
+    /// screen, a new window opens on another Space and never would be.
     func enterFullScreen() {
         fullScreenTask?.cancel()
         fullScreenTask = Task { @MainActor in
             for _ in 0..<40 {                       // up to 4 seconds
-                if let window = self.window, window.isVisible, window.isOnActiveSpace {
+                if Task.isCancelled { return }
+                if let window = self.window, window.isVisible, !window.isMiniaturized {
                     try? await Task.sleep(for: .milliseconds(150))   // let it finish appearing
-                    if !window.styleMask.contains(.fullScreen) { window.toggleFullScreen(nil) }
+                    if Task.isCancelled { return }
+                    // Two tries: macOS can ignore the first while another window is still changing Spaces.
+                    for attempt in 1...2 {
+                        if window.styleMask.contains(.fullScreen) { log.info("full screen: already (try \(attempt))"); return }
+                        self.allowFullScreen(window)
+                        log.info("full screen: try \(attempt), \(self.describe(window), privacy: .public)")
+                        window.makeKeyAndOrderFront(nil)
+                        window.toggleFullScreen(nil)
+                        try? await Task.sleep(for: .milliseconds(1500))
+                        if Task.isCancelled { return }
+                    }
+                    log.info("full screen: after 2 tries \(window.styleMask.contains(.fullScreen) ? "yes" : "NO"), \(self.describe(window), privacy: .public)")
                     return
                 }
                 try? await Task.sleep(for: .milliseconds(100))
             }
+            log.info("full screen: the game window never opened (window: \(self.window == nil ? "none" : "not visible", privacy: .public))")
         }
+    }
+
+    /// Its own full-screen Space: not an extra window over Media Sherpa's, which
+    /// macOS won't take full screen.
+    private func allowFullScreen(_ window: NSWindow) {
+        window.collectionBehavior.remove([.fullScreenAuxiliary, .fullScreenNone, .fullScreenDisallowsTiling])
+        window.collectionBehavior.insert(.fullScreenPrimary)
+    }
+
+    private func describe(_ window: NSWindow) -> String {
+        let others = NSApp.windows.filter { $0 !== window && $0.isVisible }
+        let sherpaFull = others.contains { $0.styleMask.contains(.fullScreen) }
+        return "behavior \(window.collectionBehavior.rawValue), key \(window.isKeyWindow), on this Space \(window.isOnActiveSpace), "
+            + "resizable \(window.styleMask.contains(.resizable)), Media Sherpa full screen \(sherpaFull), app active \(NSApp.isActive)"
     }
 
     /// The zoom box: full screen in and out.
     func toggleFullScreen() {
         guard let window else { return }
-        window.collectionBehavior.insert(.fullScreenPrimary)
+        allowFullScreen(window)
         window.toggleFullScreen(nil)
     }
 
     /// The game's window has appeared: allow full screen, start sending the
     /// card copy, and finish closing after leaving full screen if Close was chosen.
     func attached(to window: NSWindow) {
-        window.collectionBehavior.insert(.fullScreenPrimary)
+        allowFullScreen(window)
         observers.forEach(NotificationCenter.default.removeObserver)
         observers = [
             NotificationCenter.default.addObserver(forName: NSWindow.didExitFullScreenNotification, object: window, queue: .main) { _ in
                 MainActor.assumeIsolated {
                     let game = AzimovsRebellionController.shared
                     if game.closeAfterFullScreen { game.finishClosing() }
+                    if game.minimizeAfterFullScreen { game.finishMinimizing() }
                 }
+            },
+            // Back from the Dock: straight into full screen again.
+            NotificationCenter.default.addObserver(forName: NSWindow.didDeminiaturizeNotification, object: window, queue: .main) { _ in
+                MainActor.assumeIsolated { AzimovsRebellionController.shared.enterFullScreen() }
             },
             NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { _ in
                 MainActor.assumeIsolated { AzimovsRebellionController.shared.stopStatus() }
@@ -145,6 +185,8 @@ final class AzimovsRebellionController {
         ]
         sendStatus(force: true)
         startStatus()
+        // However it was opened (the menu, or macOS reopening it at launch), the game is full screen.
+        enterFullScreen()
     }
 
     /// The close box, File › Close and ⌘W: pause and close the game at once. In
@@ -178,6 +220,41 @@ final class AzimovsRebellionController {
         window.alphaValue = 1               // ready for next time
     }
 
+    /// The desktop's CC Media Sherpa icon: the game (already paused) goes to the
+    /// Dock and Media Sherpa's own window comes forward. Full screen is left first,
+    /// as a full-screen window can't be minimized; then it's minimized once that's
+    /// done (or after 3 seconds if that notice never comes).
+    func returnToSherpa() {
+        pause()
+        fullScreenTask?.cancel()
+        guard let window else { return }
+        if isFullScreen {
+            minimizeAfterFullScreen = true
+            window.toggleFullScreen(nil)
+            Task { @MainActor in
+                for _ in 0..<30 {
+                    try? await Task.sleep(for: .milliseconds(100))
+                    if !self.minimizeAfterFullScreen { return }
+                    if !self.isFullScreen { break }
+                }
+                if self.minimizeAfterFullScreen { self.finishMinimizing() }
+            }
+        } else {
+            finishMinimizing()
+        }
+    }
+
+    fileprivate func finishMinimizing() {
+        minimizeAfterFullScreen = false
+        guard let game = window else { return }
+        game.miniaturize(nil)
+        // Media Sherpa's main window (its scene id is "main"), or any other window it has open.
+        let others = NSApp.windows.filter { $0 !== game && $0.canBecomeMain && !$0.isMiniaturized }
+        let main = others.first { $0.identifier?.rawValue.hasPrefix("main") == true } ?? others.first { $0.isVisible }
+        NSApp.activate()
+        main?.makeKeyAndOrderFront(nil)
+    }
+
     func pause() { run("window.AzimovsRebellion && AzimovsRebellion.pause()") }
 }
 
@@ -209,6 +286,7 @@ final class AzimovsRebellionMessages: NSObject, WKScriptMessageHandler, WKNaviga
         switch message.body as? String {
         case "close": MainActor.assumeIsolated { AzimovsRebellionController.shared.closeGame() }
         case "zoom": MainActor.assumeIsolated { AzimovsRebellionController.shared.toggleFullScreen() }
+        case "sherpa": MainActor.assumeIsolated { AzimovsRebellionController.shared.returnToSherpa() }
         default: break
         }
     }

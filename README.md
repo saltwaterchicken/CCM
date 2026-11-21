@@ -26,6 +26,8 @@ Turn-based artillery for one or two players, for while the cards copy. Choose **
   when a copy starts; its close box hides it, and File › Status Window brings it back.
 - **Send Earth a Postcard:** after a round, saves a 3000 × 1688 picture of the planet in the current card folder.
   It goes up to the Server with that card on the next Sync With Server.
+- **Back to Media Sherpa:** double-click the CC Media Sherpa icon on the game's desktop. The game pauses and goes to
+  the Dock; click it there (or ⇧⌘G) to carry on.
 - **Leaving:** the close box (top left), File › Close or ⌘W. The zoom box (top right) leaves or enters full screen.
 
 The game is one page, `Resources/azimovs-rebellion.html`, copied unchanged from the photographer's own build.
