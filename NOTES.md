@@ -1084,10 +1084,13 @@ the ReadMe should say it all too, starting with how each card behaves, which dep
 Also: the orange "Copy only" line and what it means; RED files keep the camera's names.
 MXF clips: thumbnails and scrubbing, no sound, half-second steps on Long GOP, frame by frame on Intra; log looks flat. MOV and MP4 unchanged.
 RED clips: no thumbnail or scrubbing, preview in Premiere or REDCINE-X; a long take's pieces each show as a tile, matching the card.
+Hidden game: Window › Azimov's Rebellion (⇧⌘G), for while the cards copy; its postcards land in the card folder and
+go to the Server with it (see "Hidden game" below).
+Decide when writing the ReadMe whether it stays a secret or gets a line.
 
 ### What can be changed in `Settings.plist` (photographer, 2026-11-04: keep this in Help and the ReadMe)
 
-`~/Library/Application Support/Media Sherpa/Settings.plist`; Show in Finder in the Settings File panel finds it. Keep a copy first, as a typo can stop
+`~/Library/Application Support/Media Sherpa/Settings.plist`; Show in Finder under Job Tokens in the Job panel finds it. Keep a copy first, as a typo can stop
 it loading. Press Reload right after saving, or the next change in the app overwrites the edit. A key left out goes back to its default.
 Keep this, and Help's "What can I change by editing the settings file?" (`settings-file-list`), current with every new setting.
 A test fails if a setting is missing from Help's list. Help's answer confirmed on the Mac 2026-11-04.
@@ -1099,7 +1102,6 @@ A test fails if a setting is missing from Help's list. Help's answer confirmed o
 | `autoStartOnInsert` | A camera card with new files starts Copy when it goes in | false |
 | `keepClipsOnCardUntilOnServer` | Clips stay out of the card's Trash until Save to Clips has put them on the Server | false |
 | `openWith` | The app the Open button sends photos to | Adobe Lightroom Classic |
-| `renamePattern` | The pattern for new file names (the tutorial's initials step can change the initials in it) | `{year4}-{month0}-{day0}-ES_{frame4}` |
 | `confirmTrashForFirstCards` | How many more cards ask before originals go to the Trash | 3 |
 | `rating.available` | false removes auto-rating from the app completely | true |
 | `supportWhatsApp` | Replaces the built-in Live Tech Support number | empty |
@@ -1112,7 +1114,8 @@ A test fails if a setting is missing from Help's list. Help's answer confirmed o
 
 | Key | Where else |
 |---|---|
-| `folderName`, `nextImportNumber`, `metadata.keywords` | Job panel |
+| `folderName`, `renamePattern` | Only the initials in them: Job Tokens in the Job panel, and the tutorial (defaults `{todayyear4}-{todaymonth0}-{todayday0}-ES{iseq}` and `{year4}-{month0}-{day0}-ES_{frame4}`) |
+| `nextImportNumber`, `metadata.keywords` | Job panel |
 | `destinationRoot`, `backupRoot` | Choose… buttons |
 | `trashAfterVerify`, `ejectWhenDone`, `rating.autoRating` | Job panel checkboxes |
 | `rating` limits: `minimumSharpnessFaces`, `minimumSharpnessNoFaces`, `maximumBlown`, `maximumCrushed`, `minimumBrightness`, `maximumBrightness` | Calibrate |
@@ -1507,3 +1510,35 @@ Mac, not by Apple, so the first open is blocked: the note walks through System S
 Security › Open Anyway. The release build is arm64 only, so Intel Macs can't run it; macOS 14 or later.
 Each tester needs a license key (tools/licensing). Building from the code would leave out the Live
 Tech Support number, as scripts/support-whatsapp.txt isn't in git.
+
+## Hidden game: Azimov's Rebellion (2026-11-21)
+
+The photographer's own game, built by them in Claude Code: turn-based artillery for one or two players
+(source: `Capture Camp Media App Build/Azimovs Rebellion/azimovs-rebellion.html`). It replaces the space duel
+built 2026-11-18 from "Hidden Game Brief - Space Duel.md" (Asimov's Breach), dropped 2026-11-21 and never committed.
+- **The page is theirs, copied in unchanged** as `Resources/azimovs-rebellion.html` (make-app.sh puts it in the app).
+  To update it, copy their newer file over this one; don't edit it here. It already carries the classic Mac OS 9
+  wrapper: desktop, menu bar and clock, windows that drag by their title bars and are remembered, close/zoom/grow
+  boxes, the green LCD status window, and the hooks below.
+- **Opens from Window › Azimov's Rebellion (⇧⌘G)**, straight into full screen; pauses when it stops being the active
+  window. No Play While You Wait button (photographer's choice, 2026-11-18). `Sources/MediaSherpa/AzimovsRebellion.swift`.
+  Under `swift run` the window says the game isn't there.
+- **Hooks:** the page posts to `messageHandlers.azimov`: `'close'`, `'zoom'`, and `{type:'capturePlanet', fileName,
+  mime, data}`. The app calls `AzimovsRebellion.setStatus(json)`, `.pause()` and `.capturePlanetDone({ok, folder} or
+  {ok:false, error})`. Corner boxes as in FrameDrop 1.13 (close hides at once in full screen, 3 s fallback).
+- **Status window ("Card Progress"):** `CardWatcher.gameStatus` → `GameStatus.json` (MediaSherpaCore, tested), in the
+  game's FrameDrop-style shape (`title, active, finished, file, stage, filePct, totalPct, speed, eta, reason`), sent
+  every 0.3 s while the game is open, only when it changes, and once when the page loads. `active` is files left
+  (1 while the card is being read), so the window opens itself when a copy starts. Speed is the card's own bytes in
+  Mb/s; time left only after 2 s and 2%. A failure shows its reason.
+- **"Send Earth a Postcard"** (after a round): the game renders a 3000 × 1688 JPEG and the app saves it in the
+  **current card folder** (photographer's choice 2026-11-21: the card being copied, else the last one copied since the
+  app opened). It's never overwritten (" 2" added) and `Postcard.save` keeps it inside the folder. **It goes up to the
+  Server with that card on the next Sync With Server** (create-only, so it can't be taken off there); the photographer
+  chose this knowing. With no card copied yet, the game's green error screen says "No card folder yet: copy a card first".
+- Checked 2026-11-21 in a hidden WKWebView (scratch script): loads without script errors, no network requests, the
+  status window opens/hides/comes back and shows copy, all done and failure, both windows drag and are remembered,
+  close box / File › Close / ⌘W post close, zoom posts zoom, a game starts, a postcard arrives as a 3000 × 1688 JPEG
+  and the game shows the saved folder or the error screen. Screenshots looked at. The postcard took about 60-90 s to
+  render in the hidden window (WebKit slows timers off screen); on screen it should be faster, not measured. Real
+  full screen inside the built app not checked by me.

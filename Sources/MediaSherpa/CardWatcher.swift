@@ -90,6 +90,10 @@ final class CardWatcher {
     private var justInserted: Set<String> = []
 
     private(set) var copyStates: [URL: CopyState] = [:]
+    /// Files, bytes and timing of each copy, for the hidden game's Card Progress window.
+    @ObservationIgnored private var copyDetails: [URL: CopyProgress] = [:]
+    /// The card folder being copied into, or the last one: where the game's postcards go.
+    @ObservationIgnored private(set) var currentCardFolder: URL?
     private var stopFlags: [URL: StopFlag] = [:]
     /// Cards the app finished and ejected, newest first, so their summary stays on screen.
     private(set) var ejected: [Finished] = []
@@ -181,6 +185,24 @@ final class CardWatcher {
 
     var trashAfterVerify: Bool { settings.trashAfterVerify }
 
+    /// Every card's copy as the hidden game's status window shows it (JSON).
+    var gameStatus: String {
+        var cards: [CopyProgress] = []
+        for (url, state) in copyStates {
+            var card = copyDetails[url] ?? CopyProgress(cardName: url.lastPathComponent, stage: .preparing)
+            switch state {
+            case .preparing: card.stage = .preparing
+            case let .copying(fraction): card.stage = .copying; card.fraction = fraction
+            case .askTrash: card.stage = .waiting
+            case .clearing: card.stage = .clearing
+            case .done: card.stage = .done; card.fraction = 1
+            case let .failed(problem): card.stage = .failed; card.problem = problem
+            }
+            cards.append(card)
+        }
+        return GameStatus.json(cards.sorted { $0.cardName < $1.cardName })
+    }
+
     func useAsCard(_ volume: DetectedVolume) {
         chosenAsCards.insert(volume.id)
         refresh()
@@ -250,6 +272,7 @@ final class CardWatcher {
         let flag = StopFlag()
         stopFlags[url] = flag
         copyStates[url] = .preparing
+        copyDetails[url] = CopyProgress(cardName: name, stage: .preparing)
         let grid = grid
         let backups = backups
         let session = UUID()
@@ -259,6 +282,14 @@ final class CardWatcher {
                 let plan = try ImportPlanner.plan(cardRoot: url, cardName: name, files: files, settings: settings)
                 if flag.isStopped { throw CopyError.cancelled }
                 if plan.nothingNew { return (plan, nil, []) }
+                let fileCount = plan.files.count, byteCount = plan.files.reduce(Int64(0)) { $0 + $1.source.size }
+                let cardFolder = plan.folders.first
+                Task { @MainActor [weak self] in
+                    if let cardFolder { self?.currentCardFolder = cardFolder }
+                    self?.copyDetails[url]?.started = Date()
+                    self?.copyDetails[url]?.filesTotal = fileCount
+                    self?.copyDetails[url]?.bytes = byteCount
+                }
                 let job = Self.startBackup(plan, root: settings.backupRootURL, cardName: name, backups: backups)
                 // Each shot gets its sidecar and goes on the grid as soon as its last file is verified.
                 let shots = LiveShots(planned: plan.files, fileTypes: settings.fileTypes, keywords: settings.metadata.keywords)
@@ -280,6 +311,10 @@ final class CardWatcher {
                             }
                         },
                         fileVerified: { file in
+                            Task { @MainActor [weak self] in
+                                self?.copyDetails[url]?.filesDone += 1
+                                self?.copyDetails[url]?.lastFile = file.newName
+                            }
                             if heldBases.contains((file.newName.lowercased() as NSString).deletingPathExtension) {
                                 if let folder = plan.folders.first { try? SavedClips.startHolding(in: folder) }
                             } else {

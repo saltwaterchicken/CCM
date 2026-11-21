@@ -39,6 +39,10 @@ struct MediaSherpaApp: App {
         } onTrashConfirmed: {
             model.change { $0.confirmTrashForFirstCards = max(0, $0.confirmTrashForFirstCards - 1) }
         })
+        // The hidden game's status window shows the copy; its postcards go in the card folder.
+        let watcher = _watcher.wrappedValue
+        AzimovsRebellionController.status = { watcher.gameStatus }
+        AzimovsRebellionController.cardFolder = { watcher.currentCardFolder }
     }
 
     var body: some Scene {
@@ -65,7 +69,9 @@ struct MediaSherpaApp: App {
         .commands {
             CardCommands(settings: model, watcher: watcher)
             HelpCommands(help: help, license: license, watcher: watcher)
+            AzimovsRebellionCommands()
         }
+        AzimovsRebellionScene()
         Window("Media Sherpa Help", id: "help") {
             HelpView(settings: model, watcher: watcher)
                 .frame(minWidth: 460, minHeight: 520)

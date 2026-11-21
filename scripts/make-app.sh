@@ -38,6 +38,8 @@ APP=".build/${APP_NAME}.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/MediaSherpa"
+# The hidden game (Window › Azimov's Rebellion), one self-contained page.
+cp Resources/azimovs-rebellion.html "$APP/Contents/Resources/azimovs-rebellion.html"
 if [ -f "$SHIPPED" ]; then
     cp "$SHIPPED" "$APP/Contents/Resources/Settings.plist"
     echo "New users start from $SHIPPED."
